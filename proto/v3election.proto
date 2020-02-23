@@ -1,15 +1,15 @@
 syntax = "proto3";
 package v3electionpb;
 
-import "gogoproto/gogo.proto";
-import "etcd/etcdserver/etcdserverpb/rpc.proto";
-import "etcd/mvcc/mvccpb/kv.proto";
+//import "gogoproto/gogo.proto";
+import "rpc.proto";
+import "kv.proto";
 
 // for grpc-gateway
-import "google/api/annotations.proto";
-
-option (gogoproto.marshaler_all) = true;
-option (gogoproto.unmarshaler_all) = true;
+//import "google/api/annotations.proto";
+//
+//option (gogoproto.marshaler_all) = true;
+//option (gogoproto.unmarshaler_all) = true;
 
 // The election service exposes client-side election facilities as a gRPC interface.
 service Election {
@@ -18,40 +18,40 @@ service Election {
   // to issue new values on the election, transactionally guard API requests on
   // leadership still being held, and resign from the election.
   rpc Campaign(CampaignRequest) returns (CampaignResponse) {
-      option (google.api.http) = {
-        post: "/v3/election/campaign"
-        body: "*"
-    };
+//      option (google.api.http) = {
+//        post: "/v3/election/campaign"
+//        body: "*"
+//    };
   }
   // Proclaim updates the leader's posted value with a new value.
   rpc Proclaim(ProclaimRequest) returns (ProclaimResponse) {
-      option (google.api.http) = {
-        post: "/v3/election/proclaim"
-        body: "*"
-    };
+//      option (google.api.http) = {
+//        post: "/v3/election/proclaim"
+//        body: "*"
+//    };
   }
   // Leader returns the current election proclamation, if any.
   rpc Leader(LeaderRequest) returns (LeaderResponse) {
-      option (google.api.http) = {
-        post: "/v3/election/leader"
-        body: "*"
-    };
+//      option (google.api.http) = {
+//        post: "/v3/election/leader"
+//        body: "*"
+//    };
   }
   // Observe streams election proclamations in-order as made by the election's
   // elected leaders.
   rpc Observe(LeaderRequest) returns (stream LeaderResponse) {
-      option (google.api.http) = {
-        post: "/v3/election/observe"
-        body: "*"
-    };
+//      option (google.api.http) = {
+//        post: "/v3/election/observe"
+//        body: "*"
+//    };
   }
   // Resign releases election leadership so other campaigners may acquire
   // leadership on the election.
   rpc Resign(ResignRequest) returns (ResignResponse) {
-      option (google.api.http) = {
-        post: "/v3/election/resign"
-        body: "*"
-    };
+//      option (google.api.http) = {
+//        post: "/v3/election/resign"
+//        body: "*"
+//    };
   }
 }
 

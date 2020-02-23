@@ -1,3 +1,7 @@
+//! An etcd v3 API client.
+
+mod rpc;
+
 #[cfg(test)]
 mod tests {
     #[test]

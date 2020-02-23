@@ -7,6 +7,11 @@ readme = "README.md"
 license = "MIT"
 description = "An etcd v3 API client"
 repository = "https://github.com/etcdv3/etcdv3.git"
-keywords = ["etct", "v3", "api", "client"]
+keywords = ["etcd", "v3", "api", "client"]
 
 [dependencies]
+tonic = "0.1"
+prost = "0.6"
+
+[build-dependencies]
+tonic-build = "0.1"
