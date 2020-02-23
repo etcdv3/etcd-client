@@ -1,0 +1,12 @@
+[package]
+name = "etcdv3"
+version = "0.1.0"
+authors = ["The etcdv3 Authors <davidli2010@foxmail.com>"]
+edition = "2018"
+readme = "README.md"
+license = "MIT"
+description = "An etcd v3 API client"
+repository = "https://github.com/etcdv3/etcdv3.git"
+keywords = ["etct", "v3", "api", "client"]
+
+[dependencies]
