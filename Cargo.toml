@@ -12,6 +12,8 @@ keywords = ["etcd", "v3", "api", "client"]
 [dependencies]
 tonic = "0.1"
 prost = "0.6"
+tokio = { version = "0.2", features = ["rt-core"] }
+http = "0.2"
 
 [build-dependencies]
 tonic-build = "0.1"

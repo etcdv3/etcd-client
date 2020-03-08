@@ -1,6 +1,20 @@
 # etcdv3
 
+[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 An [etcd](https://github.com/etcd-io/etcd) v3 API client for Rust.
+It provides both synchronous client and asynchronous client backed by [tokio](https://github.com/tokio-rs/tokio) and [tonic](https://github.com/hyperium/tonic).
+
+## Test
+
+We test this library using etcd 3.4.
+
+Notes that we use a fixed `etcd` server URI (localhost:2379) to connect to etcd server.
+
+## Rust Version
+
+`etcdv3` works on rust `1.39` and above as it requires support for the `async_await`
+feature.
 
 ## License
 

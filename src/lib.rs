@@ -1,11 +1,10 @@
-//! An etcd v3 API client.
+//! An etcd v3 API client library.
 
+mod client;
+mod error;
 mod rpc;
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+pub use crate::client::{AsyncClient, Client};
+pub use crate::error::Error;
+pub use crate::rpc::kv::{PutOptions, PutResponse};
+pub use crate::rpc::{KeyValue, ResponseHeader};
