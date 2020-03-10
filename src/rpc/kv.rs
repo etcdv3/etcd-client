@@ -5,8 +5,10 @@ pub use crate::rpc::pb::etcdserverpb::range_request::{SortOrder, SortTarget};
 use crate::error::Result;
 use crate::rpc::pb::etcdserverpb::kv_client::KvClient as PbKvClient;
 use crate::rpc::pb::etcdserverpb::{
-    PutRequest as PbPutRequest, PutResponse as PbPutResponse, RangeRequest as PbRangeRequest,
-    RangeRequest, RangeResponse as PbRangeResponse,
+    DeleteRangeRequest as PbDeleteRequest, DeleteRangeRequest,
+    DeleteRangeResponse as PbDeleteResponse, PutRequest as PbPutRequest,
+    PutResponse as PbPutResponse, RangeRequest as PbRangeRequest, RangeRequest,
+    RangeResponse as PbRangeResponse,
 };
 use crate::rpc::{KeyValue, ResponseHeader};
 use tonic::transport::Channel;
@@ -19,7 +21,7 @@ pub struct KvClient {
 }
 
 impl KvClient {
-    /// Create a kv client.
+    /// Creates a kv client.
     #[inline]
     pub fn new(channel: Channel, interceptor: Option<Interceptor>) -> Self {
         let inner = match interceptor {
@@ -62,6 +64,21 @@ impl KvClient {
             .into_inner();
         Ok(GetResponse::new(resp))
     }
+
+    /// Deletes the given key or a range of keys from the key-value store.
+    #[inline]
+    pub async fn delete(
+        &mut self,
+        key: impl Into<Vec<u8>>,
+        options: DeleteOptions,
+    ) -> Result<DeleteResponse> {
+        let resp = self
+            .inner
+            .delete_range(options.with_key(key.into()))
+            .await?
+            .into_inner();
+        Ok(DeleteResponse::new(resp))
+    }
 }
 
 /// Options for `Put` operation.
@@ -78,7 +95,7 @@ impl PutOptions {
         self
     }
 
-    /// Create a `PutOptions`.
+    /// Creates a `PutOptions`.
     #[inline]
     pub const fn new() -> Self {
         Self(PbPutRequest {
@@ -403,6 +420,93 @@ impl GetResponse {
     #[inline]
     pub fn count(&self) -> i64 {
         self.0.count
+    }
+}
+
+/// Options for `Delete` operation.
+#[derive(Debug, Default, Clone)]
+#[repr(transparent)]
+pub struct DeleteOptions(PbDeleteRequest);
+
+impl DeleteOptions {
+    /// Sets key.
+    #[inline]
+    fn with_key(mut self, key: impl Into<Vec<u8>>) -> Self {
+        self.0.key = key.into();
+        self
+    }
+
+    /// Creates a `DeleteOptions`.
+    #[inline]
+    pub const fn new() -> Self {
+        Self(PbDeleteRequest {
+            key: Vec::new(),
+            range_end: Vec::new(),
+            prev_kv: false,
+        })
+    }
+
+    /// `end_key` is the key following the last key to delete for the range [key, end_key).
+    /// If `end_key` is not given, the range is defined to contain only the key argument.
+    /// If `end_key` is one bit larger than the given key, then the range is all the keys
+    /// with the prefix (the given key).
+    /// If `end_key` is '\0', the range is all keys greater than or equal to the key argument.
+    #[inline]
+    pub fn with_range(mut self, end_key: impl Into<Vec<u8>>) -> Self {
+        self.0.range_end = end_key.into();
+        self
+    }
+
+    /// If `prev_kv` is set, etcd gets the previous key-value pairs before deleting it.
+    /// The previous key-value pairs will be returned in the delete response.
+    #[inline]
+    pub const fn with_prev_key(mut self) -> Self {
+        self.0.prev_kv = true;
+        self
+    }
+}
+
+impl IntoRequest<PbDeleteRequest> for DeleteOptions {
+    #[inline]
+    fn into_request(self) -> Request<DeleteRangeRequest> {
+        Request::new(self.0)
+    }
+}
+
+/// Response for `Delete` operation.
+#[derive(Debug, Clone)]
+#[repr(transparent)]
+pub struct DeleteResponse(PbDeleteResponse);
+
+impl DeleteResponse {
+    /// Create a new `DeleteResponse` from pb delete response.
+    #[inline]
+    fn new(resp: PbDeleteResponse) -> Self {
+        Self(resp)
+    }
+
+    /// Delete response header.
+    #[inline]
+    pub fn header(&self) -> Option<&ResponseHeader> {
+        self.0.header.as_ref().map(From::from)
+    }
+
+    /// Takes the header out of the response, leaving a [`None`] in its place.
+    #[inline]
+    pub fn take_header(&mut self) -> Option<ResponseHeader> {
+        self.0.header.take().map(ResponseHeader::new)
+    }
+
+    /// The number of keys deleted by the delete request.
+    #[inline]
+    pub fn deleted(&self) -> i64 {
+        self.0.deleted
+    }
+
+    /// If `prev_kv` is set in the request, the previous key-value pairs will be returned.
+    #[inline]
+    pub fn prev_kvs(&self) -> &[KeyValue] {
+        unsafe { &*(self.0.prev_kvs.as_slice() as *const _ as *const [KeyValue]) }
     }
 }
 

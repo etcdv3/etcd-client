@@ -1,7 +1,9 @@
 //! Asynchronous client & synchronous client.
 
 use crate::error::{Error, Result};
-use crate::rpc::kv::{GetOptions, GetResponse, KvClient, PutOptions, PutResponse};
+use crate::rpc::kv::{
+    DeleteOptions, DeleteResponse, GetOptions, GetResponse, KvClient, PutOptions, PutResponse,
+};
 use std::future::Future;
 use tokio::runtime::Runtime;
 use tonic::transport::Channel;
@@ -94,6 +96,22 @@ impl AsyncClient {
     ) -> Result<GetResponse> {
         self.kv.get(key, options).await
     }
+
+    /// Deletes the given key from the key-value store.
+    #[inline]
+    pub async fn delete(&mut self, key: impl Into<Vec<u8>>) -> Result<DeleteResponse> {
+        self.kv.delete(key, DeleteOptions::new()).await
+    }
+
+    /// Deletes the given key or a range of keys from the key-value store.
+    #[inline]
+    pub async fn delete_with_options(
+        &mut self,
+        key: impl Into<Vec<u8>>,
+        options: DeleteOptions,
+    ) -> Result<DeleteResponse> {
+        self.kv.delete(key, options).await
+    }
 }
 
 /// Synchronous `etcd` client using v3 API.
@@ -162,6 +180,24 @@ impl Client {
             .get_with_options(key, options)
             .block_on(&mut self.runtime)
     }
+
+    /// Deletes the given key from the key-value store.
+    #[inline]
+    pub fn delete(&mut self, key: impl Into<Vec<u8>>) -> Result<DeleteResponse> {
+        self.async_client.delete(key).block_on(&mut self.runtime)
+    }
+
+    /// Deletes the given key or a range of keys from the key-value store.
+    #[inline]
+    pub fn delete_with_options(
+        &mut self,
+        key: impl Into<Vec<u8>>,
+        options: DeleteOptions,
+    ) -> Result<DeleteResponse> {
+        self.async_client
+            .delete_with_options(key, options)
+            .block_on(&mut self.runtime)
+    }
 }
 
 #[cfg(test)]
@@ -222,8 +258,6 @@ mod tests {
             let resp = client
                 .get_with_options("get11", GetOptions::new().with_from_key().with_limit(2))
                 .unwrap();
-            // TODO: delete all keys before testing
-            //assert_eq!(resp.count(), 3);
             assert_eq!(resp.more(), true);
             assert_eq!(resp.kvs().len(), 2);
             assert_eq!(resp.kvs()[0].key(), b"get11");
@@ -244,6 +278,51 @@ mod tests {
             assert_eq!(resp.kvs()[0].value(), b"10");
             assert_eq!(resp.kvs()[1].key(), b"get11");
             assert_eq!(resp.kvs()[1].value(), b"11");
+        }
+    }
+
+    #[test]
+    fn test_delete() {
+        let mut client = get_client();
+        client.put("del10", "10").unwrap();
+        client.put("del11", "11").unwrap();
+        client.put("del20", "20").unwrap();
+        client.put("del21", "21").unwrap();
+
+        // delete key
+        {
+            let resp = client.delete("del11").unwrap();
+            assert_eq!(resp.deleted(), 1);
+            let resp = client
+                .get_with_options("del11", GetOptions::new().with_count_only())
+                .unwrap();
+            assert_eq!(resp.count(), 0);
+        }
+
+        // delete a range of keys
+        {
+            let resp = client
+                .delete_with_options("del11", DeleteOptions::new().with_range("del22"))
+                .unwrap();
+            assert_eq!(resp.deleted(), 2);
+            let resp = client
+                .get_with_options(
+                    "del11",
+                    GetOptions::new().with_range("del22").with_count_only(),
+                )
+                .unwrap();
+            assert_eq!(resp.count(), 0);
+        }
+
+        // delete all keys
+        {
+            let _resp = client
+                .delete_with_options("\0", DeleteOptions::new().with_range("\0"))
+                .unwrap();
+            let resp = client
+                .get_with_options("\0", GetOptions::new().with_range("\0").with_count_only())
+                .unwrap();
+            assert_eq!(resp.count(), 0);
         }
     }
 }
