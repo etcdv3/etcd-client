@@ -384,11 +384,13 @@ message ResponseHeader {
 }
 
 message RangeRequest {
+  // The ordering for sorted requests.
   enum SortOrder {
 	NONE = 0; // default, no sorting
 	ASCEND = 1; // lowest target value first
 	DESCEND = 2; // highest target value first
   }
+  // The key-value field to sort.
   enum SortTarget {
 	KEY = 0;
 	VERSION = 1;

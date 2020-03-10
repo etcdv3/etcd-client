@@ -1,7 +1,7 @@
 //! Asynchronous client & synchronous client.
 
 use crate::error::{Error, Result};
-use crate::rpc::kv::{KvClient, PutOptions, PutResponse};
+use crate::rpc::kv::{GetOptions, GetResponse, KvClient, PutOptions, PutResponse};
 use std::future::Future;
 use tokio::runtime::Runtime;
 use tonic::transport::Channel;
@@ -49,7 +49,7 @@ impl AsyncClient {
             _ => Channel::balance_list(endpoints.into_iter()),
         };
 
-        let kv = KvClient::new(channel.clone(), None);
+        let kv = KvClient::new(channel, None);
 
         Ok(Self { kv })
     }
@@ -77,6 +77,22 @@ impl AsyncClient {
         options: PutOptions,
     ) -> Result<PutResponse> {
         self.kv.put(key, value, options).await
+    }
+
+    /// Gets the key from the key-value store.
+    #[inline]
+    pub async fn get(&mut self, key: impl Into<Vec<u8>>) -> Result<GetResponse> {
+        self.kv.get(key, GetOptions::new()).await
+    }
+
+    /// Gets the key or a range of keys from the key-value store.
+    #[inline]
+    pub async fn get_with_options(
+        &mut self,
+        key: impl Into<Vec<u8>>,
+        options: GetOptions,
+    ) -> Result<GetResponse> {
+        self.kv.get(key, options).await
     }
 }
 
@@ -128,39 +144,106 @@ impl Client {
             .put_with_options(key, value, options)
             .block_on(&mut self.runtime)
     }
+
+    /// Gets the key from the key-value store.
+    #[inline]
+    pub fn get(&mut self, key: impl Into<Vec<u8>>) -> Result<GetResponse> {
+        self.async_client.get(key).block_on(&mut self.runtime)
+    }
+
+    /// Gets the key or a range of keys from the key-value store.
+    #[inline]
+    pub fn get_with_options(
+        &mut self,
+        key: impl Into<Vec<u8>>,
+        options: GetOptions,
+    ) -> Result<GetResponse> {
+        self.async_client
+            .get_with_options(key, options)
+            .block_on(&mut self.runtime)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::get_client;
 
     #[test]
-    fn put() {
-        let mut client = Client::connect(["localhost:2379"]).unwrap();
-        client.put("abc", "123").unwrap();
+    fn test_put() {
+        let mut client = get_client();
+        client.put("put", "123").unwrap();
 
         // overwrite with prev key
         {
             let resp = client
-                .put_with_options("abc", "456", PutOptions::new().with_prev_key(true))
+                .put_with_options("put", "456", PutOptions::new().with_prev_key())
                 .unwrap();
             let prev_key = resp.prev_key();
             assert!(prev_key.is_some());
             let prev_key = prev_key.unwrap();
-            assert_eq!(prev_key.key(), b"abc");
+            assert_eq!(prev_key.key(), b"put");
             assert_eq!(prev_key.value(), b"123");
         }
 
         // overwrite again with prev key
         {
             let resp = client
-                .put_with_options("abc", "789", PutOptions::new().with_prev_key(true))
+                .put_with_options("put", "789", PutOptions::new().with_prev_key())
                 .unwrap();
             let prev_key = resp.prev_key();
             assert!(prev_key.is_some());
             let prev_key = prev_key.unwrap();
-            assert_eq!(prev_key.key(), b"abc");
+            assert_eq!(prev_key.key(), b"put");
             assert_eq!(prev_key.value(), b"456");
+        }
+    }
+
+    #[test]
+    fn test_get() {
+        let mut client = get_client();
+        client.put("get10", "10").unwrap();
+        client.put("get11", "11").unwrap();
+        client.put("get20", "20").unwrap();
+        client.put("get21", "21").unwrap();
+
+        // get key
+        {
+            let resp = client.get("get11".as_bytes()).unwrap();
+            assert_eq!(resp.count(), 1);
+            assert_eq!(resp.more(), false);
+            assert_eq!(resp.kvs().len(), 1);
+            assert_eq!(resp.kvs()[0].key(), b"get11");
+            assert_eq!(resp.kvs()[0].value(), b"11");
+        }
+
+        // get from key
+        {
+            let resp = client
+                .get_with_options("get11", GetOptions::new().with_from_key().with_limit(2))
+                .unwrap();
+            // TODO: delete all keys before testing
+            //assert_eq!(resp.count(), 3);
+            assert_eq!(resp.more(), true);
+            assert_eq!(resp.kvs().len(), 2);
+            assert_eq!(resp.kvs()[0].key(), b"get11");
+            assert_eq!(resp.kvs()[0].value(), b"11");
+            assert_eq!(resp.kvs()[1].key(), b"get20");
+            assert_eq!(resp.kvs()[1].value(), b"20");
+        }
+
+        // get prefix keys
+        {
+            let resp = client
+                .get_with_options("get1", GetOptions::new().with_prefix())
+                .unwrap();
+            assert_eq!(resp.count(), 2);
+            assert_eq!(resp.more(), false);
+            assert_eq!(resp.kvs().len(), 2);
+            assert_eq!(resp.kvs()[0].key(), b"get10");
+            assert_eq!(resp.kvs()[0].value(), b"10");
+            assert_eq!(resp.kvs()[1].key(), b"get11");
+            assert_eq!(resp.kvs()[1].value(), b"11");
         }
     }
 }

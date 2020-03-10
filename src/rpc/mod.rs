@@ -57,7 +57,7 @@ impl ResponseHeader {
 impl From<&PbResponseHeader> for &ResponseHeader {
     #[inline]
     fn from(src: &PbResponseHeader) -> Self {
-        unsafe { std::mem::transmute(src) }
+        unsafe { &*(src as *const _ as *const ResponseHeader) }
     }
 }
 
@@ -117,6 +117,6 @@ impl KeyValue {
 impl From<&PbKeyValue> for &KeyValue {
     #[inline]
     fn from(src: &PbKeyValue) -> Self {
-        unsafe { std::mem::transmute(src) }
+        unsafe { &*(src as *const _ as *const KeyValue) }
     }
 }

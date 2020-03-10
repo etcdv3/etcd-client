@@ -6,5 +6,12 @@ mod rpc;
 
 pub use crate::client::{AsyncClient, Client};
 pub use crate::error::Error;
-pub use crate::rpc::kv::{PutOptions, PutResponse};
+pub use crate::rpc::kv::{GetOptions, GetResponse, PutOptions, PutResponse, SortOrder, SortTarget};
 pub use crate::rpc::{KeyValue, ResponseHeader};
+
+/// Get client for testing.
+#[doc(hidden)]
+#[cfg(test)]
+pub fn get_client() -> Client {
+    Client::connect(["localhost:2379"]).expect("Failed to connect to `localhost:2379`")
+}
