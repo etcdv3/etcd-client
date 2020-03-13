@@ -5,8 +5,9 @@ pub use crate::rpc::pb::etcdserverpb::range_request::{SortOrder, SortTarget};
 use crate::error::Result;
 use crate::rpc::pb::etcdserverpb::kv_client::KvClient as PbKvClient;
 use crate::rpc::pb::etcdserverpb::{
-    DeleteRangeRequest as PbDeleteRequest, DeleteRangeRequest,
-    DeleteRangeResponse as PbDeleteResponse, PutRequest as PbPutRequest,
+    CompactionRequest as PbCompactionRequest, CompactionRequest,
+    CompactionResponse as PbCompactionResponse, DeleteRangeRequest as PbDeleteRequest,
+    DeleteRangeRequest, DeleteRangeResponse as PbDeleteResponse, PutRequest as PbPutRequest,
     PutResponse as PbPutResponse, RangeRequest as PbRangeRequest, RangeRequest,
     RangeResponse as PbRangeResponse,
 };
@@ -86,6 +87,26 @@ impl KvClient {
             .await?
             .into_inner();
         Ok(DeleteResponse::new(resp))
+    }
+
+    /// Compacts the event history in the etcd key-value store. The key-value
+    /// store should be periodically compacted or the event history will continue to grow
+    /// indefinitely.
+    pub async fn compact(
+        &mut self,
+        revision: i64,
+        options: Option<CompactionOptions>,
+    ) -> Result<CompactionResponse> {
+        let opts = match options {
+            Some(opts) => opts,
+            None => CompactionOptions::new(),
+        };
+        let resp = self
+            .inner
+            .compact(opts.with_revision(revision))
+            .await?
+            .into_inner();
+        Ok(CompactionResponse::new(resp))
     }
 }
 
@@ -515,6 +536,70 @@ impl DeleteResponse {
     #[inline]
     pub fn prev_kvs(&self) -> &[KeyValue] {
         unsafe { &*(self.0.prev_kvs.as_slice() as *const _ as *const [KeyValue]) }
+    }
+}
+
+/// Options for `Compact` operation.
+#[derive(Debug, Default, Clone)]
+#[repr(transparent)]
+pub struct CompactionOptions(PbCompactionRequest);
+
+impl CompactionOptions {
+    /// Creates a `CompactionOptions`.
+    #[inline]
+    const fn new() -> Self {
+        Self(PbCompactionRequest {
+            revision: 0,
+            physical: false,
+        })
+    }
+
+    /// The key-value store revision for the compaction operation.
+    #[inline]
+    const fn with_revision(mut self, revision: i64) -> Self {
+        self.0.revision = revision;
+        self
+    }
+
+    /// Physical is set so the RPC will wait until the compaction is physically
+    /// applied to the local database such that compacted entries are totally
+    /// removed from the backend database.
+    #[inline]
+    pub const fn with_physical(mut self) -> Self {
+        self.0.physical = true;
+        self
+    }
+}
+
+impl IntoRequest<PbCompactionRequest> for CompactionOptions {
+    #[inline]
+    fn into_request(self) -> Request<CompactionRequest> {
+        Request::new(self.0)
+    }
+}
+
+/// Response for `Compact` operation.
+#[derive(Debug, Default, Clone)]
+#[repr(transparent)]
+pub struct CompactionResponse(PbCompactionResponse);
+
+impl CompactionResponse {
+    /// Create a new `CompactionResponse` from pb compaction response.
+    #[inline]
+    const fn new(resp: PbCompactionResponse) -> Self {
+        Self(resp)
+    }
+
+    /// Compact response header.
+    #[inline]
+    pub fn header(&self) -> Option<&ResponseHeader> {
+        self.0.header.as_ref().map(From::from)
+    }
+
+    /// Takes the header out of the response, leaving a [`None`] in its place.
+    #[inline]
+    pub fn take_header(&mut self) -> Option<ResponseHeader> {
+        self.0.header.take().map(ResponseHeader::new)
     }
 }
 

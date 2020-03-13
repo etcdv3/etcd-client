@@ -7,8 +7,8 @@ mod rpc;
 pub use crate::client::{AsyncClient, Client};
 pub use crate::error::Error;
 pub use crate::rpc::kv::{
-    DeleteOptions, DeleteResponse, GetOptions, GetResponse, PutOptions, PutResponse, SortOrder,
-    SortTarget,
+    CompactionOptions, CompactionResponse, DeleteOptions, DeleteResponse, GetOptions, GetResponse,
+    PutOptions, PutResponse, SortOrder, SortTarget,
 };
 pub use crate::rpc::{KeyValue, ResponseHeader};
 

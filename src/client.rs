@@ -2,7 +2,8 @@
 
 use crate::error::{Error, Result};
 use crate::rpc::kv::{
-    DeleteOptions, DeleteResponse, GetOptions, GetResponse, KvClient, PutOptions, PutResponse,
+    CompactionOptions, CompactionResponse, DeleteOptions, DeleteResponse, GetOptions, GetResponse,
+    KvClient, PutOptions, PutResponse,
 };
 use std::future::Future;
 use tokio::runtime::Runtime;
@@ -88,6 +89,18 @@ impl AsyncClient {
     ) -> Result<DeleteResponse> {
         self.kv.delete(key, options).await
     }
+
+    /// Compacts the event history in the etcd key-value store. The key-value
+    /// store should be periodically compacted or the event history will continue to grow
+    /// indefinitely.
+    #[inline]
+    pub async fn compact(
+        &mut self,
+        revision: i64,
+        options: Option<CompactionOptions>,
+    ) -> Result<CompactionResponse> {
+        self.kv.compact(revision, options).await
+    }
 }
 
 /// Synchronous `etcd` client using v3 API.
@@ -146,6 +159,20 @@ impl Client {
     ) -> Result<DeleteResponse> {
         self.async_client
             .delete(key, options)
+            .block_on(&mut self.runtime)
+    }
+
+    /// Compacts the event history in the etcd key-value store. The key-value
+    /// store should be periodically compacted or the event history will continue to grow
+    /// indefinitely.
+    #[inline]
+    pub fn compact(
+        &mut self,
+        revision: i64,
+        options: Option<CompactionOptions>,
+    ) -> Result<CompactionResponse> {
+        self.async_client
+            .compact(revision, options)
             .block_on(&mut self.runtime)
     }
 }
@@ -266,19 +293,42 @@ mod tests {
                 .unwrap();
             assert_eq!(resp.count(), 0);
         }
+    }
 
-        // delete all keys
-        {
-            let _resp = client
-                .delete("\0", Some(DeleteOptions::new().with_range("\0")))
-                .unwrap();
-            let resp = client
-                .get(
-                    "\0",
-                    Some(GetOptions::new().with_range("\0").with_count_only()),
-                )
-                .unwrap();
-            assert_eq!(resp.count(), 0);
-        }
+    #[test]
+    fn test_compact() {
+        let mut client = get_client();
+        let rev0 = client
+            .put("compact", "0", None)
+            .unwrap()
+            .header()
+            .unwrap()
+            .revision();
+        let rev1 = client
+            .put("compact", "1", None)
+            .unwrap()
+            .header()
+            .unwrap()
+            .revision();
+
+        // before compacting
+        let rev0_resp = client
+            .get("compact", Some(GetOptions::new().with_revision(rev0)))
+            .unwrap();
+        assert_eq!(rev0_resp.kvs()[0].value(), b"0");
+        let rev1_resp = client
+            .get("compact", Some(GetOptions::new().with_revision(rev1)))
+            .unwrap();
+        assert_eq!(rev1_resp.kvs()[0].value(), b"1");
+
+        client.compact(rev1, None).unwrap();
+
+        // after compacting
+        let result = client.get("compact", Some(GetOptions::new().with_revision(rev0)));
+        assert!(result.is_err());
+        let rev1_resp = client
+            .get("compact", Some(GetOptions::new().with_revision(rev1)))
+            .unwrap();
+        assert_eq!(rev1_resp.kvs()[0].value(), b"1");
     }
 }
