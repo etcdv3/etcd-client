@@ -40,13 +40,13 @@ impl KvClient {
         &mut self,
         key: impl Into<Vec<u8>>,
         value: impl Into<Vec<u8>>,
-        options: PutOptions,
+        options: Option<PutOptions>,
     ) -> Result<PutResponse> {
-        let resp = self
-            .inner
-            .put(options.with_kv(key, value))
-            .await?
-            .into_inner();
+        let opts = match options {
+            Some(opts) => opts,
+            None => PutOptions::new(),
+        };
+        let resp = self.inner.put(opts.with_kv(key, value)).await?.into_inner();
         Ok(PutResponse::new(resp))
     }
 
@@ -55,11 +55,15 @@ impl KvClient {
     pub async fn get(
         &mut self,
         key: impl Into<Vec<u8>>,
-        options: GetOptions,
+        options: Option<GetOptions>,
     ) -> Result<GetResponse> {
+        let opts = match options {
+            Some(opts) => opts,
+            None => GetOptions::new(),
+        };
         let resp = self
             .inner
-            .range(options.with_key(key.into()))
+            .range(opts.with_key(key.into()))
             .await?
             .into_inner();
         Ok(GetResponse::new(resp))
@@ -70,11 +74,15 @@ impl KvClient {
     pub async fn delete(
         &mut self,
         key: impl Into<Vec<u8>>,
-        options: DeleteOptions,
+        options: Option<DeleteOptions>,
     ) -> Result<DeleteResponse> {
+        let opts = match options {
+            Some(opts) => opts,
+            None => DeleteOptions::new(),
+        };
         let resp = self
             .inner
-            .delete_range(options.with_key(key.into()))
+            .delete_range(opts.with_key(key.into()))
             .await?
             .into_inner();
         Ok(DeleteResponse::new(resp))
@@ -156,7 +164,7 @@ pub struct PutResponse(PbPutResponse);
 impl PutResponse {
     /// Create a new `PutResponse` from pb put response.
     #[inline]
-    fn new(resp: PbPutResponse) -> Self {
+    const fn new(resp: PbPutResponse) -> Self {
         Self(resp)
     }
 
@@ -387,7 +395,7 @@ pub struct GetResponse(PbRangeResponse);
 impl GetResponse {
     /// Create a new `GetResponse` from pb get response.
     #[inline]
-    fn new(resp: PbRangeResponse) -> Self {
+    const fn new(resp: PbRangeResponse) -> Self {
         Self(resp)
     }
 
@@ -412,13 +420,13 @@ impl GetResponse {
 
     /// Indicates if there are more keys to return in the requested range.
     #[inline]
-    pub fn more(&self) -> bool {
+    pub const fn more(&self) -> bool {
         self.0.more
     }
 
     /// The number of keys within the range when requested.
     #[inline]
-    pub fn count(&self) -> i64 {
+    pub const fn count(&self) -> i64 {
         self.0.count
     }
 }
@@ -481,7 +489,7 @@ pub struct DeleteResponse(PbDeleteResponse);
 impl DeleteResponse {
     /// Create a new `DeleteResponse` from pb delete response.
     #[inline]
-    fn new(resp: PbDeleteResponse) -> Self {
+    const fn new(resp: PbDeleteResponse) -> Self {
         Self(resp)
     }
 
@@ -499,7 +507,7 @@ impl DeleteResponse {
 
     /// The number of keys deleted by the delete request.
     #[inline]
-    pub fn deleted(&self) -> i64 {
+    pub const fn deleted(&self) -> i64 {
         self.0.deleted
     }
 

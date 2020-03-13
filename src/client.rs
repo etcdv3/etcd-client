@@ -64,51 +64,27 @@ impl AsyncClient {
         &mut self,
         key: impl Into<Vec<u8>>,
         value: impl Into<Vec<u8>>,
-    ) -> Result<PutResponse> {
-        self.kv.put(key, value, PutOptions::new()).await
-    }
-
-    /// Put the given key into the key-value store with options.
-    /// A put request increments the revision of the key-value store
-    /// and generates one event in the event history.
-    #[inline]
-    pub async fn put_with_options(
-        &mut self,
-        key: impl Into<Vec<u8>>,
-        value: impl Into<Vec<u8>>,
-        options: PutOptions,
+        options: Option<PutOptions>,
     ) -> Result<PutResponse> {
         self.kv.put(key, value, options).await
     }
 
     /// Gets the key from the key-value store.
     #[inline]
-    pub async fn get(&mut self, key: impl Into<Vec<u8>>) -> Result<GetResponse> {
-        self.kv.get(key, GetOptions::new()).await
-    }
-
-    /// Gets the key or a range of keys from the key-value store.
-    #[inline]
-    pub async fn get_with_options(
+    pub async fn get(
         &mut self,
         key: impl Into<Vec<u8>>,
-        options: GetOptions,
+        options: Option<GetOptions>,
     ) -> Result<GetResponse> {
         self.kv.get(key, options).await
     }
 
     /// Deletes the given key from the key-value store.
     #[inline]
-    pub async fn delete(&mut self, key: impl Into<Vec<u8>>) -> Result<DeleteResponse> {
-        self.kv.delete(key, DeleteOptions::new()).await
-    }
-
-    /// Deletes the given key or a range of keys from the key-value store.
-    #[inline]
-    pub async fn delete_with_options(
+    pub async fn delete(
         &mut self,
         key: impl Into<Vec<u8>>,
-        options: DeleteOptions,
+        options: Option<DeleteOptions>,
     ) -> Result<DeleteResponse> {
         self.kv.delete(key, options).await
     }
@@ -142,60 +118,34 @@ impl Client {
         &mut self,
         key: impl Into<Vec<u8>>,
         value: impl Into<Vec<u8>>,
+        options: Option<PutOptions>,
     ) -> Result<PutResponse> {
         self.async_client
-            .put(key, value)
-            .block_on(&mut self.runtime)
-    }
-
-    /// Put the given key into the key-value store with options.
-    /// A put request increments the revision of the key-value store
-    /// and generates one event in the event history.
-    #[inline]
-    pub fn put_with_options(
-        &mut self,
-        key: impl Into<Vec<u8>>,
-        value: impl Into<Vec<u8>>,
-        options: PutOptions,
-    ) -> Result<PutResponse> {
-        self.async_client
-            .put_with_options(key, value, options)
+            .put(key, value, options)
             .block_on(&mut self.runtime)
     }
 
     /// Gets the key from the key-value store.
     #[inline]
-    pub fn get(&mut self, key: impl Into<Vec<u8>>) -> Result<GetResponse> {
-        self.async_client.get(key).block_on(&mut self.runtime)
-    }
-
-    /// Gets the key or a range of keys from the key-value store.
-    #[inline]
-    pub fn get_with_options(
+    pub fn get(
         &mut self,
         key: impl Into<Vec<u8>>,
-        options: GetOptions,
+        options: Option<GetOptions>,
     ) -> Result<GetResponse> {
         self.async_client
-            .get_with_options(key, options)
+            .get(key, options)
             .block_on(&mut self.runtime)
     }
 
     /// Deletes the given key from the key-value store.
     #[inline]
-    pub fn delete(&mut self, key: impl Into<Vec<u8>>) -> Result<DeleteResponse> {
-        self.async_client.delete(key).block_on(&mut self.runtime)
-    }
-
-    /// Deletes the given key or a range of keys from the key-value store.
-    #[inline]
-    pub fn delete_with_options(
+    pub fn delete(
         &mut self,
         key: impl Into<Vec<u8>>,
-        options: DeleteOptions,
+        options: Option<DeleteOptions>,
     ) -> Result<DeleteResponse> {
         self.async_client
-            .delete_with_options(key, options)
+            .delete(key, options)
             .block_on(&mut self.runtime)
     }
 }
@@ -208,12 +158,12 @@ mod tests {
     #[test]
     fn test_put() {
         let mut client = get_client();
-        client.put("put", "123").unwrap();
+        client.put("put", "123", None).unwrap();
 
         // overwrite with prev key
         {
             let resp = client
-                .put_with_options("put", "456", PutOptions::new().with_prev_key())
+                .put("put", "456", Some(PutOptions::new().with_prev_key()))
                 .unwrap();
             let prev_key = resp.prev_key();
             assert!(prev_key.is_some());
@@ -225,7 +175,7 @@ mod tests {
         // overwrite again with prev key
         {
             let resp = client
-                .put_with_options("put", "789", PutOptions::new().with_prev_key())
+                .put("put", "789", Some(PutOptions::new().with_prev_key()))
                 .unwrap();
             let prev_key = resp.prev_key();
             assert!(prev_key.is_some());
@@ -238,14 +188,14 @@ mod tests {
     #[test]
     fn test_get() {
         let mut client = get_client();
-        client.put("get10", "10").unwrap();
-        client.put("get11", "11").unwrap();
-        client.put("get20", "20").unwrap();
-        client.put("get21", "21").unwrap();
+        client.put("get10", "10", None).unwrap();
+        client.put("get11", "11", None).unwrap();
+        client.put("get20", "20", None).unwrap();
+        client.put("get21", "21", None).unwrap();
 
         // get key
         {
-            let resp = client.get("get11".as_bytes()).unwrap();
+            let resp = client.get("get11", None).unwrap();
             assert_eq!(resp.count(), 1);
             assert_eq!(resp.more(), false);
             assert_eq!(resp.kvs().len(), 1);
@@ -256,7 +206,10 @@ mod tests {
         // get from key
         {
             let resp = client
-                .get_with_options("get11", GetOptions::new().with_from_key().with_limit(2))
+                .get(
+                    "get11",
+                    Some(GetOptions::new().with_from_key().with_limit(2)),
+                )
                 .unwrap();
             assert_eq!(resp.more(), true);
             assert_eq!(resp.kvs().len(), 2);
@@ -269,7 +222,7 @@ mod tests {
         // get prefix keys
         {
             let resp = client
-                .get_with_options("get1", GetOptions::new().with_prefix())
+                .get("get1", Some(GetOptions::new().with_prefix()))
                 .unwrap();
             assert_eq!(resp.count(), 2);
             assert_eq!(resp.more(), false);
@@ -284,17 +237,17 @@ mod tests {
     #[test]
     fn test_delete() {
         let mut client = get_client();
-        client.put("del10", "10").unwrap();
-        client.put("del11", "11").unwrap();
-        client.put("del20", "20").unwrap();
-        client.put("del21", "21").unwrap();
+        client.put("del10", "10", None).unwrap();
+        client.put("del11", "11", None).unwrap();
+        client.put("del20", "20", None).unwrap();
+        client.put("del21", "21", None).unwrap();
 
         // delete key
         {
-            let resp = client.delete("del11").unwrap();
+            let resp = client.delete("del11", None).unwrap();
             assert_eq!(resp.deleted(), 1);
             let resp = client
-                .get_with_options("del11", GetOptions::new().with_count_only())
+                .get("del11", Some(GetOptions::new().with_count_only()))
                 .unwrap();
             assert_eq!(resp.count(), 0);
         }
@@ -302,13 +255,13 @@ mod tests {
         // delete a range of keys
         {
             let resp = client
-                .delete_with_options("del11", DeleteOptions::new().with_range("del22"))
+                .delete("del11", Some(DeleteOptions::new().with_range("del22")))
                 .unwrap();
             assert_eq!(resp.deleted(), 2);
             let resp = client
-                .get_with_options(
+                .get(
                     "del11",
-                    GetOptions::new().with_range("del22").with_count_only(),
+                    Some(GetOptions::new().with_range("del22").with_count_only()),
                 )
                 .unwrap();
             assert_eq!(resp.count(), 0);
@@ -317,10 +270,13 @@ mod tests {
         // delete all keys
         {
             let _resp = client
-                .delete_with_options("\0", DeleteOptions::new().with_range("\0"))
+                .delete("\0", Some(DeleteOptions::new().with_range("\0")))
                 .unwrap();
             let resp = client
-                .get_with_options("\0", GetOptions::new().with_range("\0").with_count_only())
+                .get(
+                    "\0",
+                    Some(GetOptions::new().with_range("\0").with_count_only()),
+                )
                 .unwrap();
             assert_eq!(resp.count(), 0);
         }
