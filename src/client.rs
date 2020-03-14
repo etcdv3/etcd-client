@@ -3,7 +3,7 @@
 use crate::error::{Error, Result};
 use crate::rpc::kv::{
     CompactionOptions, CompactionResponse, DeleteOptions, DeleteResponse, GetOptions, GetResponse,
-    KvClient, PutOptions, PutResponse,
+    KvClient, PutOptions, PutResponse, Txn, TxnResponse,
 };
 use std::future::Future;
 use tokio::runtime::Runtime;
@@ -101,6 +101,15 @@ impl AsyncClient {
     ) -> Result<CompactionResponse> {
         self.kv.compact(revision, options).await
     }
+
+    /// Processes multiple operations in a single transaction.
+    /// A txn request increments the revision of the key-value store
+    /// and generates events with the same revision for every completed operation.
+    /// It is not allowed to modify the same key several times within one txn.
+    #[inline]
+    pub async fn txn(&mut self, txn: Txn) -> Result<TxnResponse> {
+        self.kv.txn(txn).await
+    }
 }
 
 /// Synchronous `etcd` client using v3 API.
@@ -175,12 +184,21 @@ impl Client {
             .compact(revision, options)
             .block_on(&mut self.runtime)
     }
+
+    /// Processes multiple operations in a single transaction.
+    /// A txn request increments the revision of the key-value store
+    /// and generates events with the same revision for every completed operation.
+    /// It is not allowed to modify the same key several times within one txn.
+    #[inline]
+    pub fn txn(&mut self, txn: Txn) -> Result<TxnResponse> {
+        self.async_client.txn(txn).block_on(&mut self.runtime)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::get_client;
+    use crate::{get_client, Compare, CompareOp, TxnOp, TxnOpResponse};
 
     #[test]
     fn test_put() {
@@ -330,5 +348,63 @@ mod tests {
             .get("compact", Some(GetOptions::new().with_revision(rev1)))
             .unwrap();
         assert_eq!(rev1_resp.kvs()[0].value(), b"1");
+    }
+
+    #[test]
+    fn test_txn() {
+        let mut client = get_client();
+        client.put("txn01", "01", None).unwrap();
+
+        // transaction 1
+        {
+            let resp = client
+                .txn(
+                    Txn::new()
+                        .when(&[Compare::value("txn01", CompareOp::Equal, "01")][..])
+                        .and_then(
+                            &[TxnOp::put(
+                                "txn01",
+                                "02",
+                                Some(PutOptions::new().with_prev_key()),
+                            )][..],
+                        )
+                        .or_else(&[TxnOp::get("txn01", None)][..]),
+                )
+                .unwrap();
+
+            assert!(resp.succeeded());
+            let op_responses = resp.op_responses();
+            assert_eq!(op_responses.len(), 1);
+
+            match op_responses[0] {
+                TxnOpResponse::Put(ref resp) => assert_eq!(resp.prev_key().unwrap().value(), b"01"),
+                _ => panic!("unexpected response"),
+            }
+
+            let resp = client.get("txn01", None).unwrap();
+            assert_eq!(resp.kvs()[0].key(), b"txn01");
+            assert_eq!(resp.kvs()[0].value(), b"02");
+        }
+
+        // transaction 2
+        {
+            let resp = client
+                .txn(
+                    Txn::new()
+                        .when(&[Compare::value("txn01", CompareOp::Equal, "01")][..])
+                        .and_then(&[TxnOp::put("txn01", "02", None)][..])
+                        .or_else(&[TxnOp::get("txn01", None)][..]),
+                )
+                .unwrap();
+
+            assert!(!resp.succeeded());
+            let op_responses = resp.op_responses();
+            assert_eq!(op_responses.len(), 1);
+
+            match op_responses[0] {
+                TxnOpResponse::Get(ref resp) => assert_eq!(resp.kvs()[0].value(), b"02"),
+                _ => panic!("unexpected response"),
+            }
+        }
     }
 }

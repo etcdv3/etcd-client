@@ -5,6 +5,23 @@
 An [etcd](https://github.com/etcd-io/etcd) v3 API client for Rust.
 It provides both synchronous client and asynchronous client backed by [tokio](https://github.com/tokio-rs/tokio) and [tonic](https://github.com/hyperium/tonic).
 
+## Features
+
+- etcd API v3
+- asynchronous client
+- synchronous client
+
+## Supported APIs
+
+- [x] KV
+- [ ] Watch
+- [ ] Lease
+- [ ] Cluster
+- [ ] Maintenance
+- [ ] Auth
+- [ ] Election
+- [ ] Lock
+
 ## Test
 
 We test this library using etcd 3.4.

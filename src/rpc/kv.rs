@@ -1,15 +1,20 @@
 //! Etcd KV Operations.
 
+pub use crate::rpc::pb::etcdserverpb::compare::CompareResult as CompareOp;
 pub use crate::rpc::pb::etcdserverpb::range_request::{SortOrder, SortTarget};
 
 use crate::error::Result;
+use crate::rpc::pb::etcdserverpb::compare::{CompareTarget, TargetUnion};
 use crate::rpc::pb::etcdserverpb::kv_client::KvClient as PbKvClient;
+use crate::rpc::pb::etcdserverpb::request_op::Request as PbTxnOp;
+use crate::rpc::pb::etcdserverpb::response_op::Response as PbTxnOpResponse;
 use crate::rpc::pb::etcdserverpb::{
     CompactionRequest as PbCompactionRequest, CompactionRequest,
-    CompactionResponse as PbCompactionResponse, DeleteRangeRequest as PbDeleteRequest,
-    DeleteRangeRequest, DeleteRangeResponse as PbDeleteResponse, PutRequest as PbPutRequest,
-    PutResponse as PbPutResponse, RangeRequest as PbRangeRequest, RangeRequest,
-    RangeResponse as PbRangeResponse,
+    CompactionResponse as PbCompactionResponse, Compare as PbCompare,
+    DeleteRangeRequest as PbDeleteRequest, DeleteRangeRequest,
+    DeleteRangeResponse as PbDeleteResponse, PutRequest as PbPutRequest,
+    PutResponse as PbPutResponse, RangeRequest as PbRangeRequest, RangeResponse as PbRangeResponse,
+    RequestOp as PbTxnRequestOp, TxnRequest as PbTxnRequest, TxnResponse as PbTxnResponse,
 };
 use crate::rpc::{KeyValue, ResponseHeader};
 use tonic::transport::Channel;
@@ -43,11 +48,11 @@ impl KvClient {
         value: impl Into<Vec<u8>>,
         options: Option<PutOptions>,
     ) -> Result<PutResponse> {
-        let opts = match options {
-            Some(opts) => opts,
-            None => PutOptions::new(),
-        };
-        let resp = self.inner.put(opts.with_kv(key, value)).await?.into_inner();
+        let resp = self
+            .inner
+            .put(options.unwrap_or_default().with_kv(key, value))
+            .await?
+            .into_inner();
         Ok(PutResponse::new(resp))
     }
 
@@ -58,13 +63,9 @@ impl KvClient {
         key: impl Into<Vec<u8>>,
         options: Option<GetOptions>,
     ) -> Result<GetResponse> {
-        let opts = match options {
-            Some(opts) => opts,
-            None => GetOptions::new(),
-        };
         let resp = self
             .inner
-            .range(opts.with_key(key.into()))
+            .range(options.unwrap_or_default().with_key(key.into()))
             .await?
             .into_inner();
         Ok(GetResponse::new(resp))
@@ -77,13 +78,9 @@ impl KvClient {
         key: impl Into<Vec<u8>>,
         options: Option<DeleteOptions>,
     ) -> Result<DeleteResponse> {
-        let opts = match options {
-            Some(opts) => opts,
-            None => DeleteOptions::new(),
-        };
         let resp = self
             .inner
-            .delete_range(opts.with_key(key.into()))
+            .delete_range(options.unwrap_or_default().with_key(key.into()))
             .await?
             .into_inner();
         Ok(DeleteResponse::new(resp))
@@ -92,21 +89,28 @@ impl KvClient {
     /// Compacts the event history in the etcd key-value store. The key-value
     /// store should be periodically compacted or the event history will continue to grow
     /// indefinitely.
+    #[inline]
     pub async fn compact(
         &mut self,
         revision: i64,
         options: Option<CompactionOptions>,
     ) -> Result<CompactionResponse> {
-        let opts = match options {
-            Some(opts) => opts,
-            None => CompactionOptions::new(),
-        };
         let resp = self
             .inner
-            .compact(opts.with_revision(revision))
+            .compact(options.unwrap_or_default().with_revision(revision))
             .await?
             .into_inner();
         Ok(CompactionResponse::new(resp))
+    }
+
+    /// Processes multiple operations in a single transaction.
+    /// A txn request increments the revision of the key-value store
+    /// and generates events with the same revision for every completed operation.
+    /// It is not allowed to modify the same key several times within one txn.
+    #[inline]
+    pub async fn txn(&mut self, txn: Txn) -> Result<TxnResponse> {
+        let resp = self.inner.txn(txn).await?.into_inner();
+        Ok(TxnResponse::new(resp))
     }
 }
 
@@ -170,10 +174,17 @@ impl PutOptions {
     }
 }
 
+impl From<PutOptions> for PbPutRequest {
+    #[inline]
+    fn from(options: PutOptions) -> Self {
+        options.0
+    }
+}
+
 impl IntoRequest<PbPutRequest> for PutOptions {
     #[inline]
     fn into_request(self) -> Request<PbPutRequest> {
-        Request::new(self.0)
+        Request::new(self.into())
     }
 }
 
@@ -388,23 +399,30 @@ fn get_prefix(key: &[u8]) -> Vec<u8> {
     vec![0]
 }
 
-impl IntoRequest<PbRangeRequest> for GetOptions {
+impl From<GetOptions> for PbRangeRequest {
     #[inline]
-    fn into_request(mut self) -> Request<RangeRequest> {
-        if self.with_from_key {
-            if self.req.key.is_empty() {
-                self.req.key = vec![b'\0'];
+    fn from(mut options: GetOptions) -> Self {
+        if options.with_from_key {
+            if options.req.key.is_empty() {
+                options.req.key = vec![b'\0'];
             }
-            self.req.range_end = vec![b'\0'];
-        } else if self.with_prefix {
-            if self.req.key.is_empty() {
-                self.req.key = vec![b'\0'];
-                self.req.range_end = vec![b'\0'];
+            options.req.range_end = vec![b'\0'];
+        } else if options.with_prefix {
+            if options.req.key.is_empty() {
+                options.req.key = vec![b'\0'];
+                options.req.range_end = vec![b'\0'];
             } else {
-                self.req.range_end = get_prefix(&self.req.key);
+                options.req.range_end = get_prefix(&options.req.key);
             }
         }
-        Request::new(self.req)
+        options.req
+    }
+}
+
+impl IntoRequest<PbRangeRequest> for GetOptions {
+    #[inline]
+    fn into_request(self) -> Request<PbRangeRequest> {
+        Request::new(self.into())
     }
 }
 
@@ -495,10 +513,17 @@ impl DeleteOptions {
     }
 }
 
+impl From<DeleteOptions> for PbDeleteRequest {
+    #[inline]
+    fn from(options: DeleteOptions) -> Self {
+        options.0
+    }
+}
+
 impl IntoRequest<PbDeleteRequest> for DeleteOptions {
     #[inline]
     fn into_request(self) -> Request<DeleteRangeRequest> {
-        Request::new(self.0)
+        Request::new(self.into())
     }
 }
 
@@ -547,7 +572,7 @@ pub struct CompactionOptions(PbCompactionRequest);
 impl CompactionOptions {
     /// Creates a `CompactionOptions`.
     #[inline]
-    const fn new() -> Self {
+    pub const fn new() -> Self {
         Self(PbCompactionRequest {
             revision: 0,
             physical: false,
@@ -579,7 +604,7 @@ impl IntoRequest<PbCompactionRequest> for CompactionOptions {
 }
 
 /// Response for `Compact` operation.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct CompactionResponse(PbCompactionResponse);
 
@@ -600,6 +625,294 @@ impl CompactionResponse {
     #[inline]
     pub fn take_header(&mut self) -> Option<ResponseHeader> {
         self.0.header.take().map(ResponseHeader::new)
+    }
+}
+
+/// Transaction comparision.
+#[derive(Debug, Clone)]
+#[repr(transparent)]
+pub struct Compare(PbCompare);
+
+impl Compare {
+    /// Creates a new `Compare`.
+    #[inline]
+    fn new(
+        key: impl Into<Vec<u8>>,
+        cmp: CompareOp,
+        target: CompareTarget,
+        target_union: TargetUnion,
+    ) -> Self {
+        Self(PbCompare {
+            result: cmp as i32,
+            target: target as i32,
+            key: key.into(),
+            range_end: Vec::new(),
+            target_union: Some(target_union),
+        })
+    }
+
+    /// Compares the version of the given key.
+    #[inline]
+    pub fn version(key: impl Into<Vec<u8>>, cmp: CompareOp, version: i64) -> Self {
+        Self::new(
+            key,
+            cmp,
+            CompareTarget::Version,
+            TargetUnion::Version(version),
+        )
+    }
+
+    /// Compares the creation revision of the given key.
+    #[inline]
+    pub fn create_revision(key: impl Into<Vec<u8>>, cmp: CompareOp, revision: i64) -> Self {
+        Self::new(
+            key,
+            cmp,
+            CompareTarget::Create,
+            TargetUnion::CreateRevision(revision),
+        )
+    }
+
+    /// Compares the last modified revision of the given key.
+    #[inline]
+    pub fn mod_revision(key: impl Into<Vec<u8>>, cmp: CompareOp, revision: i64) -> Self {
+        Self::new(
+            key,
+            cmp,
+            CompareTarget::Mod,
+            TargetUnion::ModRevision(revision),
+        )
+    }
+
+    /// Compares the value of the given key.
+    #[inline]
+    pub fn value(key: impl Into<Vec<u8>>, cmp: CompareOp, value: impl Into<Vec<u8>>) -> Self {
+        Self::new(
+            key,
+            cmp,
+            CompareTarget::Value,
+            TargetUnion::Value(value.into()),
+        )
+    }
+
+    /// Compares the lease id of the given key.
+    #[inline]
+    pub fn lease(key: impl Into<Vec<u8>>, cmp: CompareOp, lease: i64) -> Self {
+        Self::new(key, cmp, CompareTarget::Lease, TargetUnion::Lease(lease))
+    }
+
+    /// Sets the comparison to scan the range [key, end).
+    #[inline]
+    pub fn with_range(mut self, end: impl Into<Vec<u8>>) -> Self {
+        self.0.range_end = end.into();
+        self
+    }
+
+    /// Sets the comparison to scan all keys prefixed by the key.
+    #[inline]
+    pub fn with_prefix(mut self) -> Self {
+        self.0.range_end = get_prefix(&self.0.key);
+        self
+    }
+}
+
+/// Transaction operation.
+#[derive(Debug, Clone)]
+#[repr(transparent)]
+pub struct TxnOp(PbTxnOp);
+
+impl TxnOp {
+    /// `Put` operation.
+    #[inline]
+    pub fn put(
+        key: impl Into<Vec<u8>>,
+        value: impl Into<Vec<u8>>,
+        options: Option<PutOptions>,
+    ) -> Self {
+        TxnOp(PbTxnOp::RequestPut(
+            options.unwrap_or_default().with_kv(key, value).into(),
+        ))
+    }
+
+    /// `Get` operation.
+    #[inline]
+    pub fn get(key: impl Into<Vec<u8>>, options: Option<GetOptions>) -> Self {
+        TxnOp(PbTxnOp::RequestRange(
+            options.unwrap_or_default().with_key(key).into(),
+        ))
+    }
+
+    /// `Delete` operation.
+    #[inline]
+    pub fn delete(key: impl Into<Vec<u8>>, options: Option<DeleteOptions>) -> Self {
+        TxnOp(PbTxnOp::RequestDeleteRange(
+            options.unwrap_or_default().with_key(key).into(),
+        ))
+    }
+
+    /// `Txn` operation.
+    #[inline]
+    pub fn txn(txn: Txn) -> Self {
+        TxnOp(PbTxnOp::RequestTxn(txn.into()))
+    }
+}
+
+impl From<TxnOp> for PbTxnOp {
+    #[inline]
+    fn from(op: TxnOp) -> Self {
+        op.0
+    }
+}
+
+/// Transaction of multiple operations.
+#[derive(Debug, Default, Clone)]
+pub struct Txn {
+    req: PbTxnRequest,
+    c_when: bool,
+    c_then: bool,
+    c_else: bool,
+}
+
+impl Txn {
+    /// Creates a new transaction.
+    #[inline]
+    pub const fn new() -> Self {
+        Self {
+            req: PbTxnRequest {
+                compare: Vec::new(),
+                success: Vec::new(),
+                failure: Vec::new(),
+            },
+            c_when: false,
+            c_then: false,
+            c_else: false,
+        }
+    }
+
+    /// Takes a list of comparison. If all comparisons passed in succeed,
+    /// the operations passed into `and_then()` will be executed. Or the operations
+    /// passed into `or_else()` will be executed.
+    #[inline]
+    pub fn when(mut self, compares: impl Into<Vec<Compare>>) -> Self {
+        assert!(!self.c_when, "cannot call when twice");
+        assert!(!self.c_then, "cannot call when after and_then");
+        assert!(!self.c_else, "cannot call when after or_else");
+
+        self.c_when = true;
+        self.req.compare = unsafe { std::mem::transmute(compares.into()) };
+        self
+    }
+
+    /// Takes a list of operations. The operations list will be executed, if the
+    /// comparisons passed in `when()` succeed.
+    #[inline]
+    pub fn and_then(mut self, operations: impl Into<Vec<TxnOp>>) -> Self {
+        assert!(!self.c_then, "cannot call and_then twice");
+        assert!(!self.c_else, "cannot call and_then after or_else");
+
+        self.c_then = true;
+        self.req.success = operations
+            .into()
+            .into_iter()
+            .map(|op| PbTxnRequestOp {
+                request: Some(op.into()),
+            })
+            .collect();
+        self
+    }
+
+    /// Takes a list of operations. The operations list will be executed, if the
+    /// comparisons passed in `when()` fail.
+    #[inline]
+    pub fn or_else(mut self, operations: impl Into<Vec<TxnOp>>) -> Self {
+        assert!(!self.c_else, "cannot call or_else twice");
+
+        self.c_else = true;
+        self.req.failure = operations
+            .into()
+            .into_iter()
+            .map(|op| PbTxnRequestOp {
+                request: Some(op.into()),
+            })
+            .collect();
+        self
+    }
+}
+
+impl From<Txn> for PbTxnRequest {
+    #[inline]
+    fn from(txn: Txn) -> Self {
+        txn.req
+    }
+}
+
+impl IntoRequest<PbTxnRequest> for Txn {
+    #[inline]
+    fn into_request(self) -> Request<PbTxnRequest> {
+        Request::new(self.into())
+    }
+}
+
+/// Transaction operation response.
+#[derive(Debug, Clone)]
+pub enum TxnOpResponse {
+    Put(PutResponse),
+    Get(GetResponse),
+    Delete(DeleteResponse),
+    Txn(TxnResponse),
+}
+
+/// Response for `Txn` operation.
+#[derive(Debug, Clone)]
+#[repr(transparent)]
+pub struct TxnResponse(PbTxnResponse);
+
+impl TxnResponse {
+    /// Creates a new `Txn` response.
+    #[inline]
+    const fn new(resp: PbTxnResponse) -> Self {
+        Self(resp)
+    }
+
+    /// Transaction response header.
+    #[inline]
+    pub fn header(&self) -> Option<&ResponseHeader> {
+        self.0.header.as_ref().map(From::from)
+    }
+
+    /// Takes the header out of the response, leaving a [`None`] in its place.
+    #[inline]
+    pub fn take_header(&mut self) -> Option<ResponseHeader> {
+        self.0.header.take().map(ResponseHeader::new)
+    }
+
+    /// Returns `true` if the compare evaluated to true or `false` otherwise.
+    #[inline]
+    pub const fn succeeded(&self) -> bool {
+        self.0.succeeded
+    }
+
+    /// Returns responses of transaction operations.
+    #[inline]
+    pub fn op_responses(&self) -> Vec<TxnOpResponse> {
+        self.0
+            .responses
+            .iter()
+            .map(|resp| match resp.response.as_ref().unwrap() {
+                PbTxnOpResponse::ResponsePut(put) => {
+                    TxnOpResponse::Put(PutResponse::new(put.clone()))
+                }
+                PbTxnOpResponse::ResponseRange(get) => {
+                    TxnOpResponse::Get(GetResponse::new(get.clone()))
+                }
+                PbTxnOpResponse::ResponseDeleteRange(delete) => {
+                    TxnOpResponse::Delete(DeleteResponse::new(delete.clone()))
+                }
+                PbTxnOpResponse::ResponseTxn(txn) => {
+                    TxnOpResponse::Txn(TxnResponse::new(txn.clone()))
+                }
+            })
+            .collect()
     }
 }
 
