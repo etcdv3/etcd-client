@@ -3,18 +3,17 @@
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 An [etcd](https://github.com/etcd-io/etcd) v3 API client for Rust.
-It provides both synchronous client and asynchronous client backed by [tokio](https://github.com/tokio-rs/tokio) and [tonic](https://github.com/hyperium/tonic).
+It provides asynchronous client backed by [tokio](https://github.com/tokio-rs/tokio) and [tonic](https://github.com/hyperium/tonic).
 
 ## Features
 
 - etcd API v3
-- asynchronous client
-- synchronous client
+- asynchronous
 
 ## Supported APIs
 
 - [x] KV
-- [ ] Watch
+- [x] Watch
 - [ ] Lease
 - [ ] Cluster
 - [ ] Maintenance

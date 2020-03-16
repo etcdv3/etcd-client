@@ -11,10 +11,8 @@ use crate::rpc::pb::etcdserverpb::{
 };
 use crate::rpc::pb::mvccpb::Event as PbEvent;
 use crate::rpc::{get_prefix, KeyValue, ResponseHeader};
-use crate::FutureBlockOn;
 use futures_core::task::{Context, Poll};
 use futures_core::Stream;
-use tokio::runtime::Runtime;
 use tokio::sync::mpsc::{channel, Sender};
 use tonic::codegen::Pin;
 use tonic::transport::Channel;
@@ -407,91 +405,5 @@ impl Stream for WatchStream {
                 Some(Err(e)) => Some(Err(From::from(e))),
                 None => None,
             })
-    }
-}
-
-/// Synchronous watching handle.
-#[derive(Debug)]
-pub struct SyncWatcher {
-    async_watcher: Watcher,
-    runtime: Runtime,
-}
-
-impl SyncWatcher {
-    /// Creates a new `SyncWatcher`.
-    #[inline]
-    pub(crate) fn new(async_watcher: Watcher) -> Result<Self> {
-        let runtime = Runtime::new()?;
-        Ok(Self {
-            async_watcher,
-            runtime,
-        })
-    }
-
-    /// The ID of the watcher.
-    #[inline]
-    pub const fn watch_id(&self) -> i64 {
-        self.async_watcher.watch_id()
-    }
-
-    /// Cancels this watcher.
-    #[inline]
-    pub fn cancel(&mut self) -> Result<()> {
-        self.async_watcher.cancel().block_on(&mut self.runtime)
-    }
-
-    /// Requests a watch stream progress status be sent in the watch response stream as soon as
-    /// possible.
-    #[inline]
-    pub fn request_progress(&mut self) -> Result<()> {
-        self.async_watcher
-            .request_progress()
-            .block_on(&mut self.runtime)
-    }
-}
-
-/// Watch response iterator.
-#[derive(Debug)]
-pub struct WatchIterator {
-    stream: WatchStream,
-    runtime: Runtime,
-    canceled: bool,
-}
-
-impl WatchIterator {
-    /// Creates a new `WatchIterator`.
-    #[inline]
-    pub(crate) fn new(stream: WatchStream) -> Result<Self> {
-        let runtime = Runtime::new()?;
-        Ok(Self {
-            stream,
-            runtime,
-            canceled: false,
-        })
-    }
-}
-
-impl Iterator for WatchIterator {
-    type Item = Result<WatchResponse>;
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        if !self.canceled {
-            match self.stream.message().block_on(&mut self.runtime) {
-                Ok(Some(resp)) => {
-                    if resp.canceled() || resp.compact_revision() != 0 {
-                        self.canceled = true;
-                    }
-                    Some(Ok(resp))
-                }
-                Ok(None) => None,
-                Err(e) => {
-                    self.canceled = true;
-                    Some(Err(e))
-                }
-            }
-        } else {
-            None
-        }
     }
 }

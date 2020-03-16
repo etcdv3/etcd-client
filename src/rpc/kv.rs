@@ -375,7 +375,7 @@ impl GetOptions {
         self
     }
 
-    /// max_create_revision is the upper bound for returned key create revisions; all keys with
+    /// `max_create_revision` is the upper bound for returned key create revisions; all keys with
     /// greater create revisions will be filtered away.
     #[inline]
     pub const fn with_max_create_revision(mut self, revision: i64) -> Self {
