@@ -11,7 +11,25 @@ pub use crate::rpc::kv::{
     GetOptions, GetResponse, PutOptions, PutResponse, SortOrder, SortTarget, Txn, TxnOp,
     TxnOpResponse, TxnResponse,
 };
+pub use crate::rpc::watch::{
+    Event, EventType, SyncWatcher, WatchFilterType, WatchIterator, WatchOptions, WatchResponse,
+    WatchStream, Watcher,
+};
 pub use crate::rpc::{KeyValue, ResponseHeader};
+use std::future::Future;
+use tokio::runtime::Runtime;
+
+/// This trait provide `block_on` method for `Future`.
+trait FutureBlockOn: Future {
+    fn block_on(self, runtime: &mut Runtime) -> Self::Output;
+}
+
+impl<T: Future> FutureBlockOn for T {
+    #[inline]
+    fn block_on(self, runtime: &mut Runtime) -> Self::Output {
+        runtime.block_on(self)
+    }
+}
 
 /// Get client for testing.
 #[doc(hidden)]

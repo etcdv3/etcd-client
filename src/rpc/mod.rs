@@ -120,3 +120,30 @@ impl From<&PbKeyValue> for &KeyValue {
         unsafe { &*(src as *const _ as *const KeyValue) }
     }
 }
+
+/// Get prefix end key of `key`.
+#[inline]
+fn get_prefix(key: &[u8]) -> Vec<u8> {
+    for (i, v) in key.iter().enumerate().rev() {
+        if *v < 0xFF {
+            let mut end = Vec::from(&key[..=i]);
+            end[i] = *v + 1;
+            return end;
+        }
+    }
+
+    // next prefix does not exist (e.g., 0xffff);
+    vec![0]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_prefix() {
+        assert_eq!(get_prefix(b"foo1").as_slice(), b"foo2");
+        assert_eq!(get_prefix(b"\xFF").as_slice(), b"\0");
+        assert_eq!(get_prefix(b"foo\xFF").as_slice(), b"fop");
+    }
+}

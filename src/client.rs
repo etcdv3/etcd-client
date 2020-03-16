@@ -5,25 +5,17 @@ use crate::rpc::kv::{
     CompactionOptions, CompactionResponse, DeleteOptions, DeleteResponse, GetOptions, GetResponse,
     KvClient, PutOptions, PutResponse, Txn, TxnResponse,
 };
-use std::future::Future;
+use crate::rpc::watch::{
+    SyncWatcher, WatchClient, WatchIterator, WatchOptions, WatchStream, Watcher,
+};
+use crate::FutureBlockOn;
 use tokio::runtime::Runtime;
 use tonic::transport::Channel;
-
-/// This trait provide `block_on` method for `Future`.
-trait FutureBlockOn: Future {
-    fn block_on(self, runtime: &mut Runtime) -> Self::Output;
-}
-
-impl<T: Future> FutureBlockOn for T {
-    #[inline]
-    fn block_on(self, runtime: &mut Runtime) -> Self::Output {
-        runtime.block_on(self)
-    }
-}
 
 /// Asynchronous `etcd` client using v3 API.
 pub struct AsyncClient {
     kv: KvClient,
+    watch: WatchClient,
 }
 
 impl AsyncClient {
@@ -52,9 +44,10 @@ impl AsyncClient {
             _ => Channel::balance_list(endpoints.into_iter()),
         };
 
-        let kv = KvClient::new(channel, None);
+        let kv = KvClient::new(channel.clone(), None);
+        let watch = WatchClient::new(channel, None);
 
-        Ok(Self { kv })
+        Ok(Self { kv, watch })
     }
 
     /// Put the given key into the key-value store.
@@ -109,6 +102,19 @@ impl AsyncClient {
     #[inline]
     pub async fn txn(&mut self, txn: Txn) -> Result<TxnResponse> {
         self.kv.txn(txn).await
+    }
+
+    /// Watches for events happening or that have happened. Both input and output
+    /// are streams; the input stream is for creating and canceling watcher and the output
+    /// stream sends events. The entire event history can be watched starting from the
+    /// last compaction revision.
+    #[inline]
+    pub async fn watch(
+        &mut self,
+        key: impl Into<Vec<u8>>,
+        options: Option<WatchOptions>,
+    ) -> Result<(Watcher, WatchStream)> {
+        self.watch.watch(key, options).await
     }
 }
 
@@ -192,6 +198,23 @@ impl Client {
     #[inline]
     pub fn txn(&mut self, txn: Txn) -> Result<TxnResponse> {
         self.async_client.txn(txn).block_on(&mut self.runtime)
+    }
+
+    /// Watches for events happening or that have happened. Both input and output
+    /// are streams; the input stream is for creating and canceling watcher and the output
+    /// stream sends events. The entire event history can be watched starting from the
+    /// last compaction revision.
+    #[inline]
+    pub fn watch(
+        &mut self,
+        key: impl Into<Vec<u8>>,
+        options: Option<WatchOptions>,
+    ) -> Result<(SyncWatcher, WatchIterator)> {
+        let (w, s) = self
+            .async_client
+            .watch(key, options)
+            .block_on(&mut self.runtime)?;
+        Ok((SyncWatcher::new(w)?, WatchIterator::new(s)?))
     }
 }
 
@@ -406,5 +429,30 @@ mod tests {
                 _ => panic!("unexpected response"),
             }
         }
+    }
+
+    #[test]
+    fn test_watch() {
+        let mut client = get_client();
+
+        let (mut watcher, mut iter) = client.watch("watch01", None).unwrap();
+
+        client.put("watch01", "01", None).unwrap();
+
+        let resp = iter.next().unwrap().unwrap();
+        assert_eq!(resp.watch_id(), watcher.watch_id());
+        assert_eq!(resp.events().len(), 1);
+
+        let kv = resp.events()[0].kv().unwrap();
+        assert_eq!(kv.key(), b"watch01");
+        assert_eq!(kv.value(), b"01");
+
+        watcher.cancel().unwrap();
+
+        let resp = iter.next().unwrap().unwrap();
+        assert_eq!(resp.watch_id(), watcher.watch_id());
+        assert!(resp.canceled());
+
+        assert!(iter.next().is_none());
     }
 }

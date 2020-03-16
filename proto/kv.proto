@@ -29,6 +29,7 @@ message KeyValue {
 }
 
 message Event {
+  // The kind of event.
   enum EventType {
     PUT = 0;
     DELETE = 1;

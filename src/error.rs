@@ -21,6 +21,9 @@ pub enum Error {
 
     /// gRPC status
     GRPCStatus(tonic::Status),
+
+    /// Watch error
+    WatchError(String),
 }
 
 impl Display for Error {
@@ -32,6 +35,7 @@ impl Display for Error {
             Error::IOError(e) => write!(f, "io error: {}", e),
             Error::TransportError(e) => write!(f, "transport error: {}", e),
             Error::GRPCStatus(e) => write!(f, "grep request error: {}", e),
+            Error::WatchError(e) => write!(f, "watch error: {}", e),
         }
     }
 }
