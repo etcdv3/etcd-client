@@ -11,6 +11,7 @@ pub mod lock;
 pub mod maintenance;
 pub mod watch;
 
+use crate::error::Result;
 use pb::etcdserverpb::ResponseHeader as PbResponseHeader;
 use pb::mvccpb::KeyValue as PbKeyValue;
 
@@ -79,10 +80,44 @@ impl KeyValue {
         &self.0.key
     }
 
+    /// The key in string. An empty key is not allowed.
+    #[inline]
+    pub fn key_str(&self) -> Result<&str> {
+        std::str::from_utf8(self.key()).map_err(From::from)
+    }
+
+    /// The key in string. An empty key is not allowed.
+    ///
+    /// # Safety
+    /// This function is unsafe because it does not check that the bytes of the key are valid UTF-8.
+    /// If this constraint is violated, undefined behavior results,
+    /// as the rest of Rust assumes that [`&str`]s are valid UTF-8.
+    #[inline]
+    pub unsafe fn key_str_unchecked(&self) -> &str {
+        std::str::from_utf8_unchecked(self.key())
+    }
+
     /// The value held by the key, in bytes.
     #[inline]
     pub fn value(&self) -> &[u8] {
         &self.0.value
+    }
+
+    /// The value held by the key, in string.
+    #[inline]
+    pub fn value_str(&self) -> Result<&str> {
+        std::str::from_utf8(self.value()).map_err(From::from)
+    }
+
+    /// The value held by the key, in bytes.
+    ///
+    /// # Safety
+    /// This function is unsafe because it does not check that the bytes of the value are valid UTF-8.
+    /// If this constraint is violated, undefined behavior results,
+    /// as the rest of Rust assumes that [`&str`]s are valid UTF-8.
+    #[inline]
+    pub unsafe fn value_str_unchecked(&self) -> &str {
+        std::str::from_utf8_unchecked(self.value())
     }
 
     /// The revision of last creation on this key.

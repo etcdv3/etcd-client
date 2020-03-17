@@ -15,10 +15,3 @@ pub use crate::rpc::watch::{
     Event, EventType, WatchFilterType, WatchOptions, WatchResponse, WatchStream, Watcher,
 };
 pub use crate::rpc::{KeyValue, ResponseHeader};
-
-/// Get client for testing.
-#[doc(hidden)]
-#[cfg(test)]
-pub async fn get_client() -> crate::error::Result<Client> {
-    Client::connect(["localhost:2379"]).await
-}

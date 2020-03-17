@@ -117,7 +117,12 @@ impl Client {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{get_client, Compare, CompareOp, EventType, TxnOp, TxnOpResponse};
+    use crate::{Compare, CompareOp, EventType, TxnOp, TxnOpResponse};
+
+    /// Get client for testing.
+    async fn get_client() -> Result<Client> {
+        Client::connect(["localhost:2379"]).await
+    }
 
     #[tokio::test]
     async fn test_put() -> Result<()> {
