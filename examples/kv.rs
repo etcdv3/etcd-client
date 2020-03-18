@@ -46,14 +46,14 @@ async fn main() -> Result<(), Error> {
     println!("put kv: {:?}", chris);
     println!();
 
-    // get bob
+    // get kv
     let resp = client.get(bob.key(), None).await?;
     if let Some(kv) = resp.kvs().first() {
         println!("Get kv: {{{}: {}}}", kv.key_str()?, kv.value_str()?);
         println!();
     }
 
-    // get all key-value pairs
+    // get all kv pairs
     println!("Get all users:");
     let resp = client
         .get("", Some(GetOptions::new().with_from_key()))
@@ -63,7 +63,7 @@ async fn main() -> Result<(), Error> {
     }
     println!();
 
-    // delete chris
+    // delete kv
     let resp = client
         .delete(chris.key(), Some(DeleteOptions::new().with_prev_key()))
         .await?;
