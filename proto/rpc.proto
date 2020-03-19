@@ -535,6 +535,7 @@ message ResponseOp {
 }
 
 message Compare {
+  // Logical comparison operation.
   enum CompareResult {
     EQUAL = 0;
     GREATER = 1;

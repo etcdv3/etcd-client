@@ -4,17 +4,14 @@ mod client;
 mod error;
 mod rpc;
 
-pub use crate::client::{AsyncClient, Client};
+pub use crate::client::Client;
 pub use crate::error::Error;
 pub use crate::rpc::kv::{
-    DeleteOptions, DeleteResponse, GetOptions, GetResponse, PutOptions, PutResponse, SortOrder,
-    SortTarget,
+    CompactionOptions, CompactionResponse, Compare, CompareOp, DeleteOptions, DeleteResponse,
+    GetOptions, GetResponse, PutOptions, PutResponse, SortOrder, SortTarget, Txn, TxnOp,
+    TxnOpResponse, TxnResponse,
+};
+pub use crate::rpc::watch::{
+    Event, EventType, WatchFilterType, WatchOptions, WatchResponse, WatchStream, Watcher,
 };
 pub use crate::rpc::{KeyValue, ResponseHeader};
-
-/// Get client for testing.
-#[doc(hidden)]
-#[cfg(test)]
-pub fn get_client() -> Client {
-    Client::connect(["localhost:2379"]).expect("Failed to connect to `localhost:2379`")
-}

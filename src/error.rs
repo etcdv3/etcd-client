@@ -1,6 +1,7 @@
 //! Etcd Client Error handling.
 
 use std::fmt::{Display, Formatter};
+use std::str::Utf8Error;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -21,6 +22,12 @@ pub enum Error {
 
     /// gRPC status
     GRPCStatus(tonic::Status),
+
+    /// Watch error
+    WatchError(String),
+
+    /// Utf8Error
+    Utf8Error(Utf8Error),
 }
 
 impl Display for Error {
@@ -32,6 +39,8 @@ impl Display for Error {
             Error::IOError(e) => write!(f, "io error: {}", e),
             Error::TransportError(e) => write!(f, "transport error: {}", e),
             Error::GRPCStatus(e) => write!(f, "grep request error: {}", e),
+            Error::WatchError(e) => write!(f, "watch error: {}", e),
+            Error::Utf8Error(e) => write!(f, "utf8 error: {}", e),
         }
     }
 }
@@ -63,5 +72,12 @@ impl From<tonic::Status> for Error {
     #[inline]
     fn from(e: tonic::Status) -> Self {
         Error::GRPCStatus(e)
+    }
+}
+
+impl From<Utf8Error> for Error {
+    #[inline]
+    fn from(e: Utf8Error) -> Self {
+        Error::Utf8Error(e)
     }
 }

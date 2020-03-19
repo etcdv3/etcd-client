@@ -7,13 +7,17 @@ readme = "README.md"
 license = "MIT"
 description = "An etcd v3 API client"
 repository = "https://github.com/etcdv3/etcdv3.git"
-keywords = ["etcd", "v3", "api", "client"]
+keywords = ["etcd", "v3", "api", "client", "async"]
 
 [dependencies]
 tonic = "0.1"
 prost = "0.6"
-tokio = { version = "0.2", features = ["rt-core"] }
+tokio = { version = "0.2", features = ["rt-core", "stream", "sync"] }
+futures-core = "0.3"
 http = "0.2"
+
+[dev-dependencies]
+tokio = { version = "0.2", features = ["full"] }
 
 [build-dependencies]
 tonic-build = "0.1"

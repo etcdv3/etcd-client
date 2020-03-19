@@ -2,30 +2,19 @@
 
 use crate::error::{Error, Result};
 use crate::rpc::kv::{
-    DeleteOptions, DeleteResponse, GetOptions, GetResponse, KvClient, PutOptions, PutResponse,
+    CompactionOptions, CompactionResponse, DeleteOptions, DeleteResponse, GetOptions, GetResponse,
+    KvClient, PutOptions, PutResponse, Txn, TxnResponse,
 };
-use std::future::Future;
-use tokio::runtime::Runtime;
+use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 use tonic::transport::Channel;
 
-/// This trait provide `block_on` method for `Future`.
-trait FutureBlockOn: Future {
-    fn block_on(self, runtime: &mut Runtime) -> Self::Output;
-}
-
-impl<T: Future> FutureBlockOn for T {
-    #[inline]
-    fn block_on(self, runtime: &mut Runtime) -> Self::Output {
-        runtime.block_on(self)
-    }
-}
-
 /// Asynchronous `etcd` client using v3 API.
-pub struct AsyncClient {
+pub struct Client {
     kv: KvClient,
+    watch: WatchClient,
 }
 
-impl AsyncClient {
+impl Client {
     /// Connect to `etcd` servers from given `endpoints`.
     pub async fn connect<E: AsRef<str>, S: AsRef<[E]>>(endpoints: S) -> Result<Self> {
         const HTTP_PREFIX: &str = "http://";
@@ -51,9 +40,10 @@ impl AsyncClient {
             _ => Channel::balance_list(endpoints.into_iter()),
         };
 
-        let kv = KvClient::new(channel, None);
+        let kv = KvClient::new(channel.clone(), None);
+        let watch = WatchClient::new(channel, None);
 
-        Ok(Self { kv })
+        Ok(Self { kv, watch })
     }
 
     /// Put the given key into the key-value store.
@@ -64,157 +54,86 @@ impl AsyncClient {
         &mut self,
         key: impl Into<Vec<u8>>,
         value: impl Into<Vec<u8>>,
-    ) -> Result<PutResponse> {
-        self.kv.put(key, value, PutOptions::new()).await
-    }
-
-    /// Put the given key into the key-value store with options.
-    /// A put request increments the revision of the key-value store
-    /// and generates one event in the event history.
-    #[inline]
-    pub async fn put_with_options(
-        &mut self,
-        key: impl Into<Vec<u8>>,
-        value: impl Into<Vec<u8>>,
-        options: PutOptions,
+        options: Option<PutOptions>,
     ) -> Result<PutResponse> {
         self.kv.put(key, value, options).await
     }
 
     /// Gets the key from the key-value store.
     #[inline]
-    pub async fn get(&mut self, key: impl Into<Vec<u8>>) -> Result<GetResponse> {
-        self.kv.get(key, GetOptions::new()).await
-    }
-
-    /// Gets the key or a range of keys from the key-value store.
-    #[inline]
-    pub async fn get_with_options(
+    pub async fn get(
         &mut self,
         key: impl Into<Vec<u8>>,
-        options: GetOptions,
+        options: Option<GetOptions>,
     ) -> Result<GetResponse> {
         self.kv.get(key, options).await
     }
 
     /// Deletes the given key from the key-value store.
     #[inline]
-    pub async fn delete(&mut self, key: impl Into<Vec<u8>>) -> Result<DeleteResponse> {
-        self.kv.delete(key, DeleteOptions::new()).await
-    }
-
-    /// Deletes the given key or a range of keys from the key-value store.
-    #[inline]
-    pub async fn delete_with_options(
+    pub async fn delete(
         &mut self,
         key: impl Into<Vec<u8>>,
-        options: DeleteOptions,
+        options: Option<DeleteOptions>,
     ) -> Result<DeleteResponse> {
         self.kv.delete(key, options).await
     }
-}
 
-/// Synchronous `etcd` client using v3 API.
-pub struct Client {
-    runtime: Runtime,
-    async_client: AsyncClient,
-}
-
-impl Client {
-    /// Connect to `etcd` servers from given `endpoints`.
+    /// Compacts the event history in the etcd key-value store. The key-value
+    /// store should be periodically compacted or the event history will continue to grow
+    /// indefinitely.
     #[inline]
-    pub fn connect<E: AsRef<str>, S: AsRef<[E]>>(endpoints: S) -> Result<Self> {
-        let mut runtime = Runtime::new()?;
-
-        let async_client = AsyncClient::connect(endpoints).block_on(&mut runtime)?;
-
-        Ok(Self {
-            runtime,
-            async_client,
-        })
+    pub async fn compact(
+        &mut self,
+        revision: i64,
+        options: Option<CompactionOptions>,
+    ) -> Result<CompactionResponse> {
+        self.kv.compact(revision, options).await
     }
 
-    /// Put the given key into the key-value store.
-    /// A put request increments the revision of the key-value store
-    /// and generates one event in the event history.
+    /// Processes multiple operations in a single transaction.
+    /// A txn request increments the revision of the key-value store
+    /// and generates events with the same revision for every completed operation.
+    /// It is not allowed to modify the same key several times within one txn.
     #[inline]
-    pub fn put(
+    pub async fn txn(&mut self, txn: Txn) -> Result<TxnResponse> {
+        self.kv.txn(txn).await
+    }
+
+    /// Watches for events happening or that have happened. Both input and output
+    /// are streams; the input stream is for creating and canceling watcher and the output
+    /// stream sends events. The entire event history can be watched starting from the
+    /// last compaction revision.
+    #[inline]
+    pub async fn watch(
         &mut self,
         key: impl Into<Vec<u8>>,
-        value: impl Into<Vec<u8>>,
-    ) -> Result<PutResponse> {
-        self.async_client
-            .put(key, value)
-            .block_on(&mut self.runtime)
-    }
-
-    /// Put the given key into the key-value store with options.
-    /// A put request increments the revision of the key-value store
-    /// and generates one event in the event history.
-    #[inline]
-    pub fn put_with_options(
-        &mut self,
-        key: impl Into<Vec<u8>>,
-        value: impl Into<Vec<u8>>,
-        options: PutOptions,
-    ) -> Result<PutResponse> {
-        self.async_client
-            .put_with_options(key, value, options)
-            .block_on(&mut self.runtime)
-    }
-
-    /// Gets the key from the key-value store.
-    #[inline]
-    pub fn get(&mut self, key: impl Into<Vec<u8>>) -> Result<GetResponse> {
-        self.async_client.get(key).block_on(&mut self.runtime)
-    }
-
-    /// Gets the key or a range of keys from the key-value store.
-    #[inline]
-    pub fn get_with_options(
-        &mut self,
-        key: impl Into<Vec<u8>>,
-        options: GetOptions,
-    ) -> Result<GetResponse> {
-        self.async_client
-            .get_with_options(key, options)
-            .block_on(&mut self.runtime)
-    }
-
-    /// Deletes the given key from the key-value store.
-    #[inline]
-    pub fn delete(&mut self, key: impl Into<Vec<u8>>) -> Result<DeleteResponse> {
-        self.async_client.delete(key).block_on(&mut self.runtime)
-    }
-
-    /// Deletes the given key or a range of keys from the key-value store.
-    #[inline]
-    pub fn delete_with_options(
-        &mut self,
-        key: impl Into<Vec<u8>>,
-        options: DeleteOptions,
-    ) -> Result<DeleteResponse> {
-        self.async_client
-            .delete_with_options(key, options)
-            .block_on(&mut self.runtime)
+        options: Option<WatchOptions>,
+    ) -> Result<(Watcher, WatchStream)> {
+        self.watch.watch(key, options).await
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::get_client;
+    use crate::{Compare, CompareOp, EventType, TxnOp, TxnOpResponse};
 
-    #[test]
-    fn test_put() {
-        let mut client = get_client();
-        client.put("put", "123").unwrap();
+    /// Get client for testing.
+    async fn get_client() -> Result<Client> {
+        Client::connect(["localhost:2379"]).await
+    }
+
+    #[tokio::test]
+    async fn test_put() -> Result<()> {
+        let mut client = get_client().await?;
+        client.put("put", "123", None).await?;
 
         // overwrite with prev key
         {
             let resp = client
-                .put_with_options("put", "456", PutOptions::new().with_prev_key())
-                .unwrap();
+                .put("put", "456", Some(PutOptions::new().with_prev_key()))
+                .await?;
             let prev_key = resp.prev_key();
             assert!(prev_key.is_some());
             let prev_key = prev_key.unwrap();
@@ -225,27 +144,29 @@ mod tests {
         // overwrite again with prev key
         {
             let resp = client
-                .put_with_options("put", "789", PutOptions::new().with_prev_key())
-                .unwrap();
+                .put("put", "789", Some(PutOptions::new().with_prev_key()))
+                .await?;
             let prev_key = resp.prev_key();
             assert!(prev_key.is_some());
             let prev_key = prev_key.unwrap();
             assert_eq!(prev_key.key(), b"put");
             assert_eq!(prev_key.value(), b"456");
         }
+
+        Ok(())
     }
 
-    #[test]
-    fn test_get() {
-        let mut client = get_client();
-        client.put("get10", "10").unwrap();
-        client.put("get11", "11").unwrap();
-        client.put("get20", "20").unwrap();
-        client.put("get21", "21").unwrap();
+    #[tokio::test]
+    async fn test_get() -> Result<()> {
+        let mut client = get_client().await?;
+        client.put("get10", "10", None).await?;
+        client.put("get11", "11", None).await?;
+        client.put("get20", "20", None).await?;
+        client.put("get21", "21", None).await?;
 
         // get key
         {
-            let resp = client.get("get11".as_bytes()).unwrap();
+            let resp = client.get("get11", None).await?;
             assert_eq!(resp.count(), 1);
             assert_eq!(resp.more(), false);
             assert_eq!(resp.kvs().len(), 1);
@@ -256,8 +177,11 @@ mod tests {
         // get from key
         {
             let resp = client
-                .get_with_options("get11", GetOptions::new().with_from_key().with_limit(2))
-                .unwrap();
+                .get(
+                    "get11",
+                    Some(GetOptions::new().with_from_key().with_limit(2)),
+                )
+                .await?;
             assert_eq!(resp.more(), true);
             assert_eq!(resp.kvs().len(), 2);
             assert_eq!(resp.kvs()[0].key(), b"get11");
@@ -269,8 +193,8 @@ mod tests {
         // get prefix keys
         {
             let resp = client
-                .get_with_options("get1", GetOptions::new().with_prefix())
-                .unwrap();
+                .get("get1", Some(GetOptions::new().with_prefix()))
+                .await?;
             assert_eq!(resp.count(), 2);
             assert_eq!(resp.more(), false);
             assert_eq!(resp.kvs().len(), 2);
@@ -279,50 +203,170 @@ mod tests {
             assert_eq!(resp.kvs()[1].key(), b"get11");
             assert_eq!(resp.kvs()[1].value(), b"11");
         }
+
+        Ok(())
     }
 
-    #[test]
-    fn test_delete() {
-        let mut client = get_client();
-        client.put("del10", "10").unwrap();
-        client.put("del11", "11").unwrap();
-        client.put("del20", "20").unwrap();
-        client.put("del21", "21").unwrap();
+    #[tokio::test]
+    async fn test_delete() -> Result<()> {
+        let mut client = get_client().await?;
+        client.put("del10", "10", None).await?;
+        client.put("del11", "11", None).await?;
+        client.put("del20", "20", None).await?;
+        client.put("del21", "21", None).await?;
 
         // delete key
         {
-            let resp = client.delete("del11").unwrap();
+            let resp = client.delete("del11", None).await?;
             assert_eq!(resp.deleted(), 1);
             let resp = client
-                .get_with_options("del11", GetOptions::new().with_count_only())
-                .unwrap();
+                .get("del11", Some(GetOptions::new().with_count_only()))
+                .await?;
             assert_eq!(resp.count(), 0);
         }
 
         // delete a range of keys
         {
             let resp = client
-                .delete_with_options("del11", DeleteOptions::new().with_range("del22"))
-                .unwrap();
+                .delete("del11", Some(DeleteOptions::new().with_range("del22")))
+                .await?;
             assert_eq!(resp.deleted(), 2);
             let resp = client
-                .get_with_options(
+                .get(
                     "del11",
-                    GetOptions::new().with_range("del22").with_count_only(),
+                    Some(GetOptions::new().with_range("del22").with_count_only()),
                 )
-                .unwrap();
+                .await?;
             assert_eq!(resp.count(), 0);
         }
 
-        // delete all keys
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_compact() -> Result<()> {
+        let mut client = get_client().await?;
+        let rev0 = client
+            .put("compact", "0", None)
+            .await?
+            .header()
+            .unwrap()
+            .revision();
+        let rev1 = client
+            .put("compact", "1", None)
+            .await?
+            .header()
+            .unwrap()
+            .revision();
+
+        // before compacting
+        let rev0_resp = client
+            .get("compact", Some(GetOptions::new().with_revision(rev0)))
+            .await?;
+        assert_eq!(rev0_resp.kvs()[0].value(), b"0");
+        let rev1_resp = client
+            .get("compact", Some(GetOptions::new().with_revision(rev1)))
+            .await?;
+        assert_eq!(rev1_resp.kvs()[0].value(), b"1");
+
+        client.compact(rev1, None).await?;
+
+        // after compacting
+        let result = client
+            .get("compact", Some(GetOptions::new().with_revision(rev0)))
+            .await;
+        assert!(result.is_err());
+        let rev1_resp = client
+            .get("compact", Some(GetOptions::new().with_revision(rev1)))
+            .await?;
+        assert_eq!(rev1_resp.kvs()[0].value(), b"1");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_txn() -> Result<()> {
+        let mut client = get_client().await?;
+        client.put("txn01", "01", None).await?;
+
+        // transaction 1
         {
-            let _resp = client
-                .delete_with_options("\0", DeleteOptions::new().with_range("\0"))
-                .unwrap();
             let resp = client
-                .get_with_options("\0", GetOptions::new().with_range("\0").with_count_only())
-                .unwrap();
-            assert_eq!(resp.count(), 0);
+                .txn(
+                    Txn::new()
+                        .when(&[Compare::value("txn01", CompareOp::Equal, "01")][..])
+                        .and_then(
+                            &[TxnOp::put(
+                                "txn01",
+                                "02",
+                                Some(PutOptions::new().with_prev_key()),
+                            )][..],
+                        )
+                        .or_else(&[TxnOp::get("txn01", None)][..]),
+                )
+                .await?;
+
+            assert!(resp.succeeded());
+            let op_responses = resp.op_responses();
+            assert_eq!(op_responses.len(), 1);
+
+            match op_responses[0] {
+                TxnOpResponse::Put(ref resp) => assert_eq!(resp.prev_key().unwrap().value(), b"01"),
+                _ => panic!("unexpected response"),
+            }
+
+            let resp = client.get("txn01", None).await?;
+            assert_eq!(resp.kvs()[0].key(), b"txn01");
+            assert_eq!(resp.kvs()[0].value(), b"02");
         }
+
+        // transaction 2
+        {
+            let resp = client
+                .txn(
+                    Txn::new()
+                        .when(&[Compare::value("txn01", CompareOp::Equal, "01")][..])
+                        .and_then(&[TxnOp::put("txn01", "02", None)][..])
+                        .or_else(&[TxnOp::get("txn01", None)][..]),
+                )
+                .await?;
+
+            assert!(!resp.succeeded());
+            let op_responses = resp.op_responses();
+            assert_eq!(op_responses.len(), 1);
+
+            match op_responses[0] {
+                TxnOpResponse::Get(ref resp) => assert_eq!(resp.kvs()[0].value(), b"02"),
+                _ => panic!("unexpected response"),
+            }
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_watch() -> Result<()> {
+        let mut client = get_client().await?;
+
+        let (mut watcher, mut stream) = client.watch("watch01", None).await?;
+
+        client.put("watch01", "01", None).await?;
+
+        let resp = stream.message().await?.unwrap();
+        assert_eq!(resp.watch_id(), watcher.watch_id());
+        assert_eq!(resp.events().len(), 1);
+
+        let kv = resp.events()[0].kv().unwrap();
+        assert_eq!(kv.key(), b"watch01");
+        assert_eq!(kv.value(), b"01");
+        assert_eq!(resp.events()[0].event_type(), EventType::Put);
+
+        watcher.cancel().await?;
+
+        let resp = stream.message().await?.unwrap();
+        assert_eq!(resp.watch_id(), watcher.watch_id());
+        assert!(resp.canceled());
+
+        Ok(())
     }
 }
