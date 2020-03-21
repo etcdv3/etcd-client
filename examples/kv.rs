@@ -1,6 +1,6 @@
 //! KV example.
 
-use etcdv3::*;
+use etcd_client::*;
 
 #[derive(Debug)]
 struct KV {

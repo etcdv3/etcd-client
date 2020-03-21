@@ -1,12 +1,13 @@
 [package]
-name = "etcdv3"
+name = "etcd-client"
 version = "0.1.0"
-authors = ["The etcdv3 Authors <davidli2010@foxmail.com>"]
+authors = ["The etcd-client Authors <davidli2010@foxmail.com>"]
 edition = "2018"
 readme = "README.md"
 license = "MIT"
 description = "An etcd v3 API client"
-repository = "https://github.com/etcdv3/etcdv3.git"
+repository = "https://github.com/etcdv3/etcd-client.git"
+homepage = "https://github.com/etcdv3/etcd-client"
 keywords = ["etcd", "v3", "api", "client", "async"]
 
 [dependencies]

@@ -5,7 +5,7 @@ use std::str::Utf8Error;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// The error type for `etcdv3` client.
+/// The error type for `etcd` client.
 #[derive(Debug)]
 pub enum Error {
     /// Invalid arguments

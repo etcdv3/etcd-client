@@ -1,4 +1,4 @@
-# etcdv3
+# etcd-client
 
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -24,7 +24,7 @@ It provides asynchronous client backed by [tokio](https://github.com/tokio-rs/to
 ## Usage
 
 ```Rust
-use ectdv3::*;
+use ectd_client::*;
 
 let mut client = Client::connect(["localhost:2379"]).await?;
 // put kv
@@ -48,7 +48,7 @@ Notes that we use a fixed `etcd` server URI (localhost:2379) to connect to etcd 
 
 ## Rust version requirements
 
-`etcdv3` works on rust `1.39` and above as it requires support for the `async_await`
+`etcd-client` works on rust `1.39` and above as it requires support for the `async_await`
 feature.
 
 ## License
@@ -58,5 +58,5 @@ This project is licensed under the MIT license ([LICENSE](LICENSE) or http://ope
 ## Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in `etcdv3` by you, shall be licensed as MIT, without any additional
+for inclusion in `etcd-client` by you, shall be licensed as MIT, without any additional
 terms or conditions.

@@ -1,6 +1,6 @@
 //! Watch example
 
-use etcdv3::*;
+use etcd_client::*;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
