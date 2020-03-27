@@ -12,8 +12,7 @@ pub use crate::rpc::kv::{
     TxnOpResponse, TxnResponse,
 };
 pub use crate::rpc::lease::{
-    LeaseKeepAliveOptions, LeaseKeepAliveResponse,
-    LeaseLeasesResponse, LeaseRevokeOptions, LeaseRevokeResponse, LeaseTimeToLiveOptions,
+    LeaseKeepAliveResponse, LeaseLeasesResponse, LeaseRevokeResponse, LeaseTimeToLiveOptions,
     LeaseTimeToLiveResponse,
 };
 pub use crate::rpc::watch::{

@@ -7,7 +7,7 @@ async fn main() -> Result<(), Error> {
     let mut client = Client::connect(["localhost:2379"]).await?;
 
     // grant a key
-    let resp = client.grant(60, None).await?;
+    let resp = client.lease_grant(60, None).await?;
     println!(
         "grant a lease with id {:?}, ttl {:?}",
         resp.id(),
@@ -15,14 +15,8 @@ async fn main() -> Result<(), Error> {
     );
     let id = resp.id();
 
-    let resp = client.keep_alive(id, None).await?;
-    println!(
-        "lease keep alive with id {:?}, new ttl {:?}",
-        resp.id(),
-        resp.ttl()
-    );
-
-    let resp = client.time_to_live(id, None).await?;
+    // query time to live
+    let resp = client.lease_time_to_live(id, None).await?;
     println!(
         "lease({:?}) remain ttl {:?} granted ttl {:?}",
         resp.id(),
@@ -30,13 +24,21 @@ async fn main() -> Result<(), Error> {
         resp.granted_ttl()
     );
 
-    // lease
-    let resp = client.leases().await?;
-    let lease_status = resp.take_leases();
-    println!("lease status {:?}", lease_status[0].id);
+    // keep alive
+    let (mut keeper, mut stream) = client.lease_keep_alive(id).await?;
+    println!("lease {:?} keep alive start", id);
+    keeper.keep_alive().await?;
+    if let Some(resp) = stream.message().await? {
+        println!("lease {:?} keep alive, new ttl {:?}", resp.id(), resp.ttl());
+    }
 
-    // revoke a key
-    let _resp = client.revoke(id, None).await?;
+    // get lease list
+    let resp = client.lease_leases().await?;
+    let lease_status = resp.leases();
+    println!("lease status {:?}", lease_status[0].leaseid());
+
+    // revoke a lease
+    let _resp = client.lease_revoke(id).await?;
     println!("revoke a lease with id {:?}", id);
     Ok(())
 }

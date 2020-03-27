@@ -7,7 +7,7 @@ use crate::rpc::pb::etcdserverpb::{
     LeaseKeepAliveRequest as PbLeaseKeepAliveRequest,
     LeaseKeepAliveResponse as PbLeaseKeepAliveResponse, LeaseLeasesRequest as PbLeaseLeasesRequest,
     LeaseLeasesResponse as PbLeaseLeasesResponse, LeaseRevokeRequest as PbLeaseRevokeRequest,
-    LeaseRevokeResponse as PbLeaseRevokeResponse, LeaseStatus,
+    LeaseRevokeResponse as PbLeaseRevokeResponse, LeaseStatus as PbLeaseStatus,
     LeaseTimeToLiveRequest as PbLeaseTimeToLiveRequest,
     LeaseTimeToLiveResponse as PbLeaseTimeToLiveResponse,
 };
@@ -15,9 +15,12 @@ use crate::rpc::pb::etcdserverpb::{
 use crate::rpc::ResponseHeader;
 use crate::Error;
 
-use tokio::sync::mpsc::channel;
+use std::task::{Context, Poll};
+use tokio::stream::Stream;
+use tokio::sync::mpsc::{channel, Sender};
+use tonic::codegen::Pin;
 use tonic::transport::Channel;
-use tonic::{Interceptor, IntoRequest, Request};
+use tonic::{Interceptor, IntoRequest, Request, Streaming};
 
 /// Client for lease operations.
 #[repr(transparent)]
@@ -37,7 +40,7 @@ impl LeaseClient {
         Self { inner }
     }
 
-    /// `grant` creates a lease which expires if the server does not receive a keepAlive
+    /// creates a lease which expires if the server does not receive a keepAlive
     /// within a given time to live period. All keys attached to the lease will be expired and
     /// deleted if the lease expires. Each expired key generates a delete event in the event history.
     #[inline]
@@ -54,49 +57,46 @@ impl LeaseClient {
         Ok(LeaseGrantResponse::new(resp))
     }
 
-    /// `revoke` revokes a lease. All keys attached to the lease will expire and be deleted.
+    /// revokes a lease. All keys attached to the lease will expire and be deleted.
     #[inline]
-    pub async fn revoke(
-        &mut self,
-        id: i64,
-        options: Option<LeaseRevokeOptions>,
-    ) -> Result<LeaseRevokeResponse> {
+    pub async fn revoke(&mut self, id: i64) -> Result<LeaseRevokeResponse> {
         let resp = self
             .inner
-            .lease_revoke(options.unwrap_or_default().with_id(id))
+            .lease_revoke(LeaseRevokeOptions::new().with_id(id))
             .await?
             .into_inner();
         Ok(LeaseRevokeResponse::new(resp))
     }
 
-    /// `keep_alive` keeps the lease alive by streaming keep alive requests from the client
+    /// keeps the lease alive by streaming keep alive requests from the client
     /// to the server and streaming keep alive responses from the server to the client.
     #[inline]
-    pub async fn keep_alive(
-        &mut self,
-        id: i64,
-        options: Option<LeaseKeepAliveOptions>,
-    ) -> Result<LeaseKeepAliveResponse> {
+    pub async fn keep_alive(&mut self, id: i64) -> Result<(LeaseKeeper, LeaseKeepAliveStream)> {
         let (mut sender, receiver) = channel::<PbLeaseKeepAliveRequest>(100);
         sender
-            .send(options.unwrap_or_default().with_id(id).into())
+            .send(LeaseKeepAliveOptions::new().with_id(id).into())
             .await
             .map_err(|e| Error::LeaseKeepAliveError(e.to_string()))?;
 
         let mut stream = self.inner.lease_keep_alive(receiver).await?.into_inner();
-        let resp = match stream.message().await? {
-            Some(resp) => resp,
+
+        let id = match stream.message().await? {
+            Some(resp) => resp.id,
             None => {
-                return Err(Error::LeaseKeepAliveError(
-                    "failed to create lease keep alive".to_string(),
+                return Err(Error::WatchError(
+                    "failed to create lease keeper".to_string(),
                 ));
             }
         };
 
-        Ok(LeaseKeepAliveResponse::new(resp))
+        Ok((
+            LeaseKeeper::new(id, sender),
+            LeaseKeepAliveStream::new(stream),
+        ))
     }
 
-    /// `time_to_live` retrieves lease information.
+    /// retrieves lease information.
+    #[inline]
     pub async fn time_to_live(
         &mut self,
         id: i64,
@@ -110,7 +110,8 @@ impl LeaseClient {
         Ok(LeaseTimeToLiveResponse::new(resp))
     }
 
-    /// `leases` lists all existing leases.
+    /// lists all existing leases.
+    #[inline]
     pub async fn leases(&mut self) -> Result<LeaseLeasesResponse> {
         let resp = self
             .inner
@@ -129,13 +130,14 @@ pub struct LeaseGrantOptions(PbLeaseGrantRequest);
 impl LeaseGrantOptions {
     /// Set ttl
     #[inline]
-    fn with_ttl(mut self, ttl: i64) -> Self {
+    const fn with_ttl(mut self, ttl: i64) -> Self {
         self.0.ttl = ttl;
         self
     }
 
     /// Set id
-    pub fn with_id(mut self, id: i64) -> Self {
+    #[inline]
+    pub const fn with_id(mut self, id: i64) -> Self {
         self.0.id = id;
         self
     }
@@ -207,10 +209,11 @@ impl LeaseGrantResponse {
 /// Options for `leaseRevoke` operation.
 #[derive(Debug, Default, Clone)]
 #[repr(transparent)]
-pub struct LeaseRevokeOptions(PbLeaseRevokeRequest);
+struct LeaseRevokeOptions(PbLeaseRevokeRequest);
 
 impl LeaseRevokeOptions {
     /// Set id
+    #[inline]
     fn with_id(mut self, id: i64) -> Self {
         self.0.id = id;
         self
@@ -265,10 +268,11 @@ impl LeaseRevokeResponse {
 /// Options for `leaseKeepAlive` operation.
 #[derive(Debug, Default, Clone)]
 #[repr(transparent)]
-pub struct LeaseKeepAliveOptions(PbLeaseKeepAliveRequest);
+struct LeaseKeepAliveOptions(PbLeaseKeepAliveRequest);
 
 impl LeaseKeepAliveOptions {
     /// Set id
+    #[inline]
     fn with_id(mut self, id: i64) -> Self {
         self.0.id = id;
         self
@@ -339,14 +343,16 @@ pub struct LeaseTimeToLiveOptions(PbLeaseTimeToLiveRequest);
 
 impl LeaseTimeToLiveOptions {
     /// ID is the lease ID for the lease.
-    fn with_id(mut self, id: i64) -> Self {
+    #[inline]
+    const fn with_id(mut self, id: i64) -> Self {
         self.0.id = id;
         self
     }
 
     /// keys is true to query all the keys attached to this lease.
-    pub fn with_keys(mut self, keys: bool) -> Self {
-        self.0.keys = keys;
+    #[inline]
+    pub const fn with_keys(mut self) -> Self {
+        self.0.keys = true;
         self
     }
 
@@ -415,8 +421,8 @@ impl LeaseTimeToLiveResponse {
 
     /// Keys is the list of keys attached to this lease.
     #[inline]
-    pub fn keys(&self, idx: usize) -> &[u8] {
-        self.0.keys.get(idx).unwrap()
+    pub fn keys(&self) -> &[Vec<u8>] {
+        &self.0.keys
     }
 }
 
@@ -446,8 +452,94 @@ impl LeaseLeasesResponse {
 
     /// get leases status
     #[inline]
-    pub fn take_leases(&self) -> &[LeaseStatus] {
+    pub fn leases(&self) -> &[LeaseStatus] {
         unsafe { &*(self.0.leases.as_slice() as *const _ as *const [LeaseStatus]) }
     }
 }
 
+/// LeaseStatus
+#[derive(Debug, Clone)]
+#[repr(transparent)]
+pub struct LeaseStatus(PbLeaseStatus);
+
+impl LeaseStatus {
+    /// get id from leases status
+    #[inline]
+    pub const fn leaseid(&self) -> i64 {
+        self.0.id
+    }
+}
+impl From<&PbLeaseStatus> for &LeaseStatus {
+    #[inline]
+    fn from(src: &PbLeaseStatus) -> Self {
+        unsafe { &*(src as *const _ as *const LeaseStatus) }
+    }
+}
+
+/// The lease keep alive handle.
+#[derive(Debug)]
+pub struct LeaseKeeper {
+    id: i64,
+    sender: Sender<PbLeaseKeepAliveRequest>,
+}
+
+impl LeaseKeeper {
+    /// Creates a new `LeaseKeeper`.
+    #[inline]
+    const fn new(id: i64, sender: Sender<PbLeaseKeepAliveRequest>) -> Self {
+        Self { id, sender }
+    }
+
+    /// The leaseid which user want to keep alive.
+    #[inline]
+    pub const fn id(&self) -> i64 {
+        self.id
+    }
+
+    /// Send a keep alive request and receive response
+    #[inline]
+    pub async fn keep_alive(&mut self) -> Result<()> {
+        self.sender
+            .send(LeaseKeepAliveOptions::new().with_id(self.id).into())
+            .await
+            .map_err(|e| Error::LeaseKeepAliveError(e.to_string()))
+    }
+}
+
+/// The lease keep alive response stream.
+#[derive(Debug)]
+pub struct LeaseKeepAliveStream {
+    stream: Streaming<PbLeaseKeepAliveResponse>,
+}
+
+impl LeaseKeepAliveStream {
+    /// Creates a new `LeaseKeepAliveStream`.
+    #[inline]
+    const fn new(stream: Streaming<PbLeaseKeepAliveResponse>) -> Self {
+        Self { stream }
+    }
+
+    /// Fetch the next message from this stream.
+    #[inline]
+    pub async fn message(&mut self) -> Result<Option<LeaseKeepAliveResponse>> {
+        match self.stream.message().await? {
+            Some(resp) => Ok(Some(LeaseKeepAliveResponse::new(resp))),
+            None => Ok(None),
+        }
+    }
+}
+
+impl Stream for LeaseKeepAliveStream {
+    type Item = Result<LeaseKeepAliveResponse>;
+
+    #[inline]
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        Pin::new(&mut self.get_mut().stream)
+            .poll_next(cx)
+            .map(|t| match t {
+                Some(Ok(resp)) => Some(Ok(LeaseKeepAliveResponse::new(resp))),
+                Some(Err(e)) => Some(Err(From::from(e))),
+                None => None,
+            })
+    }
+}
