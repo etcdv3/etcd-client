@@ -122,7 +122,7 @@ impl LeaseClient {
     }
 }
 
-/// Options for `leaseGrant` operation.
+/// Options for `Grant` operation.
 #[derive(Debug, Default, Clone)]
 #[repr(transparent)]
 pub struct LeaseGrantOptions(PbLeaseGrantRequest);
@@ -163,13 +163,13 @@ impl IntoRequest<PbLeaseGrantRequest> for LeaseGrantOptions {
     }
 }
 
-/// Response for `leaseGrant` operation.
+/// Response for `Grant` operation.
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct LeaseGrantResponse(PbLeaseGrantResponse);
 
 impl LeaseGrantResponse {
-    /// Create a new `LeaseGrantResponse` from pb lease grant response.
+    /// Creates a new `LeaseGrantResponse` from pb lease grant response.
     #[inline]
     const fn new(resp: PbLeaseGrantResponse) -> Self {
         Self(resp)
@@ -206,7 +206,7 @@ impl LeaseGrantResponse {
     }
 }
 
-/// Options for `leaseRevoke` operation.
+/// Options for `Revoke` operation.
 #[derive(Debug, Default, Clone)]
 #[repr(transparent)]
 struct LeaseRevokeOptions(PbLeaseRevokeRequest);
@@ -240,13 +240,13 @@ impl IntoRequest<PbLeaseRevokeRequest> for LeaseRevokeOptions {
     }
 }
 
-/// Response for `leaseRevoke` operation.
+/// Response for `Revoke` operation.
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct LeaseRevokeResponse(PbLeaseRevokeResponse);
 
 impl LeaseRevokeResponse {
-    /// Create a new `LeaseRevokeResponse` from pb lease revoke response.
+    /// Creates a new `LeaseRevokeResponse` from pb lease revoke response.
     #[inline]
     const fn new(resp: PbLeaseRevokeResponse) -> Self {
         Self(resp)
@@ -265,7 +265,7 @@ impl LeaseRevokeResponse {
     }
 }
 
-/// Options for `leaseKeepAlive` operation.
+/// Options for `KeepAlive` operation.
 #[derive(Debug, Default, Clone)]
 #[repr(transparent)]
 struct LeaseKeepAliveOptions(PbLeaseKeepAliveRequest);
@@ -299,13 +299,13 @@ impl IntoRequest<PbLeaseKeepAliveRequest> for LeaseKeepAliveOptions {
     }
 }
 
-/// Response for `leaseKeepAlive` operation.
+/// Response for `KeepAlive` operation.
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct LeaseKeepAliveResponse(PbLeaseKeepAliveResponse);
 
 impl LeaseKeepAliveResponse {
-    /// Create a new `LeaseKeepAliveResponse` from pb lease KeepAlive response.
+    /// Creates a new `LeaseKeepAliveResponse` from pb lease KeepAlive response.
     #[inline]
     const fn new(resp: PbLeaseKeepAliveResponse) -> Self {
         Self(resp)
@@ -336,7 +336,7 @@ impl LeaseKeepAliveResponse {
     }
 }
 
-/// Options for `leaseTimeToLive` operation.
+/// Options for `TimeToLive` operation.
 #[derive(Debug, Default, Clone)]
 #[repr(transparent)]
 pub struct LeaseTimeToLiveOptions(PbLeaseTimeToLiveRequest);
@@ -377,13 +377,13 @@ impl IntoRequest<PbLeaseTimeToLiveRequest> for LeaseTimeToLiveOptions {
     }
 }
 
-/// Response for `leaseTimeToLive` operation.
+/// Response for `TimeToLive` operation.
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct LeaseTimeToLiveResponse(PbLeaseTimeToLiveResponse);
 
 impl LeaseTimeToLiveResponse {
-    /// Create a new `LeaseTimeToLiveResponse` from pb lease TimeToLive response.
+    /// Creates a new `LeaseTimeToLiveResponse` from pb lease TimeToLive response.
     #[inline]
     const fn new(resp: PbLeaseTimeToLiveResponse) -> Self {
         Self(resp)
@@ -426,13 +426,13 @@ impl LeaseTimeToLiveResponse {
     }
 }
 
-/// Response for `leaseLeases` operation.
+/// Response for `Leases` operation.
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct LeaseLeasesResponse(PbLeaseLeasesResponse);
 
 impl LeaseLeasesResponse {
-    /// Create a new `LeaseLeasesResponse` from pb lease Leases response.
+    /// Creates a new `LeaseLeasesResponse` from pb lease Leases response.
     #[inline]
     const fn new(resp: PbLeaseLeasesResponse) -> Self {
         Self(resp)
@@ -457,7 +457,7 @@ impl LeaseLeasesResponse {
     }
 }
 
-/// LeaseStatus
+/// LeaseStatus from `LeaseLeasesResponse`
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct LeaseStatus(PbLeaseStatus);
@@ -496,7 +496,7 @@ impl LeaseKeeper {
         self.id
     }
 
-    /// Send a keep alive request and receive response
+    /// Sends a keep alive request and receive response
     #[inline]
     pub async fn keep_alive(&mut self) -> Result<()> {
         self.sender
@@ -519,7 +519,7 @@ impl LeaseKeepAliveStream {
         Self { stream }
     }
 
-    /// Fetch the next message from this stream.
+    /// Fetches the next message from this stream.
     #[inline]
     pub async fn message(&mut self) -> Result<Option<LeaseKeepAliveResponse>> {
         match self.stream.message().await? {
