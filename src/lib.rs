@@ -11,6 +11,11 @@ pub use crate::rpc::kv::{
     GetOptions, GetResponse, PutOptions, PutResponse, SortOrder, SortTarget, Txn, TxnOp,
     TxnOpResponse, TxnResponse,
 };
+pub use crate::rpc::lease::{
+    LeaseGrantOptions, LeaseGrantResponse, LeaseKeepAliveResponse, LeaseKeepAliveStream,
+    LeaseKeeper, LeaseLeasesResponse, LeaseRevokeResponse, LeaseStatus, LeaseTimeToLiveOptions,
+    LeaseTimeToLiveResponse,
+};
 pub use crate::rpc::watch::{
     Event, EventType, WatchFilterType, WatchOptions, WatchResponse, WatchStream, Watcher,
 };

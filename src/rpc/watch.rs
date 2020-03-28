@@ -11,8 +11,8 @@ use crate::rpc::pb::etcdserverpb::{
 };
 use crate::rpc::pb::mvccpb::Event as PbEvent;
 use crate::rpc::{get_prefix, KeyValue, ResponseHeader};
-use futures_core::task::{Context, Poll};
-use futures_core::Stream;
+use std::task::{Context, Poll};
+use tokio::stream::Stream;
 use tokio::sync::mpsc::{channel, Sender};
 use tonic::codegen::Pin;
 use tonic::transport::Channel;

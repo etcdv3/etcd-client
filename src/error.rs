@@ -5,7 +5,7 @@ use std::str::Utf8Error;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// The error type for `etcdv3` client.
+/// The error type for `etcd` client.
 #[derive(Debug)]
 pub enum Error {
     /// Invalid arguments
@@ -28,6 +28,9 @@ pub enum Error {
 
     /// Utf8Error
     Utf8Error(Utf8Error),
+
+    /// Lease error
+    LeaseKeepAliveError(String),
 }
 
 impl Display for Error {
@@ -41,6 +44,7 @@ impl Display for Error {
             Error::GRPCStatus(e) => write!(f, "grep request error: {}", e),
             Error::WatchError(e) => write!(f, "watch error: {}", e),
             Error::Utf8Error(e) => write!(f, "utf8 error: {}", e),
+            Error::LeaseKeepAliveError(e) => write!(f, "lease keep alive error: {}", e),
         }
     }
 }
