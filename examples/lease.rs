@@ -33,9 +33,9 @@ async fn main() -> Result<(), Error> {
     }
 
     // get lease list
-    let resp = client.lease_leases().await?;
+    let resp = client.leases().await?;
     let lease_status = resp.leases();
-    println!("lease status {:?}", lease_status[0].leaseid());
+    println!("lease status {:?}", lease_status[0].id());
 
     // revoke a lease
     let _resp = client.lease_revoke(id).await?;

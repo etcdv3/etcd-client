@@ -40,7 +40,7 @@ impl LeaseClient {
         Self { inner }
     }
 
-    /// creates a lease which expires if the server does not receive a keepAlive
+    /// Creates a lease which expires if the server does not receive a keepAlive
     /// within a given time to live period. All keys attached to the lease will be expired and
     /// deleted if the lease expires. Each expired key generates a delete event in the event history.
     #[inline]
@@ -57,7 +57,7 @@ impl LeaseClient {
         Ok(LeaseGrantResponse::new(resp))
     }
 
-    /// revokes a lease. All keys attached to the lease will expire and be deleted.
+    /// Revokes a lease. All keys attached to the lease will expire and be deleted.
     #[inline]
     pub async fn revoke(&mut self, id: i64) -> Result<LeaseRevokeResponse> {
         let resp = self
@@ -68,7 +68,7 @@ impl LeaseClient {
         Ok(LeaseRevokeResponse::new(resp))
     }
 
-    /// keeps the lease alive by streaming keep alive requests from the client
+    /// Keeps the lease alive by streaming keep alive requests from the client
     /// to the server and streaming keep alive responses from the server to the client.
     #[inline]
     pub async fn keep_alive(&mut self, id: i64) -> Result<(LeaseKeeper, LeaseKeepAliveStream)> {
@@ -95,7 +95,7 @@ impl LeaseClient {
         ))
     }
 
-    /// retrieves lease information.
+    /// Retrieves lease information.
     #[inline]
     pub async fn time_to_live(
         &mut self,
@@ -110,7 +110,7 @@ impl LeaseClient {
         Ok(LeaseTimeToLiveResponse::new(resp))
     }
 
-    /// lists all existing leases.
+    /// Lists all existing leases.
     #[inline]
     pub async fn leases(&mut self) -> Result<LeaseLeasesResponse> {
         let resp = self
@@ -349,7 +349,7 @@ impl LeaseTimeToLiveOptions {
         self
     }
 
-    /// keys is true to query all the keys attached to this lease.
+    /// Keys is true to query all the keys attached to this lease.
     #[inline]
     pub const fn with_keys(mut self) -> Self {
         self.0.keys = true;
@@ -450,7 +450,7 @@ impl LeaseLeasesResponse {
         self.0.header.take().map(ResponseHeader::new)
     }
 
-    /// get leases status
+    /// Get leases status
     #[inline]
     pub fn leases(&self) -> &[LeaseStatus] {
         unsafe { &*(self.0.leases.as_slice() as *const _ as *const [LeaseStatus]) }
@@ -463,9 +463,9 @@ impl LeaseLeasesResponse {
 pub struct LeaseStatus(PbLeaseStatus);
 
 impl LeaseStatus {
-    /// get id from leases status
+    /// Let id from leases status
     #[inline]
-    pub const fn leaseid(&self) -> i64 {
+    pub const fn id(&self) -> i64 {
         self.0.id
     }
 }

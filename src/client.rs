@@ -119,7 +119,7 @@ impl Client {
         self.watch.watch(key, options).await
     }
 
-    /// creates a lease which expires if the server does not receive a keepAlive
+    /// Creates a lease which expires if the server does not receive a keepAlive
     /// within a given time to live period. All keys attached to the lease will be expired and
     /// deleted if the lease expires. Each expired key generates a delete event in the event history.
     #[inline]
@@ -131,13 +131,13 @@ impl Client {
         self.lease.grant(ttl, options).await
     }
 
-    /// revokes a lease. All keys attached to the lease will expire and be deleted.
+    /// Revokes a lease. All keys attached to the lease will expire and be deleted.
     #[inline]
     pub async fn lease_revoke(&mut self, id: i64) -> Result<LeaseRevokeResponse> {
         self.lease.revoke(id).await
     }
 
-    /// keeps the lease alive by streaming keep alive requests from the client
+    /// Keeps the lease alive by streaming keep alive requests from the client
     /// to the server and streaming keep alive responses from the server to the client.
     #[inline]
     pub async fn lease_keep_alive(
@@ -147,7 +147,7 @@ impl Client {
         self.lease.keep_alive(id).await
     }
 
-    /// retrieves lease information.
+    /// Retrieves lease information.
     #[inline]
     pub async fn lease_time_to_live(
         &mut self,
@@ -157,9 +157,9 @@ impl Client {
         self.lease.time_to_live(id, options).await
     }
 
-    /// lists all existing leases.
+    /// Lists all existing leases.
     #[inline]
-    pub async fn lease_leases(&mut self) -> Result<LeaseLeasesResponse> {
+    pub async fn leases(&mut self) -> Result<LeaseLeasesResponse> {
         self.lease.leases().await
     }
 }
@@ -452,7 +452,7 @@ mod tests {
     #[tokio::test]
     async fn test_time_to_live() -> Result<()> {
         let mut client = get_client().await?;
-        let leaseid = 100;
+        let leaseid = 200;
         let resp = client
             .lease_grant(60, Some(LeaseGrantOptions::new().with_id(leaseid)))
             .await?;
@@ -469,24 +469,34 @@ mod tests {
 
     #[tokio::test]
     async fn test_leases() -> Result<()> {
+        let lease1 = 100;
+        let lease2 = 101;
+        let lease3 = 102;
+
         let mut client = get_client().await?;
-        let resp = client.lease_grant(60, None).await?;
+        let resp = client
+            .lease_grant(60, Some(LeaseGrantOptions::new().with_id(lease1)))
+            .await?;
         assert_eq!(resp.ttl(), 60);
-        let lease1 = resp.id();
+        assert_eq!(resp.id(), lease1);
 
-        let resp = client.lease_grant(60, None).await?;
+        let resp = client
+            .lease_grant(60, Some(LeaseGrantOptions::new().with_id(lease2)))
+            .await?;
         assert_eq!(resp.ttl(), 60);
-        let lease2 = resp.id();
+        assert_eq!(resp.id(), lease2);
 
-        let resp = client.lease_grant(60, None).await?;
+        let resp = client
+            .lease_grant(60, Some(LeaseGrantOptions::new().with_id(lease3)))
+            .await?;
         assert_eq!(resp.ttl(), 60);
-        let lease3 = resp.id();
+        assert_eq!(resp.id(), lease3);
 
-        let resp = client.lease_leases().await?;
+        let resp = client.leases().await?;
         let lease_status = resp.leases();
-        assert_eq!(lease_status[0].leaseid(), lease1);
-        assert_eq!(lease_status[1].leaseid(), lease2);
-        assert_eq!(lease_status[2].leaseid(), lease3);
+        assert_eq!(lease_status[0].id(), lease1);
+        assert_eq!(lease_status[1].id(), lease2);
+        assert_eq!(lease_status[2].id(), lease3);
 
         client.lease_revoke(lease1).await?;
         client.lease_revoke(lease2).await?;
