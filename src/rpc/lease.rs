@@ -201,8 +201,8 @@ impl LeaseGrantResponse {
 
     /// Error message if return error.
     #[inline]
-    pub fn error(&self) -> &[u8] {
-        self.0.error.as_ref()
+    pub fn error(&self) -> &str {
+        &self.0.error
     }
 }
 
@@ -457,18 +457,19 @@ impl LeaseLeasesResponse {
     }
 }
 
-/// LeaseStatus from `LeaseLeasesResponse`
+/// Lease status.
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct LeaseStatus(PbLeaseStatus);
 
 impl LeaseStatus {
-    /// Let id from leases status
+    /// Lease id.
     #[inline]
     pub const fn id(&self) -> i64 {
         self.0.id
     }
 }
+
 impl From<&PbLeaseStatus> for &LeaseStatus {
     #[inline]
     fn from(src: &PbLeaseStatus) -> Self {
@@ -490,7 +491,7 @@ impl LeaseKeeper {
         Self { id, sender }
     }
 
-    /// The leaseid which user want to keep alive.
+    /// The lease id which user want to keep alive.
     #[inline]
     pub const fn id(&self) -> i64 {
         self.id
