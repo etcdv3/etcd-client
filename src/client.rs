@@ -1,6 +1,7 @@
 //! Asynchronous client & synchronous client.
 
 use crate::error::{Error, Result};
+use crate::rpc::auth::{AuthClient, AuthDisableResponse, AuthEnableResponse};
 use crate::rpc::kv::{
     CompactionOptions, CompactionResponse, DeleteOptions, DeleteResponse, GetOptions, GetResponse,
     KvClient, PutOptions, PutResponse, Txn, TxnResponse,
@@ -9,19 +10,26 @@ use crate::rpc::lease::{
     LeaseClient, LeaseGrantOptions, LeaseGrantResponse, LeaseKeepAliveStream, LeaseKeeper,
     LeaseLeasesResponse, LeaseRevokeResponse, LeaseTimeToLiveOptions, LeaseTimeToLiveResponse,
 };
+use crate::rpc::lock::{LockClient, LockOptions, LockResponse, UnlockResponse};
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 use tonic::transport::Channel;
+use tonic::Interceptor;
 
 /// Asynchronous `etcd` client using v3 API.
 pub struct Client {
     kv: KvClient,
     watch: WatchClient,
     lease: LeaseClient,
+    lock: LockClient,
+    auth: AuthClient,
 }
 
 impl Client {
     /// Connect to `etcd` servers from given `endpoints`.
-    pub async fn connect<E: AsRef<str>, S: AsRef<[E]>>(endpoints: S) -> Result<Self> {
+    pub async fn connect<E: AsRef<str>, S: AsRef<[E]>>(
+        endpoints: S,
+        options: Option<ConnectOptions>,
+    ) -> Result<Self> {
         const HTTP_PREFIX: &str = "http://";
 
         let endpoints = {
@@ -45,11 +53,54 @@ impl Client {
             _ => Channel::balance_list(endpoints.into_iter()),
         };
 
-        let kv = KvClient::new(channel.clone(), None);
-        let watch = WatchClient::new(channel.clone(), None);
-        let lease = LeaseClient::new(channel, None);
+        let mut interceptor: Option<Interceptor> = None;
+        if let Some(connect_options) = options {
+            if let Some(user) = connect_options.user {
+                // specify the user's name and password
+                let name = user.0;
+                let password = user.1;
+                let mut tmp_auth = AuthClient::new(channel.clone(), None);
+                let resp = tmp_auth.authenticate(name, password).await?;
+                let token = resp.token().clone();
 
-        Ok(Self { kv, watch, lease })
+                interceptor = Some(Interceptor::new(move |mut request| {
+                    let metadata = request.metadata_mut();
+                    // authorization for http::header::AUTHORIZATION
+                    metadata.insert("authorization", token.parse().unwrap());
+                    Ok(request)
+                }));
+            }
+        }
+
+        if interceptor.is_none() {
+            let kv = KvClient::new(channel.clone(), None);
+            let watch = WatchClient::new(channel.clone(), None);
+            let lease = LeaseClient::new(channel.clone(), None);
+            let lock = LockClient::new(channel.clone(), None);
+            let auth = AuthClient::new(channel, None);
+
+            Ok(Self {
+                kv,
+                watch,
+                lease,
+                lock,
+                auth,
+            })
+        } else {
+            let kv = KvClient::new(channel.clone(), interceptor.clone());
+            let watch = WatchClient::new(channel.clone(), interceptor.clone());
+            let lease = LeaseClient::new(channel.clone(), interceptor.clone());
+            let lock = LockClient::new(channel.clone(), interceptor.clone());
+            let auth = AuthClient::new(channel, interceptor.clone());
+
+            Ok(Self {
+                kv,
+                watch,
+                lease,
+                lock,
+                auth,
+            })
+        }
     }
 
     /// Put the given key into the key-value store.
@@ -162,6 +213,67 @@ impl Client {
     pub async fn leases(&mut self) -> Result<LeaseLeasesResponse> {
         self.lease.leases().await
     }
+
+    /// Lock acquires a distributed shared lock on a given named lock.
+    /// On success, it will return a unique key that exists so long as the
+    /// lock is held by the caller. This key can be used in conjunction with
+    /// transactions to safely ensure updates to etcd only occur while holding
+    /// lock ownership. The lock is held until Unlock is called on the key or the
+    /// lease associate with the owner expires.
+    #[inline]
+    pub async fn lock(
+        &mut self,
+        name: impl Into<Vec<u8>>,
+        options: Option<LockOptions>,
+    ) -> Result<LockResponse> {
+        self.lock.lock(name, options).await
+    }
+
+    /// Unlock takes a key returned by Lock and releases the hold on lock. The
+    /// next Lock caller waiting for the lock will then be woken up and given
+    /// ownership of the lock.
+    #[inline]
+    pub async fn unlock(&mut self, key: impl Into<Vec<u8>>) -> Result<UnlockResponse> {
+        self.lock.unlock(key).await
+    }
+
+    /// auth_enable enables authentication.
+    #[inline]
+    pub async fn auth_enable(&mut self) -> Result<AuthEnableResponse> {
+        self.auth.auth_enable().await
+    }
+
+    /// auth_disable disables authentication.
+    #[inline]
+    pub async fn auth_disable(&mut self) -> Result<AuthDisableResponse> {
+        self.auth.auth_disable().await
+    }
+}
+
+/// tuple user contains the value of (name, password)
+#[derive(Debug, Default, Clone)]
+pub struct UserInfo(String, String);
+
+/// Options for `Connect` operation.
+#[derive(Debug, Default, Clone)]
+#[repr(transparent)]
+pub struct ConnectOptions {
+    user: Option<UserInfo>,
+}
+
+impl ConnectOptions {
+    /// name is the identifier for the distributed shared lock to be acquired.
+    #[inline]
+    pub fn with_user(mut self, name: String, password: String) -> Self {
+        self.user = Some(UserInfo(name, password));
+        self
+    }
+
+    /// Creates a `ConnectOptions`.
+    #[inline]
+    pub const fn new() -> Self {
+        ConnectOptions { user: None }
+    }
 }
 
 #[cfg(test)]
@@ -171,7 +283,7 @@ mod tests {
 
     /// Get client for testing.
     async fn get_client() -> Result<Client> {
-        Client::connect(["localhost:2379"]).await
+        Client::connect(["localhost:2379"], None).await
     }
 
     #[tokio::test]
@@ -501,6 +613,42 @@ mod tests {
         client.lease_revoke(lease1).await?;
         client.lease_revoke(lease2).await?;
         client.lease_revoke(lease3).await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_lock() -> Result<()> {
+        let mut client = get_client().await?;
+        let resp = client.lock("lock-test", None).await?;
+        let key = resp.key();
+        let key_str = std::str::from_utf8(key)?;
+        assert!(key_str.starts_with("lock-test/"));
+
+        client.unlock(key.clone()).await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_auth() -> Result<()> {
+        let mut client = get_client().await?;
+        client.auth_enable().await?;
+
+        // after enable auth, must operate by authenticated client
+        let resp = client.put("key-test", "value", None).await;
+        if let Ok(_) = resp {
+            assert!(false);
+        }
+
+        // connect with authenticate, the user must already exists
+        let options = Some(ConnectOptions::new().with_user(
+            String::from("root"),    // user name
+            String::from("rootpwd"), // password
+        ));
+        let mut client_auth = Client::connect(["localhost:2379"], options).await?;
+        client_auth.put("key-test", "value", None).await?;
+
+        client_auth.auth_disable().await?;
+
         Ok(())
     }
 }

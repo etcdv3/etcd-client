@@ -30,7 +30,7 @@ impl KV {
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let mut client = Client::connect(["localhost:2379"]).await?;
+    let mut client = Client::connect(["localhost:2379"], None).await?;
 
     let alice = KV::new("Alice", "15");
     let bob = KV::new("Bob", "20");
