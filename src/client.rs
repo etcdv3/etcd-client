@@ -239,7 +239,6 @@ impl Client {
 
 /// Options for `Connect` operation.
 #[derive(Debug, Default, Clone)]
-#[repr(transparent)]
 pub struct ConnectOptions {
     /// user is a pair values of name and password
     user: Option<(String, String)>,
