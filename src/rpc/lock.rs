@@ -56,12 +56,8 @@ impl LockClient {
     /// ownership of the lock.
     #[inline]
     pub async fn unlock(&mut self, key: impl Into<Vec<u8>>) -> Result<UnlockResponse> {
-        let options: Option<UnlockOptions> = Some(UnlockOptions::new());
-        let resp = self
-            .inner
-            .unlock(options.unwrap_or_default().with_key(key))
-            .await?
-            .into_inner();
+        let request = UnlockOptions::new();
+        let resp = self.inner.unlock(request.with_key(key)).await?.into_inner();
         Ok(UnlockResponse::new(resp))
     }
 }
@@ -142,7 +138,7 @@ impl LockResponse {
     /// owns the lock. Users should not modify this key or the lock may exhibit
     /// undefined behavior.
     #[inline]
-    pub fn key(&self) -> &Vec<u8> {
+    pub fn key(&self) -> &[u8] {
         &self.0.key
     }
 }

@@ -22,6 +22,7 @@ pub struct Client {
     lease: LeaseClient,
     lock: LockClient,
     auth: AuthClient,
+    // token: String,
 }
 
 impl Client {
@@ -53,54 +54,41 @@ impl Client {
             _ => Channel::balance_list(endpoints.into_iter()),
         };
 
-        let mut interceptor: Option<Interceptor> = None;
-        if let Some(connect_options) = options {
+        let interceptor = if let Some(connect_options) = options {
             if let Some(user) = connect_options.user {
                 // specify the user's name and password
                 let name = user.0;
                 let password = user.1;
                 let mut tmp_auth = AuthClient::new(channel.clone(), None);
                 let resp = tmp_auth.authenticate(name, password).await?;
-                let token = resp.token().clone();
+                let token = String::from(resp.token());
 
-                interceptor = Some(Interceptor::new(move |mut request| {
+                Some(Interceptor::new(move |mut request| {
                     let metadata = request.metadata_mut();
                     // authorization for http::header::AUTHORIZATION
                     metadata.insert("authorization", token.parse().unwrap());
                     Ok(request)
-                }));
+                }))
+            } else {
+                None
             }
-        }
-
-        if interceptor.is_none() {
-            let kv = KvClient::new(channel.clone(), None);
-            let watch = WatchClient::new(channel.clone(), None);
-            let lease = LeaseClient::new(channel.clone(), None);
-            let lock = LockClient::new(channel.clone(), None);
-            let auth = AuthClient::new(channel, None);
-
-            Ok(Self {
-                kv,
-                watch,
-                lease,
-                lock,
-                auth,
-            })
         } else {
-            let kv = KvClient::new(channel.clone(), interceptor.clone());
-            let watch = WatchClient::new(channel.clone(), interceptor.clone());
-            let lease = LeaseClient::new(channel.clone(), interceptor.clone());
-            let lock = LockClient::new(channel.clone(), interceptor.clone());
-            let auth = AuthClient::new(channel, interceptor.clone());
+            None
+        };
 
-            Ok(Self {
-                kv,
-                watch,
-                lease,
-                lock,
-                auth,
-            })
-        }
+        let kv = KvClient::new(channel.clone(), interceptor.clone());
+        let watch = WatchClient::new(channel.clone(), interceptor.clone());
+        let lease = LeaseClient::new(channel.clone(), interceptor.clone());
+        let lock = LockClient::new(channel.clone(), interceptor.clone());
+        let auth = AuthClient::new(channel, interceptor);
+
+        Ok(Self {
+            kv,
+            watch,
+            lease,
+            lock,
+            auth,
+        })
     }
 
     /// Put the given key into the key-value store.
@@ -237,35 +225,32 @@ impl Client {
         self.lock.unlock(key).await
     }
 
-    /// auth_enable enables authentication.
+    /// Enables authentication.
     #[inline]
     pub async fn auth_enable(&mut self) -> Result<AuthEnableResponse> {
         self.auth.auth_enable().await
     }
 
-    /// auth_disable disables authentication.
+    /// Disables authentication.
     #[inline]
     pub async fn auth_disable(&mut self) -> Result<AuthDisableResponse> {
         self.auth.auth_disable().await
     }
 }
 
-/// tuple user contains the value of (name, password)
-#[derive(Debug, Default, Clone)]
-pub struct UserInfo(String, String);
-
 /// Options for `Connect` operation.
 #[derive(Debug, Default, Clone)]
 #[repr(transparent)]
 pub struct ConnectOptions {
-    user: Option<UserInfo>,
+    /// user is a pair values of name and password
+    user: Option<(String, String)>,
 }
 
 impl ConnectOptions {
     /// name is the identifier for the distributed shared lock to be acquired.
     #[inline]
-    pub fn with_user(mut self, name: String, password: String) -> Self {
-        self.user = Some(UserInfo(name, password));
+    pub fn with_user(mut self, name: impl Into<String>, password: impl Into<String>) -> Self {
+        self.user = Some((name.into(), password.into()));
         self
     }
 
@@ -629,6 +614,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_auth() -> Result<()> {
         let mut client = get_client().await?;
         client.auth_enable().await?;
@@ -648,6 +634,10 @@ mod tests {
         client_auth.put("key-test", "value", None).await?;
 
         client_auth.auth_disable().await?;
+
+        // after disable auth, operate ok
+        let mut client = get_client().await?;
+        client.put("key-test", "value", None).await?;
 
         Ok(())
     }

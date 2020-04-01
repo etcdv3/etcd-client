@@ -26,7 +26,6 @@ use tonic::{Interceptor, IntoRequest, Request};
 #[repr(transparent)]
 pub struct AuthClient {
     inner: PbAuthClient<Channel>,
-    // token: String
 }
 
 impl AuthClient {
@@ -44,24 +43,16 @@ impl AuthClient {
     /// auth_enable enables authentication.
     #[inline]
     pub async fn auth_enable(&mut self) -> Result<AuthEnableResponse> {
-        let options: Option<AuthEnableOptions> = Some(AuthEnableOptions::new());
-        let resp = self
-            .inner
-            .auth_enable(options.unwrap_or_default())
-            .await?
-            .into_inner();
+        let request = AuthEnableOptions::new();
+        let resp = self.inner.auth_enable(request).await?.into_inner();
         Ok(AuthEnableResponse::new(resp))
     }
 
     /// auth_disable disables authentication.
     #[inline]
     pub async fn auth_disable(&mut self) -> Result<AuthDisableResponse> {
-        let options: Option<AuthDisableOptions> = Some(AuthDisableOptions::new());
-        let resp = self
-            .inner
-            .auth_disable(options.unwrap_or_default())
-            .await?
-            .into_inner();
+        let request = AuthDisableOptions::new();
+        let resp = self.inner.auth_disable(request).await?.into_inner();
         Ok(AuthDisableResponse::new(resp))
     }
 
@@ -72,10 +63,10 @@ impl AuthClient {
         name: String,
         password: String,
     ) -> Result<AuthenticateResponse> {
-        let options: Option<AuthenticateOptions> = Some(AuthenticateOptions::new());
+        let request = AuthenticateOptions::new();
         let resp = self
             .inner
-            .authenticate(options.unwrap_or_default().with_user(name, password))
+            .authenticate(request.with_user(name, password))
             .await?
             .into_inner();
         Ok(AuthenticateResponse::new(resp))
@@ -250,7 +241,7 @@ impl AuthenticateResponse {
 
     /// token is an authorized token that can be used in succeeding RPCs
     #[inline]
-    pub fn token(&self) -> &String {
+    pub fn token(&self) -> &str {
         &self.0.token
     }
 }

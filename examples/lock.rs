@@ -1,4 +1,4 @@
-//! Watch example
+//! Lock example
 
 use etcd_client::*;
 
@@ -9,7 +9,7 @@ async fn main() -> Result<(), Error> {
     println!("try to lock with name \'lock-test\'");
     let resp = client.lock("lock-test", None).await?;
     let key = resp.key();
-    let key_str = std::str::from_utf8(key);
+    let key_str = std::str::from_utf8(key)?;
     println!("the key is {:?}", key_str);
 
     println!("try to unlock it");

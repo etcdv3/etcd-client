@@ -1,7 +1,6 @@
-//! Watch example
+//! Auth example
 
 use etcd_client::*;
-use std::string::String;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
