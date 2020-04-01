@@ -22,7 +22,6 @@ pub struct Client {
     lease: LeaseClient,
     lock: LockClient,
     auth: AuthClient,
-    // token: String,
 }
 
 impl Client {
