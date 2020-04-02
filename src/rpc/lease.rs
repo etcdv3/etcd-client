@@ -468,6 +468,22 @@ impl LeaseStatus {
     pub const fn id(&self) -> i64 {
         self.0.id
     }
+
+    /// Creates a new `LeaseStatus`
+    #[inline]
+    pub const fn new(id : i64) -> Self {
+        Self(PbLeaseStatus{id})
+    }
+}
+
+impl PartialEq<LeaseStatus> for LeaseStatus {
+    fn eq(&self, other: &Self) -> bool {
+        return self.0.id == other.0.id
+    }
+
+    fn ne(&self, other: &Self) -> bool {
+        return self.0.id != other.0.id
+    }
 }
 
 impl From<&PbLeaseStatus> for &LeaseStatus {
