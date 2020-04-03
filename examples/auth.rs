@@ -10,11 +10,11 @@ async fn main() -> Result<(), Error> {
     println!("enable authenticate by normal client");
     client.auth_enable().await?;
 
-    // connect with authenticate
+    // connect with authenticate, the user must already exists
     println!("connect with user authenticate");
     let options = Some(ConnectOptions::new().with_user(
-        String::from("root"),    // user name
-        String::from("rootpwd"), // password
+        "root",    // user name
+        "rootpwd", // password
     ));
     let mut client_auth = Client::connect(["localhost:2379"], options).await?;
 

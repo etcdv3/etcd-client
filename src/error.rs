@@ -31,6 +31,9 @@ pub enum Error {
 
     /// Lease error
     LeaseKeepAliveError(String),
+
+    /// Invalid metadata value
+    InvalidMetadataValue(tonic::metadata::errors::InvalidMetadataValue),
 }
 
 impl Display for Error {
@@ -45,6 +48,7 @@ impl Display for Error {
             Error::WatchError(e) => write!(f, "watch error: {}", e),
             Error::Utf8Error(e) => write!(f, "utf8 error: {}", e),
             Error::LeaseKeepAliveError(e) => write!(f, "lease keep alive error: {}", e),
+            Error::InvalidMetadataValue(e) => write!(f, "invalid metadata value: {}", e),
         }
     }
 }
@@ -83,5 +87,12 @@ impl From<Utf8Error> for Error {
     #[inline]
     fn from(e: Utf8Error) -> Self {
         Error::Utf8Error(e)
+    }
+}
+
+impl From<tonic::metadata::errors::InvalidMetadataValue> for Error {
+    #[inline]
+    fn from(e: tonic::metadata::errors::InvalidMetadataValue) -> Self {
+        Error::InvalidMetadataValue(e)
     }
 }

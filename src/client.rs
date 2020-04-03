@@ -14,6 +14,7 @@ use crate::rpc::lock::{LockClient, LockOptions, LockResponse, UnlockResponse};
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 use tonic::transport::Channel;
 use tonic::Interceptor;
+use tonic::metadata::{MetadataValue, Ascii};
 
 /// Asynchronous `etcd` client using v3 API.
 pub struct Client {
@@ -54,18 +55,15 @@ impl Client {
         };
 
         let interceptor = if let Some(connect_options) = options {
-            if let Some(user) = connect_options.user {
-                // specify the user's name and password
-                let name = user.0;
-                let password = user.1;
+            if let Some((name, password)) = connect_options.user {
                 let mut tmp_auth = AuthClient::new(channel.clone(), None);
                 let resp = tmp_auth.authenticate(name, password).await?;
-                let token = String::from(resp.token());
+                let token: MetadataValue<Ascii> = resp.token().parse()?;
 
                 Some(Interceptor::new(move |mut request| {
                     let metadata = request.metadata_mut();
                     // authorization for http::header::AUTHORIZATION
-                    metadata.insert("authorization", token.parse().unwrap());
+                    metadata.insert("authorization", token.clone());
                     Ok(request)
                 }))
             } else {
@@ -618,24 +616,24 @@ mod tests {
         client.auth_enable().await?;
 
         // after enable auth, must operate by authenticated client
-        let resp = client.put("key-test", "value", None).await;
+        let resp = client.put("auth-test", "value", None).await;
         if let Ok(_) = resp {
             assert!(false);
         }
 
         // connect with authenticate, the user must already exists
         let options = Some(ConnectOptions::new().with_user(
-            String::from("root"),    // user name
-            String::from("rootpwd"), // password
+            "root",    // user name
+            "rootpwd", // password
         ));
         let mut client_auth = Client::connect(["localhost:2379"], options).await?;
-        client_auth.put("key-test", "value", None).await?;
+        client_auth.put("auth-test", "value", None).await?;
 
         client_auth.auth_disable().await?;
 
         // after disable auth, operate ok
         let mut client = get_client().await?;
-        client.put("key-test", "value", None).await?;
+        client.put("auth-test", "value", None).await?;
 
         Ok(())
     }
