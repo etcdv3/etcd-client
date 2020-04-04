@@ -586,10 +586,10 @@ mod tests {
         assert_eq!(resp.id(), lease3);
 
         let resp = client.leases().await?;
-        let lease_status = resp.leases();
-        assert_eq!(lease_status[0].id(), lease1);
-        assert_eq!(lease_status[1].id(), lease2);
-        assert_eq!(lease_status[2].id(), lease3);
+        let leases: Vec<_> = resp.leases().iter().map(|status| status.id()).collect();
+        assert!(leases.contains(&lease1));
+        assert!(leases.contains(&lease2));
+        assert!(leases.contains(&lease3));
 
         client.lease_revoke(lease1).await?;
         client.lease_revoke(lease2).await?;

@@ -458,7 +458,7 @@ impl LeaseLeasesResponse {
 }
 
 /// Lease status.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 #[repr(transparent)]
 pub struct LeaseStatus(PbLeaseStatus);
 
