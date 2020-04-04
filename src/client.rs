@@ -12,9 +12,9 @@ use crate::rpc::lease::{
 };
 use crate::rpc::lock::{LockClient, LockOptions, LockResponse, UnlockResponse};
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
+use tonic::metadata::{Ascii, MetadataValue};
 use tonic::transport::Channel;
 use tonic::Interceptor;
-use tonic::metadata::{MetadataValue, Ascii};
 
 /// Asynchronous `etcd` client using v3 API.
 pub struct Client {

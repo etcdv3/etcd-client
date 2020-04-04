@@ -40,33 +40,38 @@ impl AuthClient {
         Self { inner }
     }
 
-    /// auth_enable enables authentication.
+    /// Enables authentication.
     #[inline]
     pub async fn auth_enable(&mut self) -> Result<AuthEnableResponse> {
-        let request = AuthEnableOptions::new();
-        let resp = self.inner.auth_enable(request).await?.into_inner();
+        let resp = self
+            .inner
+            .auth_enable(AuthEnableOptions::new())
+            .await?
+            .into_inner();
         Ok(AuthEnableResponse::new(resp))
     }
 
-    /// auth_disable disables authentication.
+    /// Disables authentication.
     #[inline]
     pub async fn auth_disable(&mut self) -> Result<AuthDisableResponse> {
-        let request = AuthDisableOptions::new();
-        let resp = self.inner.auth_disable(request).await?.into_inner();
+        let resp = self
+            .inner
+            .auth_disable(AuthDisableOptions::new())
+            .await?
+            .into_inner();
         Ok(AuthDisableResponse::new(resp))
     }
 
-    /// Authenticate processes an authenticate request.
+    /// Processes an authenticate request.
     #[inline]
     pub async fn authenticate(
         &mut self,
         name: String,
         password: String,
     ) -> Result<AuthenticateResponse> {
-        let request = AuthenticateOptions::new();
         let resp = self
             .inner
-            .authenticate(request.with_user(name, password))
+            .authenticate(AuthenticateOptions::new().with_user(name, password))
             .await?
             .into_inner();
         Ok(AuthenticateResponse::new(resp))
@@ -221,25 +226,27 @@ impl IntoRequest<PbAuthenticateRequest> for AuthenticateOptions {
 pub struct AuthenticateResponse(PbAuthenticateResponse);
 
 impl AuthenticateResponse {
-    /// Create a new `AuthenticateResponse` from pb auth response.
+    /// Creates a new `AuthenticateResponse` from pb auth response.
     #[inline]
     const fn new(resp: PbAuthenticateResponse) -> Self {
         Self(resp)
     }
 
     /// Get response header.
+    #[allow(dead_code)]
     #[inline]
     pub fn header(&self) -> Option<&ResponseHeader> {
         self.0.header.as_ref().map(From::from)
     }
 
     /// Takes the header out of the response, leaving a [`None`] in its place.
+    #[allow(dead_code)]
     #[inline]
     pub fn take_header(&mut self) -> Option<ResponseHeader> {
         self.0.header.take().map(ResponseHeader::new)
     }
 
-    /// token is an authorized token that can be used in succeeding RPCs
+    /// An authorized token that can be used in succeeding RPCs
     #[inline]
     pub fn token(&self) -> &str {
         &self.0.token

@@ -31,7 +31,7 @@ impl LockClient {
         Self { inner }
     }
 
-    /// Lock acquires a distributed shared lock on a given named lock.
+    /// Acquires a distributed shared lock on a given named lock.
     /// On success, it will return a unique key that exists so long as the
     /// lock is held by the caller. This key can be used in conjunction with
     /// transactions to safely ensure updates to etcd only occur while holding
@@ -51,13 +51,16 @@ impl LockClient {
         Ok(LockResponse::new(resp))
     }
 
-    /// Unlock takes a key returned by Lock and releases the hold on lock. The
+    /// Takes a key returned by Lock and releases the hold on lock. The
     /// next Lock caller waiting for the lock will then be woken up and given
     /// ownership of the lock.
     #[inline]
     pub async fn unlock(&mut self, key: impl Into<Vec<u8>>) -> Result<UnlockResponse> {
-        let request = UnlockOptions::new();
-        let resp = self.inner.unlock(request.with_key(key)).await?.into_inner();
+        let resp = self
+            .inner
+            .unlock(UnlockOptions::new().with_key(key))
+            .await?
+            .into_inner();
         Ok(UnlockResponse::new(resp))
     }
 }
@@ -84,7 +87,7 @@ impl LockOptions {
         })
     }
 
-    /// lease is the ID of the lease that will be attached to ownership of the
+    /// `lease` is the ID of the lease that will be attached to ownership of the
     /// lock. If the lease expires or is revoked and currently holds the lock,
     /// the lock is automatically released. Calls to Lock with the same lease will
     /// be treated as a single acquisition; locking twice with the same lease is a
@@ -134,7 +137,7 @@ impl LockResponse {
         self.0.header.take().map(ResponseHeader::new)
     }
 
-    /// key is a key that will exist on etcd for the duration that the Lock caller
+    /// A key that will exist on etcd for the duration that the Lock caller
     /// owns the lock. Users should not modify this key or the lock may exhibit
     /// undefined behavior.
     #[inline]

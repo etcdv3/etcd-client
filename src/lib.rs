@@ -21,7 +21,5 @@ pub use crate::rpc::watch::{
 };
 pub use crate::rpc::{KeyValue, ResponseHeader};
 
-pub use crate::rpc::auth::{
-    AuthClient, AuthDisableResponse, AuthEnableResponse, AuthenticateResponse,
-};
+pub use crate::rpc::auth::{AuthDisableResponse, AuthEnableResponse};
 pub use crate::rpc::lock::{LockClient, LockOptions, LockResponse, UnlockResponse};
