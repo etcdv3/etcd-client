@@ -260,7 +260,7 @@ impl ConnectOptions {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Compare, CompareOp, EventType, TxnOp, TxnOpResponse, LeaseStatus};
+    use crate::{Compare, CompareOp, EventType, TxnOp, TxnOpResponse};
 
     /// Get client for testing.
     async fn get_client() -> Result<Client> {
@@ -586,10 +586,10 @@ mod tests {
         assert_eq!(resp.id(), lease3);
 
         let resp = client.leases().await?;
-        let lease_status = resp.leases();
-        assert_eq!(lease_status.contains(&LeaseStatus::new(lease1)), true);
-        assert_eq!(lease_status.contains(&LeaseStatus::new(lease2)), true);
-        assert_eq!(lease_status.contains(&LeaseStatus::new(lease3)), true);
+        let leases: Vec<_> = resp.leases().iter().map(|status| status.id()).collect();
+        assert!(leases.contains(&lease1));
+        assert!(leases.contains(&lease2));
+        assert!(leases.contains(&lease3));
 
         client.lease_revoke(lease1).await?;
         client.lease_revoke(lease2).await?;
