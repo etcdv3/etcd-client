@@ -18,11 +18,11 @@ It provides asynchronous client backed by [tokio](https://github.com/tokio-rs/to
 - [x] KV
 - [x] Watch
 - [x] Lease
+- [x] Lock
 - [ ] Cluster
 - [ ] Maintenance
 - [ ] Auth
 - [ ] Election
-- [ ] Lock
 
 ## Usage
 

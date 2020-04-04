@@ -4,7 +4,7 @@ mod client;
 mod error;
 mod rpc;
 
-pub use crate::client::Client;
+pub use crate::client::{Client, ConnectOptions};
 pub use crate::error::Error;
 pub use crate::rpc::kv::{
     CompactionOptions, CompactionResponse, Compare, CompareOp, DeleteOptions, DeleteResponse,
@@ -20,3 +20,6 @@ pub use crate::rpc::watch::{
     Event, EventType, WatchFilterType, WatchOptions, WatchResponse, WatchStream, Watcher,
 };
 pub use crate::rpc::{KeyValue, ResponseHeader};
+
+pub use crate::rpc::auth::{AuthDisableResponse, AuthEnableResponse};
+pub use crate::rpc::lock::{LockClient, LockOptions, LockResponse, UnlockResponse};
