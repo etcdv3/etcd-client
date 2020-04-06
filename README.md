@@ -41,7 +41,7 @@ use etcd_client::{Client, Error};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let mut client = Client::connect(["localhost:2379"]).await?;
+    let mut client = Client::connect(["localhost:2379"], None).await?;
     // put kv
     client.put("foo", "bar", None).await?;
     // get kv
