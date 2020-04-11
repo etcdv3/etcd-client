@@ -609,6 +609,18 @@ impl Permission {
     pub const fn get_type(&self) -> i32 {
         self.inner.perm_type
     }
+
+    /// Whether permission is a range scope
+    #[inline]
+    pub const fn is_range(&self) -> bool {
+        self.has_range_end
+    }
+
+    /// Whether permission is a prefix scope
+    #[inline]
+    pub const fn is_prefix(&self) -> bool {
+        self.has_prefix
+    }
 }
 
 impl From<&PbPermission> for Permission {
@@ -638,12 +650,12 @@ impl From<&PbPermission> for Permission {
 impl fmt::Display for Permission {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut text = String::new();
-        if self.has_range_end {
+        if self.is_range() {
             text = text + "[";
             text = text + self.key_str().unwrap();
             text = text + "," + self.range_end_str().unwrap() + ")";
 
-            if self.has_prefix {
+            if self.is_prefix() {
                 text = text + " (prefix " + self.key_str().unwrap() + ")";
             }
         } else {
