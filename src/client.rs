@@ -2,6 +2,12 @@
 
 use crate::error::{Error, Result};
 use crate::rpc::auth::{AuthClient, AuthDisableResponse, AuthEnableResponse};
+use crate::rpc::auth::Permission as Permission;
+use crate::rpc::auth::{RoleAddResponse, RoleDeleteResponse,
+                       RoleGetResponse, RoleListResponse,
+                       RoleGrantPermissionResponse, RoleRevokePermissionResponse,
+                       RoleRevokePermissionOption,
+};
 use crate::rpc::kv::{
     CompactionOptions, CompactionResponse, DeleteOptions, DeleteResponse, GetOptions, GetResponse,
     KvClient, PutOptions, PutResponse, Txn, TxnResponse,
@@ -232,6 +238,62 @@ impl Client {
     #[inline]
     pub async fn auth_disable(&mut self) -> Result<AuthDisableResponse> {
         self.auth.auth_disable().await
+    }
+
+    /// Add role.
+    #[inline]
+    pub async fn role_add(
+        &mut self,
+        name: impl Into<String>,
+    ) -> Result<RoleAddResponse> {
+        self.auth.role_add(name).await
+    }
+
+    /// Delete role.
+    #[inline]
+    pub async fn role_delete(
+        &mut self,
+        name: impl Into<String>,
+    ) -> Result<RoleDeleteResponse> {
+        self.auth.role_delete(name).await
+    }
+
+    /// Get role.
+    #[inline]
+    pub async fn role_get(
+        &mut self,
+        name: impl Into<String>,
+    ) -> Result<RoleGetResponse> {
+        self.auth.role_get(name).await
+    }
+
+    /// List role.
+    #[inline]
+    pub async fn role_list(
+        &mut self,
+    ) -> Result<RoleListResponse> {
+        self.auth.role_list().await
+    }
+
+    /// Grant role permission.
+    #[inline]
+    pub async fn role_grant_permission(
+        &mut self,
+        name: impl Into<String>,
+        perm: Permission,
+    ) -> Result<RoleGrantPermissionResponse> {
+        self.auth.role_grant_permission(name, perm).await
+    }
+
+    /// Revoke role permission.
+    #[inline]
+    pub async fn role_revoke_permission(
+        &mut self,
+        name: impl Into<String>,
+        key: impl Into<Vec<u8>>,
+        options: Option<RoleRevokePermissionOption>,
+    ) -> Result<RoleRevokePermissionResponse> {
+        self.auth.role_revoke_permission(name, key, options).await
     }
 }
 
