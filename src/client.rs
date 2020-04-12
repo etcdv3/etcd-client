@@ -16,6 +16,10 @@ use crate::rpc::lease::{
     LeaseLeasesResponse, LeaseRevokeResponse, LeaseTimeToLiveOptions, LeaseTimeToLiveResponse,
 };
 use crate::rpc::lock::{LockClient, LockOptions, LockResponse, UnlockResponse};
+use crate::rpc::maintenance::{
+    AlarmAction, AlarmResponse, AlarmType, DefragmentResponse, HashKvResponse, HashResponse,
+    MaintenanceClient, SnapshotStreaming, StatusResponse,
+};
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 use tonic::metadata::{Ascii, MetadataValue};
 use tonic::transport::Channel;
@@ -28,6 +32,7 @@ pub struct Client {
     lease: LeaseClient,
     lock: LockClient,
     auth: AuthClient,
+    maintenance: MaintenanceClient,
 }
 
 impl Client {
@@ -82,7 +87,8 @@ impl Client {
         let watch = WatchClient::new(channel.clone(), interceptor.clone());
         let lease = LeaseClient::new(channel.clone(), interceptor.clone());
         let lock = LockClient::new(channel.clone(), interceptor.clone());
-        let auth = AuthClient::new(channel, interceptor);
+        let auth = AuthClient::new(channel.clone(), interceptor.clone());
+        let maintenance = MaintenanceClient::new(channel, interceptor);
 
         Ok(Self {
             kv,
@@ -90,6 +96,7 @@ impl Client {
             lease,
             lock,
             auth,
+            maintenance,
         })
     }
 
@@ -282,6 +289,47 @@ impl Client {
         options: Option<RoleRevokePermissionOptions>,
     ) -> Result<RoleRevokePermissionResponse> {
         self.auth.role_revoke_permission(name, key, options).await
+    }
+
+    /// Maintain(get, active or inactive) alarms of members.
+    #[inline]
+    pub async fn alarm(
+        &mut self,
+        action: Option<AlarmAction>,
+        member: Option<u64>,
+        alarm_type: Option<AlarmType>,
+    ) -> Result<AlarmResponse> {
+        self.maintenance.alarm(action, member, alarm_type).await
+    }
+
+    /// gets the status of the member.
+    #[inline]
+    pub async fn status(&mut self) -> Result<StatusResponse> {
+        self.maintenance.status().await
+    }
+
+    /// Defragments a member's backend database to recover storage space.
+    #[inline]
+    pub async fn defragment(&mut self) -> Result<DefragmentResponse> {
+        self.maintenance.defragment().await
+    }
+
+    /// Computes the hash of whole backend keyspace.
+    #[inline]
+    pub async fn hash(&mut self) -> Result<HashResponse> {
+        self.maintenance.hash().await
+    }
+
+    /// Computes the hash of whole backend keyspace.
+    #[inline]
+    pub async fn hash_kv(&mut self, revision: i64) -> Result<HashKvResponse> {
+        self.maintenance.hash_kv(revision).await
+    }
+
+    /// Computes the hash of whole backend keyspace.
+    #[inline]
+    pub async fn snapshot(&mut self) -> Result<SnapshotStreaming> {
+        self.maintenance.snapshot().await
     }
 }
 
@@ -801,6 +849,133 @@ mod tests {
 
         client.role_delete(role2).await?;
 
+        Ok(())
+    }
+
+
+    #[tokio::test]
+    async fn test_alarm() -> Result<()> {
+        let mut client = get_client().await?;
+
+        {
+            let resp = client
+                .alarm(
+                    Some(AlarmAction::Deactivate),
+                    Some(0),
+                    Some(AlarmType::None),
+                )
+                .await?;
+            let mems = resp.alarms();
+            assert_eq!(mems.len(), 0);
+        }
+
+        // Test all default args.
+        {
+            let resp = client.alarm(None, None, None).await?;
+            let mems = resp.alarms();
+            assert_eq!(mems.len(), 0);
+        }
+
+        // Test all not default args.
+        {
+            let resp = client
+                .alarm(
+                    Some(AlarmAction::Get),
+                    Some(0x8e9e05c52164694d),
+                    Some(AlarmType::None),
+                )
+                .await?;
+            let mems = resp.alarms();
+            assert_eq!(mems.len(), 0);
+        }
+
+        {
+            let resp = client
+                .alarm(
+                    Some(AlarmAction::Activate),
+                    Some(0x8e9e05c52164694d),
+                    Some(AlarmType::None),
+                )
+                .await?;
+            let mems = resp.alarms();
+            assert_eq!(mems.len(), 1);
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_status() -> Result<()> {
+        let mut client = get_client().await?;
+
+        {
+            let resp = client.status().await?;
+            let version = resp.version();
+            assert_eq!(version, "3.4.5");
+
+            let db_size = resp.db_size();
+            assert_eq!(db_size, 20480);
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_defragment() -> Result<()> {
+        let mut client = get_client().await?;
+
+        {
+            let resp = client.defragment().await?;
+            let hd = resp.header();
+            assert!(hd.is_none());
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_hash() -> Result<()> {
+        let mut client = get_client().await?;
+
+        {
+            let resp = client.hash().await?;
+            let hd = resp.header();
+            assert!(hd.is_some());
+            assert_ne!(resp.hash(), 0);
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_hash_kv() -> Result<()> {
+        let mut client = get_client().await?;
+
+        {
+            let resp = client.hash_kv(1).await?;
+            let hd = resp.header();
+            assert!(hd.is_some());
+            assert_ne!(resp.hash(), 0);
+            assert_ne!(resp.compact_version(), 0);
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_snapshot() -> Result<()> {
+        let mut client = get_client().await?;
+
+        {
+            let mut msg = client.snapshot().await?;
+            loop {
+                let resp = msg.message().await?;
+                match resp {
+                    Some(r) => {
+                        assert!(r.blob().len() > 0);
+                    }
+                    None => {
+                        break;
+                    }
+                }
+            }
+        }
         Ok(())
     }
 }
