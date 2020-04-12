@@ -9,7 +9,7 @@ pub use crate::error::Error;
 pub use crate::rpc::auth::{
     AuthDisableResponse, AuthEnableResponse, Permission, PermissionType, RoleAddResponse,
     RoleDeleteResponse, RoleGetResponse, RoleGrantPermissionResponse, RoleListResponse,
-    RoleRevokePermissionOption, RoleRevokePermissionResponse,
+    RoleRevokePermissionOptions, RoleRevokePermissionResponse,
 };
 pub use crate::rpc::kv::{
     CompactionOptions, CompactionResponse, Compare, CompareOp, DeleteOptions, DeleteResponse,

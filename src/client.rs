@@ -5,7 +5,7 @@ use crate::rpc::auth::Permission;
 use crate::rpc::auth::{AuthClient, AuthDisableResponse, AuthEnableResponse};
 use crate::rpc::auth::{
     RoleAddResponse, RoleDeleteResponse, RoleGetResponse, RoleGrantPermissionResponse,
-    RoleListResponse, RoleRevokePermissionOption, RoleRevokePermissionResponse,
+    RoleListResponse, RoleRevokePermissionOptions, RoleRevokePermissionResponse,
 };
 use crate::rpc::kv::{
     CompactionOptions, CompactionResponse, DeleteOptions, DeleteResponse, GetOptions, GetResponse,
@@ -279,7 +279,7 @@ impl Client {
         &mut self,
         name: impl Into<String>,
         key: impl Into<Vec<u8>>,
-        options: Option<RoleRevokePermissionOption>,
+        options: Option<RoleRevokePermissionOptions>,
     ) -> Result<RoleRevokePermissionResponse> {
         self.auth.role_revoke_permission(name, key, options).await
     }

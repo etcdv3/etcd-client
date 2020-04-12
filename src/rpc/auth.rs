@@ -3,7 +3,6 @@
 pub use crate::rpc::pb::authpb::permission::Type as PermissionType;
 
 use crate::error::Result;
-use crate::rpc::get_prefix;
 use crate::rpc::pb::authpb::Permission as PbPermission;
 use crate::rpc::pb::etcdserverpb::auth_client::AuthClient as PbAuthClient;
 use crate::rpc::pb::etcdserverpb::{
@@ -21,6 +20,7 @@ use crate::rpc::pb::etcdserverpb::{
     AuthenticateRequest as PbAuthenticateRequest, AuthenticateResponse as PbAuthenticateResponse,
 };
 use crate::rpc::ResponseHeader;
+use crate::rpc::{get_prefix, KeyRange};
 use std::fmt;
 use std::string::String;
 use tonic::transport::Channel;
@@ -146,7 +146,7 @@ impl AuthClient {
         &mut self,
         name: impl Into<String>,
         key: impl Into<Vec<u8>>,
-        options: Option<RoleRevokePermissionOption>,
+        options: Option<RoleRevokePermissionOptions>,
     ) -> Result<RoleRevokePermissionResponse> {
         let resp = self
             .inner
@@ -806,24 +806,22 @@ impl RoleGrantPermissionResponse {
 
 /// Options for grant role permission operation.
 #[derive(Debug, Default, Clone)]
-pub struct RoleRevokePermissionOption {
+pub struct RoleRevokePermissionOptions {
     req: PbAuthRoleRevokePermissionRequest,
-    has_range_end: bool,
-    has_prefix: bool,
+    key_range: KeyRange,
 }
 
-impl RoleRevokePermissionOption {
+impl RoleRevokePermissionOptions {
     /// Create a new `RoleRevokePermissionOption` from pb role revoke permission.
     #[inline]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             req: PbAuthRoleRevokePermissionRequest {
-                role: String::default(),
+                role: String::new(),
                 key: Vec::new(),
                 range_end: Vec::new(),
             },
-            has_range_end: false,
-            has_prefix: false,
+            key_range: KeyRange::new(),
         }
     }
 
@@ -837,42 +835,51 @@ impl RoleRevokePermissionOption {
     /// Sets key.
     #[inline]
     fn with_key(mut self, key: impl Into<Vec<u8>>) -> Self {
-        self.req.key = key.into();
+        self.key_range.with_key(key);
         self
     }
 
-    /// Set range end.
+    /// Specifies the range end.
+    /// `end_key` must be lexicographically greater than start key.
     #[inline]
     pub fn with_range_end(mut self, range_end: impl Into<Vec<u8>>) -> Self {
-        self.req.range_end = range_end.into();
-        self.has_prefix = false;
+        self.key_range.with_range(range_end);
         self
     }
 
-    /// Set prefix.
+    /// Sets all keys prefixed with key.
     #[inline]
     pub fn with_prefix(mut self) -> Self {
-        self.has_prefix = true;
+        self.key_range.with_prefix();
+        self
+    }
+
+    /// Sets all keys >= key.
+    #[inline]
+    pub fn with_from_key(mut self) -> Self {
+        self.key_range.with_from_key();
+        self
+    }
+
+    /// Sets all keys.
+    #[inline]
+    pub fn with_all_keys(mut self) -> Self {
+        self.key_range.with_all_keys();
         self
     }
 }
 
-impl From<RoleRevokePermissionOption> for PbAuthRoleRevokePermissionRequest {
+impl From<RoleRevokePermissionOptions> for PbAuthRoleRevokePermissionRequest {
     #[inline]
-    fn from(mut option: RoleRevokePermissionOption) -> Self {
-        if option.has_prefix {
-            if option.req.key.is_empty() {
-                option.req.key = vec![b'\0'];
-                option.req.range_end = vec![b'\0'];
-            } else {
-                option.req.range_end = get_prefix(&option.req.key);
-            }
-        }
+    fn from(mut option: RoleRevokePermissionOptions) -> Self {
+        let (key, range_end) = option.key_range.build();
+        option.req.key = key;
+        option.req.range_end = range_end;
         option.req
     }
 }
 
-impl IntoRequest<PbAuthRoleRevokePermissionRequest> for RoleRevokePermissionOption {
+impl IntoRequest<PbAuthRoleRevokePermissionRequest> for RoleRevokePermissionOptions {
     #[inline]
     fn into_request(self) -> Request<PbAuthRoleRevokePermissionRequest> {
         Request::new(self.into())

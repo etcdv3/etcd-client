@@ -54,7 +54,7 @@ async fn main() -> Result<(), Error> {
         .role_revoke_permission(
             role1,
             "456",
-            Some(RoleRevokePermissionOption::new().with_range_end("457")),
+            Some(RoleRevokePermissionOptions::new().with_range_end("457")),
         )
         .await?;
     println!("{:?}", resp.header());
@@ -63,7 +63,7 @@ async fn main() -> Result<(), Error> {
         .role_revoke_permission(
             role1,
             "b",
-            Some(RoleRevokePermissionOption::new().with_prefix()),
+            Some(RoleRevokePermissionOptions::new().with_prefix()),
         )
         .await?;
     println!("{:?}", resp.header());
