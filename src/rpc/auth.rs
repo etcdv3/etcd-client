@@ -13,24 +13,25 @@ pub use etcdserverpb::auth_client::AuthClient as PbAuthClient;
 use etcdserverpb::{
     AuthDisableRequest as PbAuthDisableRequest, AuthDisableResponse as PbAuthDisableResponse,
     AuthEnableRequest as PbAuthEnableRequest, AuthEnableResponse as PbAuthEnableResponse,
-    AuthenticateRequest as PbAuthenticateRequest, AuthenticateResponse as PbAuthenticateResponse,
     AuthRoleAddRequest as PbAuthRoleAddRequest, AuthRoleAddResponse as PbAuthRoleAddResponse,
-    AuthRoleDeleteRequest as PbAuthRoleDeleteRequest, AuthRoleDeleteResponse as PbAuthRoleDeleteResponse,
-    AuthRoleGetRequest as PbAuthRoleGetRequest, AuthRoleGetResponse as PbAuthRoleGetResponse,
-    AuthRoleListRequest as PbAuthRoleListRequest, AuthRoleListResponse as PbAuthRoleListResponse,
+    AuthRoleDeleteRequest as PbAuthRoleDeleteRequest,
+    AuthRoleDeleteResponse as PbAuthRoleDeleteResponse, AuthRoleGetRequest as PbAuthRoleGetRequest,
+    AuthRoleGetResponse as PbAuthRoleGetResponse,
     AuthRoleGrantPermissionRequest as PbAuthRoleGrantPermissionRequest,
     AuthRoleGrantPermissionResponse as PbAuthRoleGrantPermissionResponse,
+    AuthRoleListRequest as PbAuthRoleListRequest, AuthRoleListResponse as PbAuthRoleListResponse,
     AuthRoleRevokePermissionRequest as PbAuthRoleRevokePermissionRequest,
     AuthRoleRevokePermissionResponse as PbAuthRoleRevokePermissionResponse,
+    AuthenticateRequest as PbAuthenticateRequest, AuthenticateResponse as PbAuthenticateResponse,
 };
 
 use crate::error::Result;
+use crate::rpc::get_prefix;
 use crate::rpc::ResponseHeader;
+use std::fmt;
 use std::string::String;
 use tonic::transport::Channel;
 use tonic::{Interceptor, IntoRequest, Request};
-use std::fmt;
-use crate::rpc::get_prefix;
 
 /// Client for Auth operations.
 #[repr(transparent)]
@@ -89,10 +90,7 @@ impl AuthClient {
 
     /// Add role
     #[inline]
-    pub async fn role_add(
-        &mut self,
-        name: impl Into<String>,
-    ) -> Result<RoleAddResponse> {
+    pub async fn role_add(&mut self, name: impl Into<String>) -> Result<RoleAddResponse> {
         let resp = self
             .inner
             .role_add(RoleAddOptions::new(name.into()))
@@ -103,10 +101,7 @@ impl AuthClient {
 
     /// Delete role
     #[inline]
-    pub async fn role_delete(
-        &mut self,
-        name: impl Into<String>,
-    ) -> Result<RoleDeleteResponse> {
+    pub async fn role_delete(&mut self, name: impl Into<String>) -> Result<RoleDeleteResponse> {
         let resp = self
             .inner
             .role_delete(RoleDeleteOptions::new(name.into()))
@@ -117,10 +112,7 @@ impl AuthClient {
 
     /// Get role
     #[inline]
-    pub async fn role_get(
-        &mut self,
-        name: impl Into<String>,
-    ) -> Result<RoleGetResponse> {
+    pub async fn role_get(&mut self, name: impl Into<String>) -> Result<RoleGetResponse> {
         let resp = self
             .inner
             .role_get(RoleGetOptions::new(name.into()))
@@ -131,9 +123,7 @@ impl AuthClient {
 
     /// List role
     #[inline]
-    pub async fn role_list(
-        &mut self,
-    ) -> Result<RoleListResponse> {
+    pub async fn role_list(&mut self) -> Result<RoleListResponse> {
         let resp = self
             .inner
             .role_list(AuthRoleListOptions {})
@@ -167,7 +157,12 @@ impl AuthClient {
     ) -> Result<RoleRevokePermissionResponse> {
         let resp = self
             .inner
-            .role_revoke_permission(options.unwrap_or_default().with_name(name.into()).with_key(key.into()))
+            .role_revoke_permission(
+                options
+                    .unwrap_or_default()
+                    .with_name(name.into())
+                    .with_key(key.into()),
+            )
             .await?
             .into_inner();
         Ok(RoleRevokePermissionResponse::new(resp))
@@ -349,7 +344,6 @@ impl AuthenticateResponse {
     }
 }
 
-
 /// Options for `RoleAddOptions` operation.
 #[derive(Debug, Default, Clone)]
 #[repr(transparent)]
@@ -359,9 +353,7 @@ impl RoleAddOptions {
     /// Creates a `RoleAddOptions`.
     #[inline]
     pub fn new(name: String) -> Self {
-        Self(PbAuthRoleAddRequest {
-            name: name,
-        })
+        Self(PbAuthRoleAddRequest { name: name })
     }
 }
 
@@ -413,9 +405,7 @@ impl RoleDeleteOptions {
     /// Creates a `RoleDeleteOptions` to delete role.
     #[inline]
     pub fn new(name: String) -> Self {
-        Self(PbAuthRoleDeleteRequest {
-            role: name,
-        })
+        Self(PbAuthRoleDeleteRequest { role: name })
     }
 }
 
@@ -467,9 +457,7 @@ impl RoleGetOptions {
     /// Creates a `RoleGetOptions` to get role.
     #[inline]
     pub fn new(name: String) -> Self {
-        Self(PbAuthRoleGetRequest {
-            role: name,
-        })
+        Self(PbAuthRoleGetRequest { role: name })
     }
 }
 
@@ -506,7 +494,6 @@ impl From<i32> for PermissionType {
         }
     }
 }
-
 
 impl Permission {
     /// Create a permission with operation type and key
@@ -767,7 +754,6 @@ impl RoleListResponse {
         self.0.roles.as_slice()
     }
 }
-
 
 /// Options for grant role permission operation.
 #[derive(Debug, Default, Clone)]

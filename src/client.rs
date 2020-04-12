@@ -1,12 +1,11 @@
 //! Asynchronous client & synchronous client.
 
 use crate::error::{Error, Result};
+use crate::rpc::auth::Permission;
 use crate::rpc::auth::{AuthClient, AuthDisableResponse, AuthEnableResponse};
-use crate::rpc::auth::Permission as Permission;
-use crate::rpc::auth::{RoleAddResponse, RoleDeleteResponse,
-                       RoleGetResponse, RoleListResponse,
-                       RoleGrantPermissionResponse, RoleRevokePermissionResponse,
-                       RoleRevokePermissionOption,
+use crate::rpc::auth::{
+    RoleAddResponse, RoleDeleteResponse, RoleGetResponse, RoleGrantPermissionResponse,
+    RoleListResponse, RoleRevokePermissionOption, RoleRevokePermissionResponse,
 };
 use crate::rpc::kv::{
     CompactionOptions, CompactionResponse, DeleteOptions, DeleteResponse, GetOptions, GetResponse,
@@ -242,36 +241,25 @@ impl Client {
 
     /// Add role.
     #[inline]
-    pub async fn role_add(
-        &mut self,
-        name: impl Into<String>,
-    ) -> Result<RoleAddResponse> {
+    pub async fn role_add(&mut self, name: impl Into<String>) -> Result<RoleAddResponse> {
         self.auth.role_add(name).await
     }
 
     /// Delete role.
     #[inline]
-    pub async fn role_delete(
-        &mut self,
-        name: impl Into<String>,
-    ) -> Result<RoleDeleteResponse> {
+    pub async fn role_delete(&mut self, name: impl Into<String>) -> Result<RoleDeleteResponse> {
         self.auth.role_delete(name).await
     }
 
     /// Get role.
     #[inline]
-    pub async fn role_get(
-        &mut self,
-        name: impl Into<String>,
-    ) -> Result<RoleGetResponse> {
+    pub async fn role_get(&mut self, name: impl Into<String>) -> Result<RoleGetResponse> {
         self.auth.role_get(name).await
     }
 
     /// List role.
     #[inline]
-    pub async fn role_list(
-        &mut self,
-    ) -> Result<RoleListResponse> {
+    pub async fn role_list(&mut self) -> Result<RoleListResponse> {
         self.auth.role_list().await
     }
 

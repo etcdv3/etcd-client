@@ -14,13 +14,12 @@ async fn main() -> Result<(), Error> {
     client.role_add(role2).await?;
     println!("add role successfully");
 
-
     let mut perm = Permission::new(PermissionType::Read, "456");
     perm = perm.with_range_end("457");
     client.role_grant_permission(role1, perm).await?;
 
     let perm1 = Permission::new(PermissionType::Read, "abc");
-     client.role_grant_permission(role1, perm1).await?;
+    client.role_grant_permission(role1, perm1).await?;
     println!("grant permission successfully");
 
     let mut perm2 = Permission::new(PermissionType::Readwrite, "123");
@@ -49,16 +48,25 @@ async fn main() -> Result<(), Error> {
     //show the result
     println!("Role {}\n{}", role1, resp);
 
-    let resp = client.role_revoke_permission(role1, "abc",
-                                             None).await?;
+    let resp = client.role_revoke_permission(role1, "abc", None).await?;
     println!("{:?}", resp.header());
 
-    let resp = client.role_revoke_permission(role1, "456",
-                                             Some(RoleRevokePermissionOption::new().with_range_end("457"))).await?;
+    let resp = client
+        .role_revoke_permission(
+            role1,
+            "456",
+            Some(RoleRevokePermissionOption::new().with_range_end("457")),
+        )
+        .await?;
     println!("{:?}", resp.header());
 
-    let resp = client.role_revoke_permission(role1, "b",
-                                             Some(RoleRevokePermissionOption::new().with_prefix())).await?;
+    let resp = client
+        .role_revoke_permission(
+            role1,
+            "b",
+            Some(RoleRevokePermissionOption::new().with_prefix()),
+        )
+        .await?;
     println!("{:?}", resp.header());
 
     let resp = client.role_get(role1).await?;
@@ -70,9 +78,9 @@ async fn main() -> Result<(), Error> {
     println!("Roles: \n {:?} ", resp.roles());
 
     client.role_delete(role1).await?;
-    println!("delete role successfully", );
+    println!("delete role successfully",);
     client.role_delete(role2).await?;
-    println!("delete role successfully", );
+    println!("delete role successfully",);
 
     let resp = client.role_list().await?;
     //show the result

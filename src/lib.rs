@@ -24,9 +24,9 @@ pub use crate::rpc::{KeyValue, ResponseHeader};
 pub use crate::rpc::auth::{AuthDisableResponse, AuthEnableResponse};
 pub use crate::rpc::lock::{LockClient, LockOptions, LockResponse, UnlockResponse};
 
-pub use crate::rpc::auth::{PermissionType, Permission};
 pub use crate::rpc::auth::RoleRevokePermissionOption;
-pub use crate::rpc::auth::{RoleAddResponse, RoleDeleteResponse, RoleGetResponse,
-                           RoleListResponse, RoleGrantPermissionResponse,
-                           RoleRevokePermissionResponse,
+pub use crate::rpc::auth::{Permission, PermissionType};
+pub use crate::rpc::auth::{
+    RoleAddResponse, RoleDeleteResponse, RoleGetResponse, RoleGrantPermissionResponse,
+    RoleListResponse, RoleRevokePermissionResponse,
 };
