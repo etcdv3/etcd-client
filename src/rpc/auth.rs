@@ -1,16 +1,12 @@
 //! Etcd Auth RPC.
 
-use super::pb::authpb;
-use super::pb::etcdserverpb;
+pub use crate::rpc::pb::authpb::permission::Type as PermissionType;
 
-pub use authpb::permission::Type as PermissionType;
-pub use authpb::Permission as PbPermission;
-pub use authpb::Role;
-pub use authpb::User;
-pub use authpb::UserAddOptions;
-pub use etcdserverpb::auth_client::AuthClient as PbAuthClient;
-
-use etcdserverpb::{
+use crate::error::Result;
+use crate::rpc::get_prefix;
+use crate::rpc::pb::authpb::Permission as PbPermission;
+use crate::rpc::pb::etcdserverpb::auth_client::AuthClient as PbAuthClient;
+use crate::rpc::pb::etcdserverpb::{
     AuthDisableRequest as PbAuthDisableRequest, AuthDisableResponse as PbAuthDisableResponse,
     AuthEnableRequest as PbAuthEnableRequest, AuthEnableResponse as PbAuthEnableResponse,
     AuthRoleAddRequest as PbAuthRoleAddRequest, AuthRoleAddResponse as PbAuthRoleAddResponse,
@@ -24,9 +20,6 @@ use etcdserverpb::{
     AuthRoleRevokePermissionResponse as PbAuthRoleRevokePermissionResponse,
     AuthenticateRequest as PbAuthenticateRequest, AuthenticateResponse as PbAuthenticateResponse,
 };
-
-use crate::error::Result;
-use crate::rpc::get_prefix;
 use crate::rpc::ResponseHeader;
 use std::fmt;
 use std::string::String;
