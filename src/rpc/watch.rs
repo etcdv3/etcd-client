@@ -10,7 +10,7 @@ use crate::rpc::pb::etcdserverpb::{
     WatchResponse as PbWatchResponse,
 };
 use crate::rpc::pb::mvccpb::Event as PbEvent;
-use crate::rpc::{get_prefix, KeyValue, ResponseHeader};
+use crate::rpc::{KeyRange, KeyValue, ResponseHeader};
 use std::task::{Context, Poll};
 use tokio::stream::Stream;
 use tokio::sync::mpsc::{channel, Sender};
@@ -72,14 +72,14 @@ impl WatchClient {
 #[derive(Debug, Default, Clone)]
 pub struct WatchOptions {
     req: WatchCreateRequest,
-    with_prefix: bool,
+    key_range: KeyRange,
 }
 
 impl WatchOptions {
     /// Sets key.
     #[inline]
     fn with_key(mut self, key: impl Into<Vec<u8>>) -> Self {
-        self.req.key = key.into();
+        self.key_range.with_key(key);
         self
     }
 
@@ -97,7 +97,7 @@ impl WatchOptions {
                 watch_id: 0,
                 fragment: false,
             },
-            with_prefix: false,
+            key_range: KeyRange::new(),
         }
     }
 
@@ -106,14 +106,28 @@ impl WatchOptions {
     /// or equal to the key argument are watched.
     #[inline]
     pub fn with_range(mut self, end: impl Into<Vec<u8>>) -> Self {
-        self.req.range_end = end.into();
+        self.key_range.with_range(end);
+        self
+    }
+
+    /// Watches all keys >= key.
+    #[inline]
+    pub fn with_from_key(mut self) -> Self {
+        self.key_range.with_from_key();
         self
     }
 
     /// Watches all keys prefixed with key.
     #[inline]
-    pub const fn with_prefix(mut self) -> Self {
-        self.with_prefix = true;
+    pub fn with_prefix(mut self) -> Self {
+        self.key_range.with_prefix();
+        self
+    }
+
+    /// Watches all keys.
+    #[inline]
+    pub fn with_all_keys(mut self) -> Self {
+        self.key_range.with_all_keys();
         self
     }
 
@@ -171,12 +185,9 @@ impl WatchOptions {
 impl From<WatchOptions> for WatchCreateRequest {
     #[inline]
     fn from(mut options: WatchOptions) -> Self {
-        if options.req.key.is_empty() {
-            options.req.key = vec![b'\0'];
-            options.req.range_end = vec![b'\0'];
-        } else {
-            options.req.range_end = get_prefix(&options.req.key);
-        }
+        let (key, range_end) = options.key_range.build();
+        options.req.key = key;
+        options.req.range_end = range_end;
         options.req
     }
 }

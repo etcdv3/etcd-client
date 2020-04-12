@@ -16,7 +16,7 @@ use crate::rpc::pb::etcdserverpb::{
     PutResponse as PbPutResponse, RangeRequest as PbRangeRequest, RangeResponse as PbRangeResponse,
     RequestOp as PbTxnRequestOp, TxnRequest as PbTxnRequest, TxnResponse as PbTxnResponse,
 };
-use crate::rpc::{get_prefix, KeyValue, ResponseHeader};
+use crate::rpc::{get_prefix, KeyRange, KeyValue, ResponseHeader};
 use tonic::transport::Channel;
 use tonic::{Interceptor, IntoRequest, Request};
 
@@ -229,15 +229,14 @@ impl PutResponse {
 #[derive(Debug, Default, Clone)]
 pub struct GetOptions {
     req: PbRangeRequest,
-    with_prefix: bool,
-    with_from_key: bool,
+    key_range: KeyRange,
 }
 
 impl GetOptions {
     /// Sets key.
     #[inline]
     fn with_key(mut self, key: impl Into<Vec<u8>>) -> Self {
-        self.req.key = key.into();
+        self.key_range.with_key(key);
         self
     }
 
@@ -260,8 +259,7 @@ impl GetOptions {
                 min_create_revision: 0,
                 max_create_revision: 0,
             },
-            with_prefix: false,
-            with_from_key: false,
+            key_range: KeyRange::new(),
         }
     }
 
@@ -270,23 +268,28 @@ impl GetOptions {
     /// `end_key` must be lexicographically greater than start key.
     #[inline]
     pub fn with_range(mut self, end_key: impl Into<Vec<u8>>) -> Self {
-        self.req.range_end = end_key.into();
+        self.key_range.with_range(end_key);
         self
     }
 
     /// Gets all keys >= key.
     #[inline]
-    pub const fn with_from_key(mut self) -> Self {
-        self.with_from_key = true;
-        self.with_prefix = false;
+    pub fn with_from_key(mut self) -> Self {
+        self.key_range.with_from_key();
         self
     }
 
     /// Gets all keys prefixed with key.
     #[inline]
-    pub const fn with_prefix(mut self) -> Self {
-        self.with_prefix = true;
-        self.with_from_key = false;
+    pub fn with_prefix(mut self) -> Self {
+        self.key_range.with_prefix();
+        self
+    }
+
+    /// Gets all keys.
+    #[inline]
+    pub fn with_all_keys(mut self) -> Self {
+        self.key_range.with_all_keys();
         self
     }
 
@@ -387,19 +390,9 @@ impl GetOptions {
 impl From<GetOptions> for PbRangeRequest {
     #[inline]
     fn from(mut options: GetOptions) -> Self {
-        if options.with_from_key {
-            if options.req.key.is_empty() {
-                options.req.key = vec![b'\0'];
-            }
-            options.req.range_end = vec![b'\0'];
-        } else if options.with_prefix {
-            if options.req.key.is_empty() {
-                options.req.key = vec![b'\0'];
-                options.req.range_end = vec![b'\0'];
-            } else {
-                options.req.range_end = get_prefix(&options.req.key);
-            }
-        }
+        let (key, rang_end) = options.key_range.build();
+        options.req.key = key;
+        options.req.range_end = rang_end;
         options.req
     }
 }

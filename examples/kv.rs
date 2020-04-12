@@ -56,7 +56,7 @@ async fn main() -> Result<(), Error> {
     // get all kv pairs
     println!("Get all users:");
     let resp = client
-        .get("", Some(GetOptions::new().with_from_key()))
+        .get("", Some(GetOptions::new().with_all_keys()))
         .await?;
     for kv in resp.kvs() {
         println!("\t{{{}: {}}}", kv.key_str()?, kv.value_str()?);

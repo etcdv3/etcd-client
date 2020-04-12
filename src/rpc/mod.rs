@@ -171,6 +171,81 @@ fn get_prefix(key: &[u8]) -> Vec<u8> {
     vec![0]
 }
 
+/// Key range builder.
+#[derive(Debug, Default, Clone)]
+struct KeyRange {
+    key: Vec<u8>,
+    range_end: Vec<u8>,
+    with_prefix: bool,
+    with_from_key: bool,
+}
+
+impl KeyRange {
+    #[inline]
+    pub const fn new() -> Self {
+        KeyRange {
+            key: Vec::new(),
+            range_end: Vec::new(),
+            with_prefix: false,
+            with_from_key: false,
+        }
+    }
+
+    /// Sets key.
+    #[inline]
+    pub fn with_key(&mut self, key: impl Into<Vec<u8>>) {
+        self.key = key.into();
+    }
+
+    /// Specifies the range end.
+    /// `end_key` must be lexicographically greater than start key.
+    #[inline]
+    pub fn with_range(&mut self, end_key: impl Into<Vec<u8>>) {
+        self.range_end = end_key.into();
+    }
+
+    /// Sets all keys >= key.
+    #[inline]
+    pub fn with_from_key(&mut self) {
+        self.with_from_key = true;
+        self.with_prefix = false;
+    }
+
+    /// Sets all keys prefixed with key.
+    #[inline]
+    pub fn with_prefix(&mut self) {
+        self.with_prefix = true;
+        self.with_from_key = false;
+    }
+
+    /// Sets all keys.
+    #[inline]
+    pub fn with_all_keys(&mut self) {
+        self.key.clear();
+        self.with_from_key();
+    }
+
+    /// Build the key and range end.
+    #[inline]
+    pub fn build(mut self) -> (Vec<u8>, Vec<u8>) {
+        if self.with_from_key {
+            if self.key.is_empty() {
+                self.key = vec![b'\0'];
+            }
+            self.range_end = vec![b'\0'];
+        } else if self.with_prefix {
+            if self.key.is_empty() {
+                self.key = vec![b'\0'];
+                self.range_end = vec![b'\0'];
+            } else {
+                self.range_end = get_prefix(&self.key);
+            }
+        }
+
+        (self.key, self.range_end)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
