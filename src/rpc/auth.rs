@@ -81,7 +81,7 @@ impl AuthClient {
         Ok(AuthenticateResponse::new(resp))
     }
 
-    /// Add role
+    /// Adds role
     #[inline]
     pub async fn role_add(&mut self, name: impl Into<String>) -> Result<RoleAddResponse> {
         let resp = self
@@ -92,7 +92,7 @@ impl AuthClient {
         Ok(RoleAddResponse::new(resp))
     }
 
-    /// Delete role
+    /// Deletes role
     #[inline]
     pub async fn role_delete(&mut self, name: impl Into<String>) -> Result<RoleDeleteResponse> {
         let resp = self
@@ -103,7 +103,7 @@ impl AuthClient {
         Ok(RoleDeleteResponse::new(resp))
     }
 
-    /// Get role
+    /// Gets role
     #[inline]
     pub async fn role_get(&mut self, name: impl Into<String>) -> Result<RoleGetResponse> {
         let resp = self
@@ -114,7 +114,7 @@ impl AuthClient {
         Ok(RoleGetResponse::new(resp))
     }
 
-    /// List role
+    /// Lists role
     #[inline]
     pub async fn role_list(&mut self) -> Result<RoleListResponse> {
         let resp = self
@@ -125,7 +125,7 @@ impl AuthClient {
         Ok(RoleListResponse::new(resp))
     }
 
-    /// Grant role permission
+    /// Grants role permission
     #[inline]
     pub async fn role_grant_permission(
         &mut self,
@@ -140,7 +140,7 @@ impl AuthClient {
         Ok(RoleGrantPermissionResponse::new(resp))
     }
 
-    /// Revoke role permission
+    /// Revokes role permission
     #[inline]
     pub async fn role_revoke_permission(
         &mut self,
@@ -164,7 +164,6 @@ impl AuthClient {
 
 /// Options for `AuthEnable` operation.
 #[derive(Debug, Default, Clone)]
-// #[repr(transparent)]
 pub struct AuthEnableOptions(PbAuthEnableRequest);
 
 impl AuthEnableOptions {
@@ -195,13 +194,13 @@ impl IntoRequest<PbAuthEnableRequest> for AuthEnableOptions {
 pub struct AuthEnableResponse(PbAuthEnableResponse);
 
 impl AuthEnableResponse {
-    /// Create a new `AuthEnableResponse` from pb auth response.
+    /// Creates a new `AuthEnableResponse` from pb auth response.
     #[inline]
     const fn new(resp: PbAuthEnableResponse) -> Self {
         Self(resp)
     }
 
-    /// Get response header.
+    /// Gets response header.
     #[inline]
     pub fn header(&self) -> Option<&ResponseHeader> {
         self.0.header.as_ref().map(From::from)
@@ -216,7 +215,6 @@ impl AuthEnableResponse {
 
 /// Options for `AuthDisable` operation.
 #[derive(Debug, Default, Clone)]
-// #[repr(transparent)]
 pub struct AuthDisableOptions(PbAuthDisableRequest);
 
 impl AuthDisableOptions {
@@ -247,13 +245,13 @@ impl IntoRequest<PbAuthDisableRequest> for AuthDisableOptions {
 pub struct AuthDisableResponse(PbAuthDisableResponse);
 
 impl AuthDisableResponse {
-    /// Create a new `AuthDisableResponse` from pb auth response.
+    /// Creates a new `AuthDisableResponse` from pb auth response.
     #[inline]
     const fn new(resp: PbAuthDisableResponse) -> Self {
         Self(resp)
     }
 
-    /// Get response header.
+    /// Gets response header.
     #[inline]
     pub fn header(&self) -> Option<&ResponseHeader> {
         self.0.header.as_ref().map(From::from)
@@ -272,7 +270,7 @@ impl AuthDisableResponse {
 pub struct AuthenticateOptions(PbAuthenticateRequest);
 
 impl AuthenticateOptions {
-    /// Set user's name and password.
+    /// Sets user's name and password.
     #[inline]
     fn with_user(mut self, name: String, password: String) -> Self {
         self.0.name = name;
@@ -316,7 +314,7 @@ impl AuthenticateResponse {
         Self(resp)
     }
 
-    /// Get response header.
+    /// Gets response header.
     #[allow(dead_code)]
     #[inline]
     pub fn header(&self) -> Option<&ResponseHeader> {
@@ -370,13 +368,13 @@ impl IntoRequest<PbAuthRoleAddRequest> for RoleAddOptions {
 pub struct RoleAddResponse(PbAuthRoleAddResponse);
 
 impl RoleAddResponse {
-    /// Create a new `RoleAddResponse` from pb role add response.
+    /// Creates a new `RoleAddResponse` from pb role add response.
     #[inline]
     const fn new(resp: PbAuthRoleAddResponse) -> Self {
         Self(resp)
     }
 
-    /// Get response header.
+    /// Gets response header.
     #[inline]
     pub fn header(&self) -> Option<&ResponseHeader> {
         self.0.header.as_ref().map(From::from)
@@ -422,13 +420,13 @@ impl IntoRequest<PbAuthRoleDeleteRequest> for RoleDeleteOptions {
 pub struct RoleDeleteResponse(PbAuthRoleDeleteResponse);
 
 impl RoleDeleteResponse {
-    /// Create a new `RoleDeleteResponse` from pb role delete response.
+    /// Creates a new `RoleDeleteResponse` from pb role delete response.
     #[inline]
     const fn new(resp: PbAuthRoleDeleteResponse) -> Self {
         Self(resp)
     }
 
-    /// Get response header.
+    /// Gets response header.
     #[inline]
     pub fn header(&self) -> Option<&ResponseHeader> {
         self.0.header.as_ref().map(From::from)
@@ -489,7 +487,7 @@ impl From<i32> for PermissionType {
 }
 
 impl Permission {
-    /// Create a permission with operation type and key
+    /// Creates a permission with operation type and key
     #[inline]
     pub fn new(perm_type: PermissionType, key: impl Into<Vec<u8>>) -> Self {
         Self {
@@ -503,25 +501,25 @@ impl Permission {
         }
     }
 
-    /// Create a read permission with key
+    /// Creates a read permission with key
     #[inline]
     pub fn read(key: impl Into<Vec<u8>>) -> Self {
         Permission::new(PermissionType::Read, key)
     }
 
-    /// Create a write permission with key
+    /// Creates a write permission with key
     #[inline]
     pub fn write(key: impl Into<Vec<u8>>) -> Self {
         Permission::new(PermissionType::Write, key)
     }
 
-    /// Create a readwrite permission with key
+    /// Creates a readwrite permission with key
     #[inline]
     pub fn readwrite(key: impl Into<Vec<u8>>) -> Self {
         Permission::new(PermissionType::Readwrite, key)
     }
 
-    /// Set range end for the permission
+    /// Sets range end for the permission
     #[inline]
     pub fn with_range_end(mut self, range_end: impl Into<Vec<u8>>) -> Self {
         self.inner.range_end = range_end.into();
@@ -530,7 +528,7 @@ impl Permission {
         self
     }
 
-    /// Set the permission with prefix
+    /// Sets the permission with prefix
     #[inline]
     pub fn with_prefix(mut self) -> Self {
         // if true there should be no range end, set the range end
@@ -585,19 +583,19 @@ impl Permission {
         std::str::from_utf8_unchecked(self.key())
     }
 
-    /// Get the operation type of permission
+    /// Gets the operation type of permission.
     #[inline]
     pub const fn get_type(&self) -> i32 {
         self.inner.perm_type
     }
 
-    /// Whether permission is a range scope
+    /// Indicates whether permission is a range scope.
     #[inline]
     pub const fn is_range(&self) -> bool {
         self.has_range_end
     }
 
-    /// Whether permission is a prefix scope
+    /// Indicates whether permission is a prefix scope.
     #[inline]
     pub const fn is_prefix(&self) -> bool {
         self.has_prefix
@@ -629,6 +627,7 @@ impl From<&PbPermission> for Permission {
 }
 
 impl fmt::Display for Permission {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut text = String::new();
         if self.is_range() {
@@ -668,13 +667,13 @@ impl From<Permission> for PbPermission {
 pub struct RoleGetResponse(PbAuthRoleGetResponse);
 
 impl RoleGetResponse {
-    /// Create a new `RoleGetResponse` from pb role get response.
+    /// Creates a new `RoleGetResponse` from pb role get response.
     #[inline]
     const fn new(resp: PbAuthRoleGetResponse) -> Self {
         Self(resp)
     }
 
-    /// Get response header.
+    /// Gets response header.
     #[inline]
     pub fn header(&self) -> Option<&ResponseHeader> {
         self.0.header.as_ref().map(From::from)
@@ -698,6 +697,7 @@ impl RoleGetResponse {
 }
 
 impl fmt::Display for RoleGetResponse {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut read_perm = String::from("KV Read:\n");
         let mut write_perm = String::from("KV Write:\n");
@@ -724,13 +724,13 @@ use PbAuthRoleListRequest as AuthRoleListOptions;
 pub struct RoleListResponse(PbAuthRoleListResponse);
 
 impl RoleListResponse {
-    /// Create a new `RoleListResponse` from pb role list response.
+    /// Creates a new `RoleListResponse` from pb role list response.
     #[inline]
     const fn new(resp: PbAuthRoleListResponse) -> Self {
         Self(resp)
     }
 
-    /// Get response header.
+    /// Gets response header.
     #[inline]
     pub fn header(&self) -> Option<&ResponseHeader> {
         self.0.header.as_ref().map(From::from)
@@ -742,7 +742,7 @@ impl RoleListResponse {
         self.0.header.take().map(ResponseHeader::new)
     }
 
-    /// Get roles in response
+    /// Gets roles in response.
     #[inline]
     pub fn roles(&self) -> &[String] {
         self.0.roles.as_slice()
@@ -755,7 +755,7 @@ impl RoleListResponse {
 pub struct RoleGrantPermissionOptions(PbAuthRoleGrantPermissionRequest);
 
 impl RoleGrantPermissionOptions {
-    /// Create a "RoleGrantPermissionOptions" to grant role permission
+    /// Creates a "RoleGrantPermissionOptions" to grant role permission
     #[inline]
     pub fn new(name: String, perm: Permission) -> Self {
         Self(PbAuthRoleGrantPermissionRequest {
@@ -785,13 +785,13 @@ impl IntoRequest<PbAuthRoleGrantPermissionRequest> for RoleGrantPermissionOption
 pub struct RoleGrantPermissionResponse(PbAuthRoleGrantPermissionResponse);
 
 impl RoleGrantPermissionResponse {
-    /// Create a new `RoleGrantPermissionResponse` from pb role grant permission response.
+    /// Creates a new `RoleGrantPermissionResponse` from pb role grant permission response.
     #[inline]
     const fn new(resp: PbAuthRoleGrantPermissionResponse) -> Self {
         Self(resp)
     }
 
-    /// Get response header.
+    /// Gets response header.
     #[inline]
     pub fn header(&self) -> Option<&ResponseHeader> {
         self.0.header.as_ref().map(From::from)
@@ -892,13 +892,13 @@ impl IntoRequest<PbAuthRoleRevokePermissionRequest> for RoleRevokePermissionOpti
 pub struct RoleRevokePermissionResponse(PbAuthRoleRevokePermissionResponse);
 
 impl RoleRevokePermissionResponse {
-    /// Create a new `RoleRevokePermissionResponse` from pb role revoke permission response.
+    /// Creates a new `RoleRevokePermissionResponse` from pb role revoke permission response.
     #[inline]
     const fn new(resp: PbAuthRoleRevokePermissionResponse) -> Self {
         Self(resp)
     }
 
-    /// Get response header.
+    /// Gets response header.
     #[inline]
     pub fn header(&self) -> Option<&ResponseHeader> {
         self.0.header.as_ref().map(From::from)

@@ -239,31 +239,31 @@ impl Client {
         self.auth.auth_disable().await
     }
 
-    /// Add role.
+    /// Adds role.
     #[inline]
     pub async fn role_add(&mut self, name: impl Into<String>) -> Result<RoleAddResponse> {
         self.auth.role_add(name).await
     }
 
-    /// Delete role.
+    /// Deletes role.
     #[inline]
     pub async fn role_delete(&mut self, name: impl Into<String>) -> Result<RoleDeleteResponse> {
         self.auth.role_delete(name).await
     }
 
-    /// Get role.
+    /// Gets role.
     #[inline]
     pub async fn role_get(&mut self, name: impl Into<String>) -> Result<RoleGetResponse> {
         self.auth.role_get(name).await
     }
 
-    /// List role.
+    /// Lists role.
     #[inline]
     pub async fn role_list(&mut self) -> Result<RoleListResponse> {
         self.auth.role_list().await
     }
 
-    /// Grant role permission.
+    /// Grants role permission.
     #[inline]
     pub async fn role_grant_permission(
         &mut self,
@@ -273,7 +273,7 @@ impl Client {
         self.auth.role_grant_permission(name, perm).await
     }
 
-    /// Revoke role permission.
+    /// Revokes role permission.
     #[inline]
     pub async fn role_revoke_permission(
         &mut self,
