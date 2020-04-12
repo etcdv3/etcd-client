@@ -202,6 +202,8 @@ impl KeyRange {
     #[inline]
     pub fn with_range(&mut self, end_key: impl Into<Vec<u8>>) {
         self.range_end = end_key.into();
+        self.with_prefix = false;
+        self.with_from_key = false;
     }
 
     /// Sets all keys >= key.

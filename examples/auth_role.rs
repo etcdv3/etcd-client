@@ -27,7 +27,7 @@ async fn main() -> Result<(), Error> {
     client.role_grant_permission(role1, perm1).await?;
     println!("grant role1 permission successfully");
 
-    let perm2 = Permission::readwrite("123").with_prefix();
+    let perm2 = Permission::read_write("123").with_prefix();
     client.role_grant_permission(role1, perm2).await?;
     println!("grant role1 permission successfully");
 
@@ -39,13 +39,13 @@ async fn main() -> Result<(), Error> {
     let resp = client.role_grant_permission(role1, perm4).await?;
     println!("{:?}", resp.header());
 
-    let perm5 = Permission::readwrite("d").with_range_end("h");
+    let perm5 = Permission::read_write("d").with_range_end("h");
     let resp = client.role_grant_permission(role1, perm5).await?;
     println!("{:?}", resp.header());
 
     let resp = client.role_get(role1).await?;
     //show the result
-    println!("Role {}\n{}", role1, resp);
+    println!("Role {:?}\n{:?}", role1, resp);
 
     let resp = client.role_revoke_permission(role1, "abc", None).await?;
     println!("{:?}", resp.header());
@@ -70,7 +70,7 @@ async fn main() -> Result<(), Error> {
 
     let resp = client.role_get(role1).await?;
     //show the result
-    println!("Role {}\n{}", role1, resp);
+    println!("Role {:?}\n{:?}", role1, resp);
 
     let resp = client.role_list().await?;
     //show the result

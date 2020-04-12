@@ -21,7 +21,6 @@ use crate::rpc::pb::etcdserverpb::{
 };
 use crate::rpc::ResponseHeader;
 use crate::rpc::{get_prefix, KeyRange};
-use std::fmt;
 use std::string::String;
 use tonic::transport::Channel;
 use tonic::{Interceptor, IntoRequest, Request};
@@ -470,8 +469,8 @@ impl IntoRequest<PbAuthRoleGetRequest> for RoleGetOptions {
 #[derive(Debug, Clone)]
 pub struct Permission {
     inner: PbPermission,
-    has_prefix: bool,
-    has_range_end: bool,
+    with_prefix: bool,
+    with_from_key: bool,
 }
 
 impl From<i32> for PermissionType {
@@ -496,8 +495,8 @@ impl Permission {
                 key: key.into(),
                 range_end: Vec::new(),
             },
-            has_prefix: false,
-            has_range_end: false,
+            with_prefix: false,
+            with_from_key: false,
         }
     }
 
@@ -513,9 +512,9 @@ impl Permission {
         Permission::new(PermissionType::Write, key)
     }
 
-    /// Creates a readwrite permission with key
+    /// Creates a read write permission with key
     #[inline]
-    pub fn readwrite(key: impl Into<Vec<u8>>) -> Self {
+    pub fn read_write(key: impl Into<Vec<u8>>) -> Self {
         Permission::new(PermissionType::Readwrite, key)
     }
 
@@ -523,18 +522,31 @@ impl Permission {
     #[inline]
     pub fn with_range_end(mut self, range_end: impl Into<Vec<u8>>) -> Self {
         self.inner.range_end = range_end.into();
-        self.has_range_end = true;
-        self.has_prefix = false;
+        self.with_prefix = false;
+        self.with_from_key = false;
         self
     }
 
-    /// Sets the permission with prefix
+    /// Sets the permission with all keys >= key.
+    #[inline]
+    pub fn with_from_key(&mut self) {
+        self.with_from_key = true;
+        self.with_prefix = false;
+    }
+
+    /// Sets the permission with all keys prefixed with key.
     #[inline]
     pub fn with_prefix(mut self) -> Self {
-        // if true there should be no range end, set the range end
-        self.has_prefix = true;
-        self.has_range_end = false;
+        self.with_prefix = true;
+        self.with_from_key = false;
         self
+    }
+
+    /// Sets the permission with all keys.
+    #[inline]
+    pub fn with_all_keys(&mut self) {
+        self.inner.key.clear();
+        self.with_from_key();
     }
 
     /// The key in bytes. An empty key is not allowed.
@@ -589,16 +601,16 @@ impl Permission {
         self.inner.perm_type
     }
 
-    /// Indicates whether permission is a range scope.
+    /// Indicates whether permission is with keys >= key.
     #[inline]
-    pub const fn is_range(&self) -> bool {
-        self.has_range_end
+    pub const fn is_from_key(&self) -> bool {
+        self.with_from_key
     }
 
-    /// Indicates whether permission is a prefix scope.
+    /// Indicates whether permission is with all keys prefixed with key.
     #[inline]
     pub const fn is_prefix(&self) -> bool {
-        self.has_prefix
+        self.with_prefix
     }
 }
 
@@ -611,52 +623,36 @@ impl From<&PbPermission> for Permission {
                 key: src.key.clone(),
                 range_end: src.range_end.clone(),
             },
-            has_range_end: false,
-            has_prefix: false,
+            with_from_key: false,
+            with_prefix: false,
         };
 
-        if !perm.inner.range_end.is_empty() {
-            perm.has_range_end = true;
+        if perm.inner.range_end == [b'\0'] {
+            perm.with_from_key = true;
+        } else if !perm.inner.range_end.is_empty() {
             let prefix = get_prefix(&perm.inner.key);
-            if prefix.as_slice().eq(perm.inner.range_end.as_slice()) {
-                perm.has_prefix = true;
+            if prefix == perm.inner.range_end {
+                perm.with_prefix = true;
             }
         }
         perm
     }
 }
 
-impl fmt::Display for Permission {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut text = String::new();
-        if self.is_range() {
-            text += "[";
-            text += self.key_str().unwrap();
-            text = text + "," + self.range_end_str().unwrap() + ")";
-
-            if self.is_prefix() {
-                text = text + " (prefix " + self.key_str().unwrap() + ")";
-            }
-        } else {
-            text += self.key_str().unwrap();
-        }
-
-        write!(f, "{}", text)
-    }
-}
-
 impl From<Permission> for PbPermission {
     #[inline]
     fn from(mut perm: Permission) -> Self {
-        if perm.has_prefix {
-            if perm.inner.key.is_empty() {
-                perm.inner.key = vec![b'\0'];
-                perm.inner.range_end = vec![b'\0'];
-            } else {
-                perm.inner.range_end = get_prefix(&perm.inner.key);
-            }
+        let mut key_range = KeyRange::new();
+        key_range.with_key(perm.inner.key);
+        key_range.with_range(perm.inner.range_end);
+        if perm.with_prefix {
+            key_range.with_prefix();
+        } else if perm.with_from_key {
+            key_range.with_from_key();
         }
+        let (key, range_end) = key_range.build();
+        perm.inner.key = key;
+        perm.inner.range_end = range_end;
         perm.inner
     }
 }
@@ -693,25 +689,6 @@ impl RoleGetResponse {
             perms.push(p.into());
         }
         perms
-    }
-}
-
-impl fmt::Display for RoleGetResponse {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut read_perm = String::from("KV Read:\n");
-        let mut write_perm = String::from("KV Write:\n");
-        for perm in self.permissions() {
-            if perm.get_type() == 0 || perm.get_type() == 2 {
-                read_perm = read_perm + perm.to_string().as_str() + "\n";
-            }
-
-            if perm.get_type() == 1 || perm.get_type() == 2 {
-                write_perm = write_perm + perm.to_string().as_str() + "\n";
-            }
-        }
-
-        write!(f, "{}\n{}", read_perm, write_perm)
     }
 }
 
