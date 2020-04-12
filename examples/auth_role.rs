@@ -2,49 +2,48 @@
 
 use etcd_client::*;
 
+#[allow(unused_must_use)]
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     let mut client = Client::connect(["localhost:2379"], None).await?;
-    let role1 = "test_role2";
-    let role2 = "test_role3";
+    let role1 = "role1";
+    let role2 = "role2";
+
+    // ignore result
+    client.role_delete(role1).await;
+    client.role_delete(role2).await;
 
     client.role_add(role1).await?;
-    println!("add role successfully");
+    println!("add role1 successfully");
 
     client.role_add(role2).await?;
-    println!("add role successfully");
+    println!("add role2 successfully");
 
-    let mut perm = Permission::new(PermissionType::Read, "456");
-    perm = perm.with_range_end("457");
+    let perm = Permission::read("456").with_range_end("457");
     client.role_grant_permission(role1, perm).await?;
+    println!("grant role1 permission successfully");
 
-    let perm1 = Permission::new(PermissionType::Read, "abc");
+    let perm1 = Permission::read("abc");
     client.role_grant_permission(role1, perm1).await?;
-    println!("grant permission successfully");
+    println!("grant role1 permission successfully");
 
-    let mut perm2 = Permission::new(PermissionType::Readwrite, "123");
-    perm2 = perm2.with_prefix();
+    let perm2 = Permission::readwrite("123").with_prefix();
     client.role_grant_permission(role1, perm2).await?;
-    println!("grant permission successfully");
+    println!("grant role1 permission successfully");
 
     let perm3 = Permission::read("a");
     client.role_grant_permission(role1, perm3).await?;
-    println!("grant permission successfully");
+    println!("grant role1 permission successfully");
 
-    let mut perm4 = Permission::write("b");
-    //the last set is valid
-    perm4 = perm4.with_range_end("e");
-    perm4 = perm4.with_prefix();
+    let perm4 = Permission::write("b").with_prefix();
     let resp = client.role_grant_permission(role1, perm4).await?;
     println!("{:?}", resp.header());
-    let mut perm5 = Permission::readwrite("d");
-    perm5 = perm5.with_prefix();
-    perm5 = perm5.with_range_end("h");
 
+    let perm5 = Permission::readwrite("d").with_range_end("h");
     let resp = client.role_grant_permission(role1, perm5).await?;
     println!("{:?}", resp.header());
 
-    let resp = client.role_get("test role3".to_string()).await?;
+    let resp = client.role_get(role1).await?;
     //show the result
     println!("Role {}\n{}", role1, resp);
 
@@ -78,9 +77,9 @@ async fn main() -> Result<(), Error> {
     println!("Roles: \n {:?} ", resp.roles());
 
     client.role_delete(role1).await?;
-    println!("delete role successfully",);
+    println!("delete role1 successfully",);
     client.role_delete(role2).await?;
-    println!("delete role successfully",);
+    println!("delete role2 successfully",);
 
     let resp = client.role_list().await?;
     //show the result

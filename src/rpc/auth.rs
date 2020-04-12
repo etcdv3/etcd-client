@@ -535,6 +535,7 @@ impl Permission {
     pub fn with_prefix(mut self) -> Self {
         // if true there should be no range end, set the range end
         self.has_prefix = true;
+        self.has_range_end = false;
         self
     }
 
