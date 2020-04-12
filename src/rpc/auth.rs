@@ -353,7 +353,7 @@ impl RoleAddOptions {
     /// Creates a `RoleAddOptions`.
     #[inline]
     pub fn new(name: String) -> Self {
-        Self(PbAuthRoleAddRequest { name: name })
+        Self(PbAuthRoleAddRequest { name })
     }
 }
 
@@ -638,15 +638,15 @@ impl fmt::Display for Permission {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut text = String::new();
         if self.is_range() {
-            text = text + "[";
-            text = text + self.key_str().unwrap();
+            text += "[";
+            text += self.key_str().unwrap();
             text = text + "," + self.range_end_str().unwrap() + ")";
 
             if self.is_prefix() {
                 text = text + " (prefix " + self.key_str().unwrap() + ")";
             }
         } else {
-            text = text + self.key_str().unwrap();
+            text += self.key_str().unwrap();
         }
 
         write!(f, "{}", text)
@@ -765,7 +765,7 @@ impl RoleGrantPermissionOptions {
     #[inline]
     pub fn new(name: String, perm: Permission) -> Self {
         Self(PbAuthRoleGrantPermissionRequest {
-            name: name,
+            name,
             perm: Some(perm.into()),
         })
     }
