@@ -529,9 +529,10 @@ impl Permission {
 
     /// Sets the permission with all keys >= key.
     #[inline]
-    pub fn with_from_key(&mut self) {
+    pub fn with_from_key(mut self) -> Self {
         self.with_from_key = true;
         self.with_prefix = false;
+        self
     }
 
     /// Sets the permission with all keys prefixed with key.
@@ -544,9 +545,9 @@ impl Permission {
 
     /// Sets the permission with all keys.
     #[inline]
-    pub fn with_all_keys(&mut self) {
+    pub fn with_all_keys(mut self) -> Self {
         self.inner.key.clear();
-        self.with_from_key();
+        self.with_from_key()
     }
 
     /// The key in bytes. An empty key is not allowed.
@@ -611,6 +612,24 @@ impl Permission {
     #[inline]
     pub const fn is_prefix(&self) -> bool {
         self.with_prefix
+    }
+}
+
+impl PartialEq for Permission {
+    fn eq(&self, other: &Self) -> bool {
+        if (self.with_prefix == other.with_prefix)
+            && (self.with_from_key == other.with_from_key)
+            && (self.inner.perm_type == other.inner.perm_type)
+        {
+            if self.inner.key == other.inner.key {
+                return true;
+            } else {
+                return (self.inner.key.is_empty() && other.inner.key == vec![b'\0'])
+                    || (self.inner.key == vec![b'\0'] && other.inner.key.is_empty());
+            }
+        }
+
+        false
     }
 }
 
