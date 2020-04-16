@@ -616,20 +616,21 @@ impl Permission {
 }
 
 impl PartialEq for Permission {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         if (self.with_prefix == other.with_prefix)
             && (self.with_from_key == other.with_from_key)
             && (self.inner.perm_type == other.inner.perm_type)
         {
             if self.inner.key == other.inner.key {
-                return true;
+                true
             } else {
-                return (self.inner.key.is_empty() && other.inner.key == vec![b'\0'])
-                    || (self.inner.key == vec![b'\0'] && other.inner.key.is_empty());
+                (self.inner.key.is_empty() && other.inner.key == &[b'\0'])
+                    || (self.inner.key == &[b'\0'] && other.inner.key.is_empty())
             }
+        } else {
+            false
         }
-
-        false
     }
 }
 
