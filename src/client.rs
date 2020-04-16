@@ -1,7 +1,12 @@
 //! Asynchronous client & synchronous client.
 
 use crate::error::{Error, Result};
+use crate::rpc::auth::Permission;
 use crate::rpc::auth::{AuthClient, AuthDisableResponse, AuthEnableResponse};
+use crate::rpc::auth::{
+    RoleAddResponse, RoleDeleteResponse, RoleGetResponse, RoleGrantPermissionResponse,
+    RoleListResponse, RoleRevokePermissionOptions, RoleRevokePermissionResponse,
+};
 use crate::rpc::kv::{
     CompactionOptions, CompactionResponse, DeleteOptions, DeleteResponse, GetOptions, GetResponse,
     KvClient, PutOptions, PutResponse, Txn, TxnResponse,
@@ -233,6 +238,51 @@ impl Client {
     pub async fn auth_disable(&mut self) -> Result<AuthDisableResponse> {
         self.auth.auth_disable().await
     }
+
+    /// Adds role.
+    #[inline]
+    pub async fn role_add(&mut self, name: impl Into<String>) -> Result<RoleAddResponse> {
+        self.auth.role_add(name).await
+    }
+
+    /// Deletes role.
+    #[inline]
+    pub async fn role_delete(&mut self, name: impl Into<String>) -> Result<RoleDeleteResponse> {
+        self.auth.role_delete(name).await
+    }
+
+    /// Gets role.
+    #[inline]
+    pub async fn role_get(&mut self, name: impl Into<String>) -> Result<RoleGetResponse> {
+        self.auth.role_get(name).await
+    }
+
+    /// Lists role.
+    #[inline]
+    pub async fn role_list(&mut self) -> Result<RoleListResponse> {
+        self.auth.role_list().await
+    }
+
+    /// Grants role permission.
+    #[inline]
+    pub async fn role_grant_permission(
+        &mut self,
+        name: impl Into<String>,
+        perm: Permission,
+    ) -> Result<RoleGrantPermissionResponse> {
+        self.auth.role_grant_permission(name, perm).await
+    }
+
+    /// Revokes role permission.
+    #[inline]
+    pub async fn role_revoke_permission(
+        &mut self,
+        name: impl Into<String>,
+        key: impl Into<Vec<u8>>,
+        options: Option<RoleRevokePermissionOptions>,
+    ) -> Result<RoleRevokePermissionResponse> {
+        self.auth.role_revoke_permission(name, key, options).await
+    }
 }
 
 /// Options for `Connect` operation.
@@ -260,7 +310,7 @@ impl ConnectOptions {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Compare, CompareOp, EventType, TxnOp, TxnOpResponse};
+    use crate::{Compare, CompareOp, EventType, PermissionType, TxnOp, TxnOpResponse};
 
     /// Get client for testing.
     async fn get_client() -> Result<Client> {
@@ -634,6 +684,122 @@ mod tests {
         // after disable auth, operate ok
         let mut client = get_client().await?;
         client.put("auth-test", "value", None).await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_role() -> Result<()> {
+        let mut client = get_client().await?;
+
+        let role1 = "role1";
+        let role2 = "role2";
+
+        let _resp = client.role_delete(role1).await;
+        let _resp = client.role_delete(role2).await;
+        client.role_add(role1).await?;
+
+        let resp = client.role_get(role1).await;
+        if let Err(_) = resp {
+            assert!(false);
+        }
+
+        client.role_delete(role1).await?;
+        let resp = client.role_get(role1).await;
+        if let Ok(_) = resp {
+            assert!(false);
+        }
+
+        client.role_add(role2).await?;
+        let resp = client.role_get(role2).await;
+        if let Err(_) = resp {
+            assert!(false);
+        }
+
+        let resp = client.role_list().await;
+        if let Err(_) = resp {
+            assert!(false);
+        }
+
+        if let Ok(l) = resp {
+            assert!(l.roles().contains(&role2.to_string()));
+        }
+
+        client
+            .role_grant_permission(role2, Permission::read("123"))
+            .await?;
+        client
+            .role_grant_permission(role2, Permission::write("abc").with_from_key())
+            .await?;
+        client
+            .role_grant_permission(role2, Permission::read_write("hi").with_range_end("hjj"))
+            .await?;
+        client
+            .role_grant_permission(
+                role2,
+                Permission::new(PermissionType::Write, "pp").with_prefix(),
+            )
+            .await?;
+        client
+            .role_grant_permission(
+                role2,
+                Permission::new(PermissionType::Read, "xyz").with_all_keys(),
+            )
+            .await?;
+
+        let resp = client.role_get(role2).await;
+        if let Err(_) = resp {
+            assert!(false);
+        }
+        if let Ok(r) = resp {
+            let permissions = r.permissions();
+            assert!(permissions.contains(&Permission::read("123")));
+            assert!(permissions.contains(&Permission::write("abc").with_from_key()));
+            assert!(permissions.contains(&Permission::read_write("hi").with_range_end("hjj")));
+            assert!(permissions.contains(&Permission::write("pp").with_prefix()));
+            assert!(permissions.contains(&Permission::read("xyz").with_all_keys()));
+        }
+
+        //revoke all permission
+        client.role_revoke_permission(role2, "123", None).await?;
+        client
+            .role_revoke_permission(
+                role2,
+                "abc",
+                Some(RoleRevokePermissionOptions::new().with_from_key()),
+            )
+            .await?;
+        client
+            .role_revoke_permission(
+                role2,
+                "hi",
+                Some(RoleRevokePermissionOptions::new().with_range_end("hjj")),
+            )
+            .await?;
+        client
+            .role_revoke_permission(
+                role2,
+                "pp",
+                Some(RoleRevokePermissionOptions::new().with_prefix()),
+            )
+            .await?;
+        client
+            .role_revoke_permission(
+                role2,
+                "xyz",
+                Some(RoleRevokePermissionOptions::new().with_all_keys()),
+            )
+            .await?;
+
+        let resp = client.role_get(role2).await;
+        if let Err(_) = resp {
+            assert!(false);
+        }
+        if let Ok(r) = resp {
+            assert!(r.permissions().is_empty());
+        }
+
+        client.role_delete(role2).await?;
 
         Ok(())
     }
