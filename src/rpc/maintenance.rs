@@ -15,7 +15,7 @@ use crate::rpc::pb::etcdserverpb::{
 };
 use crate::rpc::ResponseHeader;
 use etcdserverpb::maintenance_client::MaintenanceClient as PbMaintenanceClient;
-pub use etcdserverpb::AlarmMember;
+pub use etcdserverpb::AlarmMember as PbAlarmMember;
 use tonic::codec::Streaming as PbStreaming;
 use tonic::transport::Channel;
 use tonic::{Interceptor, IntoRequest, Request};
@@ -198,6 +198,14 @@ impl IntoRequest<PbSnapshotRequest> for SnapshotOptions {
 #[repr(transparent)]
 pub struct AlarmResponse(PbAlarmResponse);
 
+#[derive(Clone, PartialEq)]
+pub struct AlarmMember {
+    /// memberID is the ID of the member associated with the raised alarm.
+    pub member_id: u64,
+    /// alarm is the type of alarm which has been raised.
+    pub alarm: AlarmType,
+}
+
 impl AlarmResponse {
     /// Create a new `AlarmResponse` from pb put response.
     #[inline]
@@ -219,8 +227,10 @@ impl AlarmResponse {
 
     /// Get alarms of members.
     #[inline]
-    pub fn alarms(&self) -> &Vec<AlarmMember> {
-        self.0.alarms.as_ref()
+    pub fn alarms(&self) -> &[AlarmMember] {
+        unsafe {
+            &*(&self.0.alarms as *const Vec<PbAlarmMember> as *const Vec<AlarmMember>)
+        }
     }
 }
 

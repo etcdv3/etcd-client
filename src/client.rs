@@ -302,7 +302,7 @@ impl Client {
         self.maintenance.alarm(action, member, alarm_type).await
     }
 
-    /// gets the status of the member.
+    /// Gets the status of a member.
     #[inline]
     pub async fn status(&mut self) -> Result<StatusResponse> {
         self.maintenance.status().await
@@ -858,31 +858,31 @@ mod tests {
         let mut client = get_client().await?;
 
         {
-            let resp = client
+            let _resp = client
                 .alarm(
                     Some(AlarmAction::Deactivate),
                     Some(0),
                     Some(AlarmType::None),
                 )
                 .await?;
-            let mems = resp.alarms();
-            assert_eq!(mems.len(), 0);
         }
 
         // Test all default args.
-        {
+        let member_id = {
             let resp = client.alarm(None, None, None).await?;
             let mems = resp.alarms();
-            assert_eq!(mems.len(), 0);
-        }
+            assert_eq!(mems.len(), 1);
+            assert_eq!(mems[0].alarm, AlarmType::None);
+            mems[0].member_id
+        };
 
         // Test all not default args.
         {
             let resp = client
                 .alarm(
                     Some(AlarmAction::Get),
-                    Some(0x8e9e05c52164694d),
-                    Some(AlarmType::None),
+                    Some(member_id),
+                    Some(AlarmType::Corrupt),
                 )
                 .await?;
             let mems = resp.alarms();
@@ -893,8 +893,20 @@ mod tests {
             let resp = client
                 .alarm(
                     Some(AlarmAction::Activate),
-                    Some(0x8e9e05c52164694d),
-                    Some(AlarmType::None),
+                    Some(member_id),
+                    Some(AlarmType::Corrupt),
+                )
+                .await?;
+            let mems = resp.alarms();
+            assert_eq!(mems.len(), 1);
+        }
+
+        {
+            let resp = client
+                .alarm(
+                    Some(AlarmAction::Deactivate),
+                    Some(member_id),
+                    Some(AlarmType::Corrupt),
                 )
                 .await?;
             let mems = resp.alarms();
