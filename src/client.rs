@@ -861,6 +861,7 @@ mod tests {
     async fn test_alarm() -> Result<()> {
         let mut client = get_client().await?;
 
+        // Test Deactive alarm.
         {
             let options = AlarmOptions::new();
             let _resp = client
@@ -868,7 +869,7 @@ mod tests {
                 .await?;
         }
 
-        // Test all default args.
+        // Test get None alarm.
         let member_id = {
             let resp = client
                 .alarm(AlarmAction::Get, AlarmType::None, None)
@@ -881,7 +882,7 @@ mod tests {
         let mut options = AlarmOptions::new();
         options.with_member(member_id);
 
-        // Test all not default args.
+        // Test get no space alarm.
         {
             let resp = client
                 .alarm(AlarmAction::Get, AlarmType::Nospace, Some(options.clone()))
@@ -890,102 +891,63 @@ mod tests {
             assert_eq!(mems.len(), 0);
         }
 
-        /*       {
-            let resp = client
-                .alarm(
-                    AlarmAction::Activate,
-                    AlarmType::Nospace,
-                    Some(options.clone()),
-                )
-                .await?;
-            let mems = resp.alarms();
-            assert_eq!(mems.len(), 1);
-        }
-
-        {
-            let resp = client
-                .alarm(
-                    AlarmAction::Deactivate,
-                    AlarmType::Nospace,
-                    Some(options.clone()),
-                )
-                .await?;
-            let mems = resp.alarms();
-            assert_eq!(mems.len(), 1);
-        }*/
-
         Ok(())
     }
 
     #[tokio::test]
     async fn test_status() -> Result<()> {
         let mut client = get_client().await?;
+        let resp = client.status().await?;
+        let version = resp.version();
+        assert_eq!(version, "3.4.5");
 
-        {
-            let resp = client.status().await?;
-            let version = resp.version();
-            assert_eq!(version, "3.4.5");
-
-            let db_size = resp.db_size();
-            assert_ne!(db_size, 0);
-        }
+        let db_size = resp.db_size();
+        assert_ne!(db_size, 0);
         Ok(())
     }
 
     #[tokio::test]
     async fn test_defragment() -> Result<()> {
         let mut client = get_client().await?;
-
-        {
-            let resp = client.defragment().await?;
-            let hd = resp.header();
-            assert!(hd.is_none());
-        }
+        let resp = client.defragment().await?;
+        let hd = resp.header();
+        assert!(hd.is_none());
         Ok(())
     }
 
     #[tokio::test]
     async fn test_hash() -> Result<()> {
         let mut client = get_client().await?;
-
-        {
-            let resp = client.hash().await?;
-            let hd = resp.header();
-            assert!(hd.is_some());
-            assert_ne!(resp.hash(), 0);
-        }
+        let resp = client.hash().await?;
+        let hd = resp.header();
+        assert!(hd.is_some());
+        assert_ne!(resp.hash(), 0);
         Ok(())
     }
 
     #[tokio::test]
     async fn test_hash_kv() -> Result<()> {
         let mut client = get_client().await?;
-
-        {
-            let resp = client.hash_kv(0).await?;
-            let hd = resp.header();
-            assert!(hd.is_some());
-            assert_ne!(resp.hash(), 0);
-            assert_ne!(resp.compact_version(), 0);
-        }
+        let resp = client.hash_kv(0).await?;
+        let hd = resp.header();
+        assert!(hd.is_some());
+        assert_ne!(resp.hash(), 0);
+        assert_ne!(resp.compact_version(), 0);
         Ok(())
     }
 
     #[tokio::test]
     async fn test_snapshot() -> Result<()> {
         let mut client = get_client().await?;
-
-        {
-            let mut msg = client.snapshot().await?;
-            loop {
-                let resp = msg.message().await?;
-                match resp {
-                    Some(r) => {
-                        assert!(r.blob().len() > 0);
-                    }
-                    None => {
-                        break;
-                    }
+        let mut msg = client.snapshot().await?;
+        loop {
+            let resp = msg.message().await?;
+            match resp {
+                Some(r) => {
+                    assert!(r.blob().len() > 0);
+                }
+                None => {
+                    break;
                 }
             }
         }
