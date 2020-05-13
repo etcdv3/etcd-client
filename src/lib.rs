@@ -26,3 +26,5 @@ pub use crate::rpc::watch::{
     Event, EventType, WatchFilterType, WatchOptions, WatchResponse, WatchStream, Watcher,
 };
 pub use crate::rpc::{KeyValue, ResponseHeader};
+
+pub use crate::rpc::maintenance::{AlarmAction, AlarmMember, AlarmOptions, AlarmType};

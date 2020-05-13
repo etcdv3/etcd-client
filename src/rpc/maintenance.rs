@@ -49,8 +49,7 @@ impl AlarmOptions {
 
     /// Sets alarm action and alarm type.
     #[inline]
-    fn with_action_and_type(mut self, alarm_action: AlarmAction, alarm_type: AlarmType)->Self
-    {
+    fn with_action_and_type(mut self, alarm_action: AlarmAction, alarm_type: AlarmType) -> Self {
         let action = From::from(alarm_action);
         let alarm = From::from(alarm_type);
         self.0.action = action;
@@ -91,6 +90,7 @@ impl StatusOptions {
         }
     }
 }
+
 impl From<StatusOptions> for PbStatusRequest {
     #[inline]
     fn from(status: StatusOptions) -> Self {
@@ -218,6 +218,7 @@ impl IntoRequest<PbSnapshotRequest> for SnapshotOptions {
 #[repr(transparent)]
 pub struct AlarmResponse(PbAlarmResponse);
 
+/// Alarm member of respond.
 #[derive(Clone, PartialEq)]
 pub struct AlarmMember {
     /// memberID is the ID of the member associated with the raised alarm.
@@ -248,9 +249,7 @@ impl AlarmResponse {
     /// Get alarms of members.
     #[inline]
     pub fn alarms(&self) -> &[AlarmMember] {
-        unsafe {
-            &*(&self.0.alarms as *const Vec<PbAlarmMember> as *const Vec<AlarmMember>)
-        }
+        unsafe { &*(&self.0.alarms as *const Vec<PbAlarmMember> as *const Vec<AlarmMember>) }
     }
 }
 
@@ -498,11 +497,15 @@ impl MaintenanceClient {
         &mut self,
         alarm_action: AlarmAction,
         alarm_type: AlarmType,
-        options: Option<AlarmOptions>
+        options: Option<AlarmOptions>,
     ) -> Result<AlarmResponse> {
         let resp = self
             .inner
-            .alarm(options.unwrap_or_default().with_action_and_type(alarm_action, alarm_type))
+            .alarm(
+                options
+                    .unwrap_or_default()
+                    .with_action_and_type(alarm_action, alarm_type),
+            )
             .await?
             .into_inner();
         Ok(AlarmResponse::new(resp))
