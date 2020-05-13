@@ -857,7 +857,6 @@ mod tests {
         Ok(())
     }
 
-
     #[tokio::test]
     async fn test_alarm() -> Result<()> {
         let mut client = get_client().await?;
