@@ -26,24 +26,17 @@ pub struct MaintenanceClient {
     inner: PbMaintenanceClient<Channel>,
 }
 
-struct AlarmOptions(PbAlarmRequest);
+/// Options for `alarm` operation.
+#[derive(Debug, Default, Clone)]
+pub struct AlarmOptions(PbAlarmRequest);
+
 impl AlarmOptions {
+    /// Creates a new `AlarmOptions`.
     #[inline]
-    fn new(action: Option<AlarmAction>, member: Option<u64>, alarm_ty: Option<AlarmType>) -> Self {
-        let action = match action {
-            Some(a) => From::from(a),
-            None => From::from(AlarmAction::Get),
-        };
-
-        let member_id = match member {
-            Some(m) => m,
-            None => 0,
-        };
-
-        let alarm = match alarm_ty {
-            Some(t) => From::from(t),
-            None => From::from(AlarmType::None),
-        };
+    pub fn new() -> Self {
+        let action = From::from(AlarmAction::Get);
+        let member_id = 0;
+        let alarm = From::from(AlarmType::None);
 
         AlarmOptions {
             0: PbAlarmRequest {
@@ -52,6 +45,23 @@ impl AlarmOptions {
                 alarm,
             },
         }
+    }
+
+    /// Sets alarm action and alarm type.
+    #[inline]
+    fn with_action_and_type(mut self, alarm_action: AlarmAction, alarm_type: AlarmType)->Self
+    {
+        let action = From::from(alarm_action);
+        let alarm = From::from(alarm_type);
+        self.0.action = action;
+        self.0.alarm = alarm;
+        self
+    }
+
+    /// Sets alarm member.
+    #[inline]
+    pub fn with_member(&mut self, member: u64) {
+        self.0.member_id = member;
     }
 }
 
@@ -69,6 +79,8 @@ impl IntoRequest<PbAlarmRequest> for AlarmOptions {
     }
 }
 
+/// Options for `status` operation.
+#[derive(Debug, Default, Clone)]
 struct StatusOptions(PbStatusRequest);
 
 impl StatusOptions {
@@ -93,6 +105,8 @@ impl IntoRequest<PbStatusRequest> for StatusOptions {
     }
 }
 
+/// Options for `defragment` operation.
+#[derive(Debug, Default, Clone)]
 struct DefragmentOptions(PbDefragmentRequest);
 
 impl DefragmentOptions {
@@ -118,6 +132,8 @@ impl IntoRequest<PbDefragmentRequest> for DefragmentOptions {
     }
 }
 
+/// Options for `hash` operation.
+#[derive(Debug, Default, Clone)]
 struct HashOptions(PbHashRequest);
 
 impl HashOptions {
@@ -143,6 +159,8 @@ impl IntoRequest<PbHashRequest> for HashOptions {
     }
 }
 
+/// Options for `hashkv` operation.
+#[derive(Debug, Default, Clone)]
 struct HashKvOptions(PbHashKvRequest);
 
 impl HashKvOptions {
@@ -168,6 +186,8 @@ impl IntoRequest<PbHashKvRequest> for HashKvOptions {
     }
 }
 
+/// Options for `snapshot` operation.
+#[derive(Debug, Default, Clone)]
 struct SnapshotOptions(PbSnapshotRequest);
 
 impl SnapshotOptions {
@@ -258,13 +278,13 @@ impl StatusResponse {
         self.0.header.take().map(ResponseHeader::new)
     }
 
-    /// Get alarms of members.
+    /// Get version of the member.
     #[inline]
-    pub fn version(&self) -> &String {
+    pub fn version(&self) -> &str {
         &self.0.version
     }
 
-    /// Get size of db.
+    /// Get size of db, in bytes.
     #[inline]
     pub fn db_size(&self) -> i64 {
         self.0.db_size
@@ -296,17 +316,17 @@ impl StatusResponse {
 
     /// Get errors of cluster members.
     #[inline]
-    pub fn errors(&self) -> &Vec<String> {
+    pub fn errors(&self) -> &[String] {
         &self.0.errors
     }
 
-    /// Get used db size in bytes.
+    /// Get raft used db size, in bytes.
     #[inline]
     pub fn raft_used_db_size(&self) -> i64 {
         self.0.db_size_in_use
     }
 
-    /// Indicate if the member is raft learner
+    /// Indicate if the member is raft learner.
     #[inline]
     pub fn is_learner(&self) -> bool {
         self.0.is_learner
@@ -438,7 +458,7 @@ impl SnapshotResponse {
 
     /// The next chunk of the snapshot in the snapshot stream.
     #[inline]
-    pub fn blob(&self) -> &Vec<u8> {
+    pub fn blob(&self) -> &[u8] {
         &self.0.blob
     }
 }
@@ -446,17 +466,9 @@ impl SnapshotResponse {
 /// Response for `snapshot` operation.
 #[derive(Debug)]
 #[repr(transparent)]
-pub struct Streaming<T>(PbStreaming<T>);
+pub struct SnapshotStreaming(PbStreaming<PbSnapshotResponse>);
 
-impl<T> Streaming<T> {
-    fn new(stream: PbStreaming<T>) -> Self {
-        Self(stream)
-    }
-}
-
-pub type SnapshotStreaming = Streaming<PbSnapshotResponse>;
-
-impl Streaming<PbSnapshotResponse> {
+impl SnapshotStreaming {
     /// Fetchs the next message from this stream.
     #[inline]
     pub async fn message(&mut self) -> Result<Option<SnapshotResponse>> {
@@ -484,13 +496,13 @@ impl MaintenanceClient {
     #[inline]
     pub async fn alarm(
         &mut self,
-        action: Option<AlarmAction>,
-        member: Option<u64>,
-        alarm_type: Option<AlarmType>,
+        alarm_action: AlarmAction,
+        alarm_type: AlarmType,
+        options: Option<AlarmOptions>
     ) -> Result<AlarmResponse> {
         let resp = self
             .inner
-            .alarm(AlarmOptions::new(action, member, alarm_type))
+            .alarm(options.unwrap_or_default().with_action_and_type(alarm_action, alarm_type))
             .await?
             .into_inner();
         Ok(AlarmResponse::new(resp))
@@ -543,6 +555,6 @@ impl MaintenanceClient {
             .snapshot(SnapshotOptions::new())
             .await?
             .into_inner();
-        Ok(Streaming::new(resp))
+        Ok(SnapshotStreaming(resp))
     }
 }

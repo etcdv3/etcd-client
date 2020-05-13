@@ -16,10 +16,7 @@ use crate::rpc::lease::{
     LeaseLeasesResponse, LeaseRevokeResponse, LeaseTimeToLiveOptions, LeaseTimeToLiveResponse,
 };
 use crate::rpc::lock::{LockClient, LockOptions, LockResponse, UnlockResponse};
-use crate::rpc::maintenance::{
-    AlarmAction, AlarmResponse, AlarmType, DefragmentResponse, HashKvResponse, HashResponse,
-    MaintenanceClient, SnapshotStreaming, StatusResponse,
-};
+use crate::rpc::maintenance::{AlarmAction, AlarmResponse, AlarmType, DefragmentResponse, HashKvResponse, HashResponse, MaintenanceClient, SnapshotStreaming, StatusResponse, AlarmOptions};
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 use tonic::metadata::{Ascii, MetadataValue};
 use tonic::transport::Channel;
@@ -295,11 +292,11 @@ impl Client {
     #[inline]
     pub async fn alarm(
         &mut self,
-        action: Option<AlarmAction>,
-        member: Option<u64>,
-        alarm_type: Option<AlarmType>,
+        alarm_action: AlarmAction,
+        alarm_type: AlarmType,
+        options: Option<AlarmOptions>,
     ) -> Result<AlarmResponse> {
-        self.maintenance.alarm(action, member, alarm_type).await
+        self.maintenance.alarm(alarm_action, alarm_type, options).await
     }
 
     /// Gets the status of a member.
@@ -315,18 +312,21 @@ impl Client {
     }
 
     /// Computes the hash of whole backend keyspace.
+    /// including key, lease, and other buckets in storage.
+    /// This is designed for testing ONLY!
     #[inline]
     pub async fn hash(&mut self) -> Result<HashResponse> {
         self.maintenance.hash().await
     }
 
-    /// Computes the hash of whole backend keyspace.
+    /// Computes the hash of all MVCC keys up to a given revision.
+    /// It only iterates \"key\" bucket in backend storage.
     #[inline]
     pub async fn hash_kv(&mut self, revision: i64) -> Result<HashKvResponse> {
         self.maintenance.hash_kv(revision).await
     }
 
-    /// Computes the hash of whole backend keyspace.
+    /// Gets a snapshot of the entire backend from a member over a stream to a client.
     #[inline]
     pub async fn snapshot(&mut self) -> Result<SnapshotStreaming> {
         self.maintenance.snapshot().await
@@ -858,31 +858,35 @@ mod tests {
         let mut client = get_client().await?;
 
         {
+            let options = AlarmOptions::new();
             let _resp = client
                 .alarm(
-                    Some(AlarmAction::Deactivate),
-                    Some(0),
-                    Some(AlarmType::None),
+                    AlarmAction::Deactivate,
+                    AlarmType::None,
+                    Some(options)
                 )
                 .await?;
         }
 
         // Test all default args.
         let member_id = {
-            let resp = client.alarm(None, None, None).await?;
+            let resp = client.alarm(AlarmAction::Get, AlarmType::None, None).await?;
             let mems = resp.alarms();
             assert_eq!(mems.len(), 1);
             assert_eq!(mems[0].alarm, AlarmType::None);
             mems[0].member_id
         };
 
+        let mut options = AlarmOptions::new();
+        options.with_member(member_id);
+
         // Test all not default args.
         {
             let resp = client
                 .alarm(
-                    Some(AlarmAction::Get),
-                    Some(member_id),
-                    Some(AlarmType::Corrupt),
+                    AlarmAction::Get,
+                    AlarmType::Corrupt,
+                    Some(options.clone())
                 )
                 .await?;
             let mems = resp.alarms();
@@ -892,9 +896,9 @@ mod tests {
         {
             let resp = client
                 .alarm(
-                    Some(AlarmAction::Activate),
-                    Some(member_id),
-                    Some(AlarmType::Corrupt),
+                    AlarmAction::Activate,
+                    AlarmType::Corrupt,
+                    Some(options.clone())
                 )
                 .await?;
             let mems = resp.alarms();
@@ -904,9 +908,9 @@ mod tests {
         {
             let resp = client
                 .alarm(
-                    Some(AlarmAction::Deactivate),
-                    Some(member_id),
-                    Some(AlarmType::Corrupt),
+                    AlarmAction::Deactivate,
+                    AlarmType::Corrupt,
+                    Some(options.clone())
                 )
                 .await?;
             let mems = resp.alarms();
