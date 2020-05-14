@@ -21,13 +21,12 @@ pub use crate::rpc::lease::{
     LeaseKeeper, LeaseLeasesResponse, LeaseRevokeResponse, LeaseStatus, LeaseTimeToLiveOptions,
     LeaseTimeToLiveResponse,
 };
-pub use crate::rpc::lock::{LockClient, LockOptions, LockResponse, UnlockResponse};
-pub use crate::rpc::watch::{
-    Event, EventType, WatchFilterType, WatchOptions, WatchResponse, WatchStream, Watcher,
-};
-pub use crate::rpc::{KeyValue, ResponseHeader};
-
+pub use crate::rpc::lock::{LockOptions, LockResponse, UnlockResponse};
 pub use crate::rpc::maintenance::{
     AlarmAction, AlarmMember, AlarmOptions, AlarmResponse, AlarmType, DefragmentResponse,
     HashKvResponse, HashResponse, SnapshotResponse, SnapshotStreaming, StatusResponse,
 };
+pub use crate::rpc::watch::{
+    Event, EventType, WatchFilterType, WatchOptions, WatchResponse, WatchStream, Watcher,
+};
+pub use crate::rpc::{KeyValue, ResponseHeader};

@@ -625,8 +625,8 @@ impl PartialEq for Permission {
             if self.inner.key == other.inner.key {
                 true
             } else {
-                (self.inner.key.is_empty() && other.inner.key == &[b'\0'])
-                    || (self.inner.key == &[b'\0'] && other.inner.key.is_empty())
+                (self.inner.key.is_empty() && other.inner.key == [b'\0'])
+                    || (self.inner.key == [b'\0'] && other.inner.key.is_empty())
             }
         } else {
             false
