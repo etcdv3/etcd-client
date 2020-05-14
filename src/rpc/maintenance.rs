@@ -28,6 +28,7 @@ pub struct MaintenanceClient {
 
 /// Options for `alarm` operation.
 #[derive(Debug, Default, Clone)]
+#[repr(transparent)]
 pub struct AlarmOptions(PbAlarmRequest);
 
 impl AlarmOptions {
@@ -161,6 +162,7 @@ impl IntoRequest<PbHashRequest> for HashOptions {
 
 /// Options for `hashkv` operation.
 #[derive(Debug, Default, Clone)]
+#[repr(transparent)]
 struct HashKvOptions(PbHashKvRequest);
 
 impl HashKvOptions {
@@ -222,9 +224,23 @@ pub struct AlarmResponse(PbAlarmResponse);
 #[derive(Clone, PartialEq)]
 pub struct AlarmMember {
     /// memberID is the ID of the member associated with the raised alarm.
-    pub member_id: u64,
+    member_id: u64,
     /// alarm is the type of alarm which has been raised.
-    pub alarm: AlarmType,
+    alarm: AlarmType,
+}
+
+impl AlarmMember {
+    /// Get member id.
+    #[inline]
+    pub fn member_id(self) -> u64 {
+        self.member_id
+    }
+
+    /// Get alarm.
+    #[inline]
+    pub fn alarm(self) -> AlarmType {
+        self.alarm
+    }
 }
 
 impl AlarmResponse {

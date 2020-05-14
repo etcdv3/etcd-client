@@ -27,4 +27,7 @@ pub use crate::rpc::watch::{
 };
 pub use crate::rpc::{KeyValue, ResponseHeader};
 
-pub use crate::rpc::maintenance::{AlarmAction, AlarmMember, AlarmOptions, AlarmType};
+pub use crate::rpc::maintenance::{
+    AlarmAction, AlarmMember, AlarmOptions, AlarmResponse, AlarmType, DefragmentResponse,
+    HashKvResponse, HashResponse, SnapshotResponse, SnapshotStreaming, StatusResponse,
+};
