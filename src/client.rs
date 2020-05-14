@@ -941,12 +941,9 @@ mod tests {
         let mut client = get_client().await?;
         let mut msg = client.snapshot().await?;
         loop {
-            let resp = msg.message().await?;
-            match resp {
-                Some(r) => {
-                    assert!(r.blob().len() > 0);
-                }
-                None => {
+            if let Some(resp) = msg.message().await? {
+                assert!(resp.blob().len() > 0);
+                if resp.remaining_bytes() == 0 {
                     break;
                 }
             }

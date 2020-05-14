@@ -40,11 +40,9 @@ async fn main() -> Result<(), Error> {
     let mut msg = client.snapshot().await?;
     loop {
         let resp = msg.message().await?;
-        match resp {
-            Some(r) => {
-                print!("Receive blob len {}\n", r.blob().len());
-            }
-            None => {
+        if let Some(r) = resp {
+            print!("Receive blob len {}\n", r.blob().len());
+            if r.remaining_bytes() == 0 {
                 break;
             }
         }

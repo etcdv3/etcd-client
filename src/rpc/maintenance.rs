@@ -232,13 +232,13 @@ pub struct AlarmMember {
 impl AlarmMember {
     /// Get member id.
     #[inline]
-    pub fn member_id(self) -> u64 {
+    pub fn member_id(&self) -> u64 {
         self.member_id
     }
 
     /// Get alarm.
     #[inline]
-    pub fn alarm(self) -> AlarmType {
+    pub fn alarm(&self) -> AlarmType {
         self.alarm
     }
 }
