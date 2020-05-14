@@ -936,6 +936,7 @@ message MoveLeaderResponse {
   ResponseHeader header = 1;
 }
 
+// Alarm type.
 enum AlarmType {
 	NONE = 0; // default, used to query if any alarm is active
 	NOSPACE = 1; // space quota is exhausted
@@ -943,6 +944,7 @@ enum AlarmType {
 }
 
 message AlarmRequest {
+  // Alarm action.
   enum AlarmAction {
 	GET = 0;
 	ACTIVATE = 1;

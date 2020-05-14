@@ -16,6 +16,10 @@ use crate::rpc::lease::{
     LeaseLeasesResponse, LeaseRevokeResponse, LeaseTimeToLiveOptions, LeaseTimeToLiveResponse,
 };
 use crate::rpc::lock::{LockClient, LockOptions, LockResponse, UnlockResponse};
+use crate::rpc::maintenance::{
+    AlarmAction, AlarmOptions, AlarmResponse, AlarmType, DefragmentResponse, HashKvResponse,
+    HashResponse, MaintenanceClient, SnapshotStreaming, StatusResponse,
+};
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 use tonic::metadata::{Ascii, MetadataValue};
 use tonic::transport::Channel;
@@ -28,6 +32,7 @@ pub struct Client {
     lease: LeaseClient,
     lock: LockClient,
     auth: AuthClient,
+    maintenance: MaintenanceClient,
 }
 
 impl Client {
@@ -82,7 +87,8 @@ impl Client {
         let watch = WatchClient::new(channel.clone(), interceptor.clone());
         let lease = LeaseClient::new(channel.clone(), interceptor.clone());
         let lock = LockClient::new(channel.clone(), interceptor.clone());
-        let auth = AuthClient::new(channel, interceptor);
+        let auth = AuthClient::new(channel.clone(), interceptor.clone());
+        let maintenance = MaintenanceClient::new(channel, interceptor);
 
         Ok(Self {
             kv,
@@ -90,6 +96,7 @@ impl Client {
             lease,
             lock,
             auth,
+            maintenance,
         })
     }
 
@@ -282,6 +289,52 @@ impl Client {
         options: Option<RoleRevokePermissionOptions>,
     ) -> Result<RoleRevokePermissionResponse> {
         self.auth.role_revoke_permission(name, key, options).await
+    }
+
+    /// Maintain(get, active or inactive) alarms of members.
+    #[inline]
+    pub async fn alarm(
+        &mut self,
+        alarm_action: AlarmAction,
+        alarm_type: AlarmType,
+        options: Option<AlarmOptions>,
+    ) -> Result<AlarmResponse> {
+        self.maintenance
+            .alarm(alarm_action, alarm_type, options)
+            .await
+    }
+
+    /// Gets the status of a member.
+    #[inline]
+    pub async fn status(&mut self) -> Result<StatusResponse> {
+        self.maintenance.status().await
+    }
+
+    /// Defragments a member's backend database to recover storage space.
+    #[inline]
+    pub async fn defragment(&mut self) -> Result<DefragmentResponse> {
+        self.maintenance.defragment().await
+    }
+
+    /// Computes the hash of whole backend keyspace.
+    /// including key, lease, and other buckets in storage.
+    /// This is designed for testing ONLY!
+    #[inline]
+    pub async fn hash(&mut self) -> Result<HashResponse> {
+        self.maintenance.hash().await
+    }
+
+    /// Computes the hash of all MVCC keys up to a given revision.
+    /// It only iterates \"key\" bucket in backend storage.
+    #[inline]
+    pub async fn hash_kv(&mut self, revision: i64) -> Result<HashKvResponse> {
+        self.maintenance.hash_kv(revision).await
+    }
+
+    /// Gets a snapshot of the entire backend from a member over a stream to a client.
+    #[inline]
+    pub async fn snapshot(&mut self) -> Result<SnapshotStreaming> {
+        self.maintenance.snapshot().await
     }
 }
 
@@ -801,6 +854,100 @@ mod tests {
 
         client.role_delete(role2).await?;
 
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_alarm() -> Result<()> {
+        let mut client = get_client().await?;
+
+        // Test Deactive alarm.
+        {
+            let options = AlarmOptions::new();
+            let _resp = client
+                .alarm(AlarmAction::Deactivate, AlarmType::None, Some(options))
+                .await?;
+        }
+
+        // Test get None alarm.
+        let member_id = {
+            let resp = client
+                .alarm(AlarmAction::Get, AlarmType::None, None)
+                .await?;
+            let mems = resp.alarms();
+            assert_eq!(mems.len(), 0);
+            0
+        };
+
+        let mut options = AlarmOptions::new();
+        options.with_member(member_id);
+
+        // Test get no space alarm.
+        {
+            let resp = client
+                .alarm(AlarmAction::Get, AlarmType::Nospace, Some(options.clone()))
+                .await?;
+            let mems = resp.alarms();
+            assert_eq!(mems.len(), 0);
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_status() -> Result<()> {
+        let mut client = get_client().await?;
+        let resp = client.status().await?;
+        let version = resp.version();
+        assert_eq!(version, "3.4.5");
+
+        let db_size = resp.db_size();
+        assert_ne!(db_size, 0);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_defragment() -> Result<()> {
+        let mut client = get_client().await?;
+        let resp = client.defragment().await?;
+        let hd = resp.header();
+        assert!(hd.is_none());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_hash() -> Result<()> {
+        let mut client = get_client().await?;
+        let resp = client.hash().await?;
+        let hd = resp.header();
+        assert!(hd.is_some());
+        assert_ne!(resp.hash(), 0);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_hash_kv() -> Result<()> {
+        let mut client = get_client().await?;
+        let resp = client.hash_kv(0).await?;
+        let hd = resp.header();
+        assert!(hd.is_some());
+        assert_ne!(resp.hash(), 0);
+        assert_ne!(resp.compact_version(), 0);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_snapshot() -> Result<()> {
+        let mut client = get_client().await?;
+        let mut msg = client.snapshot().await?;
+        loop {
+            if let Some(resp) = msg.message().await? {
+                assert!(resp.blob().len() > 0);
+                if resp.remaining_bytes() == 0 {
+                    break;
+                }
+            }
+        }
         Ok(())
     }
 }
