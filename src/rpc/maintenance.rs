@@ -34,27 +34,23 @@ pub struct AlarmOptions(PbAlarmRequest);
 impl AlarmOptions {
     /// Creates a new `AlarmOptions`.
     #[inline]
-    pub fn new() -> Self {
-        let action = From::from(AlarmAction::Get);
-        let member_id = 0;
-        let alarm = From::from(AlarmType::None);
-
-        AlarmOptions {
-            0: PbAlarmRequest {
-                action,
-                member_id,
-                alarm,
-            },
-        }
+    pub const fn new() -> Self {
+        AlarmOptions(PbAlarmRequest {
+            action: AlarmAction::Get as i32,
+            member_id: 0,
+            alarm: AlarmType::None as i32,
+        })
     }
 
     /// Sets alarm action and alarm type.
     #[inline]
-    fn with_action_and_type(mut self, alarm_action: AlarmAction, alarm_type: AlarmType) -> Self {
-        let action = From::from(alarm_action);
-        let alarm = From::from(alarm_type);
-        self.0.action = action;
-        self.0.alarm = alarm;
+    const fn with_action_and_type(
+        mut self,
+        alarm_action: AlarmAction,
+        alarm_type: AlarmType,
+    ) -> Self {
+        self.0.action = alarm_action as i32;
+        self.0.alarm = alarm_type as i32;
         self
     }
 
@@ -85,10 +81,8 @@ struct StatusOptions(PbStatusRequest);
 
 impl StatusOptions {
     #[inline]
-    fn new() -> Self {
-        Self {
-            0: PbStatusRequest {},
-        }
+    const fn new() -> Self {
+        Self(PbStatusRequest {})
     }
 }
 
@@ -112,10 +106,8 @@ struct DefragmentOptions(PbDefragmentRequest);
 
 impl DefragmentOptions {
     #[inline]
-    fn new() -> Self {
-        Self {
-            0: PbDefragmentRequest {},
-        }
+    const fn new() -> Self {
+        Self(PbDefragmentRequest {})
     }
 }
 
@@ -139,10 +131,8 @@ struct HashOptions(PbHashRequest);
 
 impl HashOptions {
     #[inline]
-    fn new() -> Self {
-        Self {
-            0: PbHashRequest {},
-        }
+    const fn new() -> Self {
+        Self(PbHashRequest {})
     }
 }
 
@@ -167,10 +157,8 @@ struct HashKvOptions(PbHashKvRequest);
 
 impl HashKvOptions {
     #[inline]
-    fn new(revision: i64) -> Self {
-        Self {
-            0: PbHashKvRequest { revision },
-        }
+    const fn new(revision: i64) -> Self {
+        Self(PbHashKvRequest { revision })
     }
 }
 
@@ -194,10 +182,8 @@ struct SnapshotOptions(PbSnapshotRequest);
 
 impl SnapshotOptions {
     #[inline]
-    fn new() -> Self {
-        Self {
-            0: PbSnapshotRequest {},
-        }
+    const fn new() -> Self {
+        Self(PbSnapshotRequest {})
     }
 }
 
