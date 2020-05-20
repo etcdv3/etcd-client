@@ -3,7 +3,7 @@
 pub use crate::rpc::pb::authpb::permission::Type as PermissionType;
 
 use crate::error::Result;
-use crate::rpc::pb::authpb::Permission as PbPermission;
+use crate::rpc::pb::authpb::{Permission as PbPermission, UserAddOptions as PbUserAddOptions};
 use crate::rpc::pb::etcdserverpb::auth_client::AuthClient as PbAuthClient;
 use crate::rpc::pb::etcdserverpb::{
     AuthDisableRequest as PbAuthDisableRequest, AuthDisableResponse as PbAuthDisableResponse,
@@ -17,6 +17,17 @@ use crate::rpc::pb::etcdserverpb::{
     AuthRoleListRequest as PbAuthRoleListRequest, AuthRoleListResponse as PbAuthRoleListResponse,
     AuthRoleRevokePermissionRequest as PbAuthRoleRevokePermissionRequest,
     AuthRoleRevokePermissionResponse as PbAuthRoleRevokePermissionResponse,
+    AuthUserAddRequest as PbAuthUserAddRequest, AuthUserAddResponse as PbAuthUserAddResponse,
+    AuthUserChangePasswordRequest as PbAuthUserChangePasswordRequest,
+    AuthUserChangePasswordResponse as PbAuthUserChangePasswordResponse,
+    AuthUserDeleteRequest as PbAuthUserDeleteRequest,
+    AuthUserDeleteResponse as PbAuthUserDeleteResponse, AuthUserGetRequest as PbAuthUserGetRequest,
+    AuthUserGetResponse as PbAuthUserGetResponse,
+    AuthUserGrantRoleRequest as PbAuthUserGrantRoleRequest,
+    AuthUserGrantRoleResponse as PbAuthUserGrantRoleResponse,
+    AuthUserListRequest as PbAuthUserListRequest, AuthUserListResponse as PbAuthUserListResponse,
+    AuthUserRevokeRoleRequest as PbAuthUserRevokeRoleRequest,
+    AuthUserRevokeRoleResponse as PbAuthUserRevokeRoleResponse,
     AuthenticateRequest as PbAuthenticateRequest, AuthenticateResponse as PbAuthenticateResponse,
 };
 use crate::rpc::ResponseHeader;
@@ -158,6 +169,105 @@ impl AuthClient {
             .await?
             .into_inner();
         Ok(RoleRevokePermissionResponse::new(resp))
+    }
+
+    /// Adds user
+    #[inline]
+    pub async fn user_add(
+        &mut self,
+        name: impl Into<String>,
+        password: impl Into<String>,
+        options: Option<UserAddOptions>,
+    ) -> Result<UserAddResponse> {
+        let resp = self
+            .inner
+            .user_add(
+                options
+                    .unwrap_or_default()
+                    .with_name(name.into())
+                    .with_pwd(password.into()),
+            )
+            .await?
+            .into_inner();
+        Ok(UserAddResponse::new(resp))
+    }
+
+    /// Gets user
+    #[inline]
+    pub async fn user_get(&mut self, name: impl Into<String>) -> Result<UserGetResponse> {
+        let resp = self
+            .inner
+            .user_get(UserGetOptions::new(name.into()))
+            .await?
+            .into_inner();
+        Ok(UserGetResponse::new(resp))
+    }
+
+    /// Lists user
+    #[inline]
+    pub async fn user_list(&mut self) -> Result<UserListResponse> {
+        let resp = self
+            .inner
+            .user_list(AuthUserListOptions {})
+            .await?
+            .into_inner();
+        Ok(UserListResponse::new(resp))
+    }
+
+    /// Deletes user
+    #[inline]
+    pub async fn user_delete(&mut self, name: impl Into<String>) -> Result<UserDeleteResponse> {
+        let resp = self
+            .inner
+            .user_delete(UserDeleteOptions::new(name.into()))
+            .await?
+            .into_inner();
+        Ok(UserDeleteResponse::new(resp))
+    }
+
+    /// Change user's password
+    #[inline]
+    pub async fn user_change_password(
+        &mut self,
+        name: impl Into<String>,
+        password: impl Into<String>,
+    ) -> Result<UserChangePasswordResponse> {
+        let resp = self
+            .inner
+            .user_change_password(UserChangePasswordOptions::new(name.into(), password.into()))
+            .await?
+            .into_inner();
+        Ok(UserChangePasswordResponse::new(resp))
+    }
+
+    /// Grant role for an user
+    #[inline]
+    pub async fn user_grant_role(
+        &mut self,
+        name: impl Into<String>,
+        role: impl Into<String>,
+    ) -> Result<UserGrantRoleResponse> {
+        let resp = self
+            .inner
+            .user_grant_role(UserGrantRoleOptions::new(name.into(), role.into()))
+            .await?
+            .into_inner();
+        Ok(UserGrantRoleResponse::new(resp))
+    }
+
+    /// Revoke role for an user
+    #[inline]
+    pub async fn user_revoke_role(
+        &mut self,
+        name: impl Into<String>,
+        role: impl Into<String>,
+    ) -> Result<UserRevokeRoleResponse> {
+        let resp = self
+            .inner
+            .user_revoke_role(UserRevokeRoleOptions::new(name.into(), role.into()))
+            .await?
+            .into_inner();
+        Ok(UserRevokeRoleResponse::new(resp))
     }
 }
 
@@ -892,6 +1002,394 @@ impl RoleRevokePermissionResponse {
     /// Creates a new `RoleRevokePermissionResponse` from pb role revoke permission response.
     #[inline]
     const fn new(resp: PbAuthRoleRevokePermissionResponse) -> Self {
+        Self(resp)
+    }
+
+    /// Gets response header.
+    #[inline]
+    pub fn header(&self) -> Option<&ResponseHeader> {
+        self.0.header.as_ref().map(From::from)
+    }
+
+    /// Takes the header out of the response, leaving a [`None`] in its place.
+    #[inline]
+    pub fn take_header(&mut self) -> Option<ResponseHeader> {
+        self.0.header.take().map(ResponseHeader::new)
+    }
+}
+
+/// Options for `UserAdd` operation.
+#[derive(Debug, Default, Clone)]
+#[repr(transparent)]
+pub struct UserAddOptions(PbAuthUserAddRequest);
+
+impl UserAddOptions {
+    /// Creates a `UserAddOptions`.
+    #[inline]
+    pub const fn new() -> Self {
+        Self(PbAuthUserAddRequest {
+            name: String::new(),
+            password: String::new(),
+            options: Some(PbUserAddOptions::new()),
+        })
+    }
+
+    /// Set name.
+    #[inline]
+    fn with_name(mut self, name: impl Into<String>) -> Self {
+        self.0.name = name.into();
+        self
+    }
+
+    /// Set password.
+    #[inline]
+    fn with_pwd(mut self, password: impl Into<String>) -> Self {
+        self.0.password = password.into();
+        self
+    }
+
+    /// Set no password.
+    #[inline]
+    pub fn with_no_pwd(mut self) -> Self {
+        self.0.options = Some(PbUserAddOptions { no_password: true });
+        self
+    }
+}
+
+impl From<UserAddOptions> for PbAuthUserAddRequest {
+    #[inline]
+    fn from(options: UserAddOptions) -> Self {
+        options.0
+    }
+}
+
+impl IntoRequest<PbAuthUserAddRequest> for UserAddOptions {
+    #[inline]
+    fn into_request(self) -> Request<PbAuthUserAddRequest> {
+        Request::new(self.into())
+    }
+}
+
+impl PbUserAddOptions {
+    /// Creates a PbUserAddOptions
+    #[inline]
+    pub const fn new() -> Self {
+        Self { no_password: false }
+    }
+}
+
+/// Response for use add operation.
+#[derive(Debug, Clone)]
+#[repr(transparent)]
+pub struct UserAddResponse(PbAuthUserAddResponse);
+
+impl UserAddResponse {
+    /// Creates a new `UserAddReqResponse` from pb user add response.
+    #[inline]
+    const fn new(resp: PbAuthUserAddResponse) -> Self {
+        Self(resp)
+    }
+
+    /// Gets response header.
+    #[inline]
+    pub fn header(&self) -> Option<&ResponseHeader> {
+        self.0.header.as_ref().map(From::from)
+    }
+
+    /// Takes the header out of the response, leaving a [`None`] in its place.
+    #[inline]
+    pub fn take_header(&mut self) -> Option<ResponseHeader> {
+        self.0.header.take().map(ResponseHeader::new)
+    }
+}
+
+/// Options for get user operation.
+#[derive(Debug, Default, Clone)]
+#[repr(transparent)]
+pub struct UserGetOptions(PbAuthUserGetRequest);
+
+impl UserGetOptions {
+    /// Creates a `UserGetOptions` to get user.
+    #[inline]
+    pub fn new(name: String) -> Self {
+        Self(PbAuthUserGetRequest { name })
+    }
+}
+
+impl From<UserGetOptions> for PbAuthUserGetRequest {
+    #[inline]
+    fn from(options: UserGetOptions) -> Self {
+        options.0
+    }
+}
+
+impl IntoRequest<PbAuthUserGetRequest> for UserGetOptions {
+    #[inline]
+    fn into_request(self) -> Request<PbAuthUserGetRequest> {
+        Request::new(self.into())
+    }
+}
+
+/// Response for get user operation.
+#[derive(Debug, Clone)]
+#[repr(transparent)]
+pub struct UserGetResponse(PbAuthUserGetResponse);
+
+impl UserGetResponse {
+    /// Creates a new `UserGetResponse` from pb user get response.
+    #[inline]
+    const fn new(resp: PbAuthUserGetResponse) -> Self {
+        Self(resp)
+    }
+
+    /// Gets response header.
+    #[inline]
+    pub fn header(&self) -> Option<&ResponseHeader> {
+        self.0.header.as_ref().map(From::from)
+    }
+
+    /// Takes the header out of the response, leaving a [`None`] in its place.
+    #[inline]
+    pub fn take_header(&mut self) -> Option<ResponseHeader> {
+        self.0.header.take().map(ResponseHeader::new)
+    }
+
+    /// Gets roles of the user in response.
+    #[inline]
+    pub fn roles(&self) -> &[String] {
+        &self.0.roles
+    }
+}
+
+/// Options for list user operation.
+use PbAuthUserListRequest as AuthUserListOptions;
+
+/// Response for list user operation.
+#[derive(Debug, Clone)]
+#[repr(transparent)]
+pub struct UserListResponse(PbAuthUserListResponse);
+
+impl UserListResponse {
+    /// Creates a new `UserListResponse` from pb user list response.
+    #[inline]
+    const fn new(resp: PbAuthUserListResponse) -> Self {
+        Self(resp)
+    }
+
+    /// Gets response header.
+    #[inline]
+    pub fn header(&self) -> Option<&ResponseHeader> {
+        self.0.header.as_ref().map(From::from)
+    }
+
+    /// Takes the header out of the response, leaving a [`None`] in its place.
+    #[inline]
+    pub fn take_header(&mut self) -> Option<ResponseHeader> {
+        self.0.header.take().map(ResponseHeader::new)
+    }
+
+    /// Gets users in response.
+    #[inline]
+    pub fn users(&self) -> &[String] {
+        &self.0.users
+    }
+}
+
+/// Options for delete user operation.
+#[derive(Debug, Default, Clone)]
+#[repr(transparent)]
+pub struct UserDeleteOptions(PbAuthUserDeleteRequest);
+
+impl UserDeleteOptions {
+    /// Creates a `UserDeleteOptions` to delete user.
+    #[inline]
+    pub fn new(name: String) -> Self {
+        Self(PbAuthUserDeleteRequest { name })
+    }
+}
+
+impl From<UserDeleteOptions> for PbAuthUserDeleteRequest {
+    #[inline]
+    fn from(options: UserDeleteOptions) -> Self {
+        options.0
+    }
+}
+
+impl IntoRequest<PbAuthUserDeleteRequest> for UserDeleteOptions {
+    #[inline]
+    fn into_request(self) -> Request<PbAuthUserDeleteRequest> {
+        Request::new(self.into())
+    }
+}
+
+/// Response for delete user operation.
+#[derive(Debug, Clone)]
+#[repr(transparent)]
+pub struct UserDeleteResponse(PbAuthUserDeleteResponse);
+
+impl UserDeleteResponse {
+    /// Creates a new `UserDeleteResponse` from pb user delete response.
+    #[inline]
+    const fn new(resp: PbAuthUserDeleteResponse) -> Self {
+        Self(resp)
+    }
+
+    /// Gets response header.
+    #[inline]
+    pub fn header(&self) -> Option<&ResponseHeader> {
+        self.0.header.as_ref().map(From::from)
+    }
+
+    /// Takes the header out of the response, leaving a [`None`] in its place.
+    #[inline]
+    pub fn take_header(&mut self) -> Option<ResponseHeader> {
+        self.0.header.take().map(ResponseHeader::new)
+    }
+}
+
+/// Options for change user's password operation.
+#[derive(Debug, Default, Clone)]
+#[repr(transparent)]
+pub struct UserChangePasswordOptions(PbAuthUserChangePasswordRequest);
+
+impl UserChangePasswordOptions {
+    /// Creates a `UserChangePasswordOptions` to change user's password.
+    #[inline]
+    pub fn new(name: String, new_password: String) -> Self {
+        Self(PbAuthUserChangePasswordRequest {
+            name,
+            password: new_password,
+        })
+    }
+}
+
+impl From<UserChangePasswordOptions> for PbAuthUserChangePasswordRequest {
+    #[inline]
+    fn from(options: UserChangePasswordOptions) -> Self {
+        options.0
+    }
+}
+
+impl IntoRequest<PbAuthUserChangePasswordRequest> for UserChangePasswordOptions {
+    #[inline]
+    fn into_request(self) -> Request<PbAuthUserChangePasswordRequest> {
+        Request::new(self.into())
+    }
+}
+
+/// Response for change user's password operation.
+#[derive(Debug, Clone)]
+#[repr(transparent)]
+pub struct UserChangePasswordResponse(PbAuthUserChangePasswordResponse);
+
+impl UserChangePasswordResponse {
+    /// Creates a new `UserChangePasswordResponse` from pb user change password response.
+    #[inline]
+    const fn new(resp: PbAuthUserChangePasswordResponse) -> Self {
+        Self(resp)
+    }
+
+    /// Gets response header.
+    #[inline]
+    pub fn header(&self) -> Option<&ResponseHeader> {
+        self.0.header.as_ref().map(From::from)
+    }
+
+    /// Takes the header out of the response, leaving a [`None`] in its place.
+    #[inline]
+    pub fn take_header(&mut self) -> Option<ResponseHeader> {
+        self.0.header.take().map(ResponseHeader::new)
+    }
+}
+
+/// Options for grant role for an user operation.
+#[derive(Debug, Default, Clone)]
+#[repr(transparent)]
+pub struct UserGrantRoleOptions(PbAuthUserGrantRoleRequest);
+
+impl UserGrantRoleOptions {
+    /// Creates a `UserGrantRoleOptions` to grant role for an user.
+    #[inline]
+    pub fn new(name: String, role: String) -> Self {
+        Self(PbAuthUserGrantRoleRequest { user: name, role })
+    }
+}
+
+impl From<UserGrantRoleOptions> for PbAuthUserGrantRoleRequest {
+    #[inline]
+    fn from(options: UserGrantRoleOptions) -> Self {
+        options.0
+    }
+}
+
+impl IntoRequest<PbAuthUserGrantRoleRequest> for UserGrantRoleOptions {
+    #[inline]
+    fn into_request(self) -> Request<PbAuthUserGrantRoleRequest> {
+        Request::new(self.into())
+    }
+}
+
+/// Response for grant role for an user operation.
+#[derive(Debug, Clone)]
+#[repr(transparent)]
+pub struct UserGrantRoleResponse(PbAuthUserGrantRoleResponse);
+
+impl UserGrantRoleResponse {
+    /// Creates a new `UserGrantRoleResponse` from pb user grant role response.
+    #[inline]
+    const fn new(resp: PbAuthUserGrantRoleResponse) -> Self {
+        Self(resp)
+    }
+
+    /// Gets response header.
+    #[inline]
+    pub fn header(&self) -> Option<&ResponseHeader> {
+        self.0.header.as_ref().map(From::from)
+    }
+
+    /// Takes the header out of the response, leaving a [`None`] in its place.
+    #[inline]
+    pub fn take_header(&mut self) -> Option<ResponseHeader> {
+        self.0.header.take().map(ResponseHeader::new)
+    }
+}
+
+/// Options for revoke role for an user operation.
+#[derive(Debug, Default, Clone)]
+#[repr(transparent)]
+pub struct UserRevokeRoleOptions(PbAuthUserRevokeRoleRequest);
+
+impl UserRevokeRoleOptions {
+    /// Creates a `UserRevokeRoleOptions` to revoke role for an user.
+    #[inline]
+    pub fn new(name: String, role: String) -> Self {
+        Self(PbAuthUserRevokeRoleRequest { name, role })
+    }
+}
+
+impl From<UserRevokeRoleOptions> for PbAuthUserRevokeRoleRequest {
+    #[inline]
+    fn from(options: UserRevokeRoleOptions) -> Self {
+        options.0
+    }
+}
+
+impl IntoRequest<PbAuthUserRevokeRoleRequest> for UserRevokeRoleOptions {
+    #[inline]
+    fn into_request(self) -> Request<PbAuthUserRevokeRoleRequest> {
+        Request::new(self.into())
+    }
+}
+
+/// Response for revoke role for an user operation.
+#[derive(Debug, Clone)]
+#[repr(transparent)]
+pub struct UserRevokeRoleResponse(PbAuthUserRevokeRoleResponse);
+
+impl UserRevokeRoleResponse {
+    /// Creates a new `UserRevokeRoleResponse` from pb user revoke role response.
+    #[inline]
+    const fn new(resp: PbAuthUserRevokeRoleResponse) -> Self {
         Self(resp)
     }
 

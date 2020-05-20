@@ -5,7 +5,9 @@ use crate::rpc::auth::Permission;
 use crate::rpc::auth::{AuthClient, AuthDisableResponse, AuthEnableResponse};
 use crate::rpc::auth::{
     RoleAddResponse, RoleDeleteResponse, RoleGetResponse, RoleGrantPermissionResponse,
-    RoleListResponse, RoleRevokePermissionOptions, RoleRevokePermissionResponse,
+    RoleListResponse, RoleRevokePermissionOptions, RoleRevokePermissionResponse, UserAddOptions,
+    UserAddResponse, UserChangePasswordResponse, UserDeleteResponse, UserGetResponse,
+    UserGrantRoleResponse, UserListResponse, UserRevokeRoleResponse,
 };
 use crate::rpc::kv::{
     CompactionOptions, CompactionResponse, DeleteOptions, DeleteResponse, GetOptions, GetResponse,
@@ -289,6 +291,65 @@ impl Client {
         options: Option<RoleRevokePermissionOptions>,
     ) -> Result<RoleRevokePermissionResponse> {
         self.auth.role_revoke_permission(name, key, options).await
+    }
+
+    /// Add an user
+    #[inline]
+    pub async fn user_add(
+        &mut self,
+        name: impl Into<String>,
+        password: impl Into<String>,
+        options: Option<UserAddOptions>,
+    ) -> Result<UserAddResponse> {
+        self.auth.user_add(name, password, options).await
+    }
+
+    /// Gets the user info by the user name.
+    #[inline]
+    pub async fn user_get(&mut self, name: impl Into<String>) -> Result<UserGetResponse> {
+        self.auth.user_get(name).await
+    }
+
+    /// Lists all users.
+    #[inline]
+    pub async fn user_list(&mut self) -> Result<UserListResponse> {
+        self.auth.user_list().await
+    }
+
+    /// Deletes the given key from the key-value store.
+    #[inline]
+    pub async fn user_delete(&mut self, name: impl Into<String>) -> Result<UserDeleteResponse> {
+        self.auth.user_delete(name).await
+    }
+
+    /// Change password for an user
+    #[inline]
+    pub async fn user_change_password(
+        &mut self,
+        name: impl Into<String>,
+        password: impl Into<String>,
+    ) -> Result<UserChangePasswordResponse> {
+        self.auth.user_change_password(name, password).await
+    }
+
+    /// Grant role for an user
+    #[inline]
+    pub async fn user_grant_role(
+        &mut self,
+        user: impl Into<String>,
+        role: impl Into<String>,
+    ) -> Result<UserGrantRoleResponse> {
+        self.auth.user_grant_role(user, role).await
+    }
+
+    /// Revoke role for an user
+    #[inline]
+    pub async fn user_revoke_role(
+        &mut self,
+        user: impl Into<String>,
+        role: impl Into<String>,
+    ) -> Result<UserRevokeRoleResponse> {
+        self.auth.user_revoke_role(user, role).await
     }
 
     /// Maintain(get, active or inactive) alarms of members.
@@ -858,6 +919,81 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_user() -> Result<()> {
+        let name1 = "usr1";
+        let password1 = "pwd1";
+        let name2 = "usr2";
+        let password2 = "pwd2";
+        let name3 = "usr3";
+        let password3 = "pwd3";
+        let role1 = "role1";
+
+        let mut client = get_client().await?;
+
+        // ignore result
+        let _resp = client.user_delete(name1).await;
+        let _resp = client.user_delete(name2).await;
+        let _resp = client.user_delete(name3).await;
+        let _resp = client.role_delete(role1).await;
+
+        client
+            .user_add(name1, password1, Some(UserAddOptions::new()))
+            .await?;
+
+        client
+            .user_add(name2, password2, Some(UserAddOptions::new().with_no_pwd()))
+            .await?;
+
+        client.user_add(name3, password3, None).await?;
+
+        let resp = client.user_get(name1).await;
+        if let Err(_) = resp {
+            assert!(false);
+        }
+
+        let resp = client.user_list().await;
+        if let Err(_) = resp {
+            assert!(false);
+        }
+
+        if let Ok(l) = resp {
+            assert!(l.users().contains(&name1.to_string()));
+        }
+
+        client.user_delete(name2).await?;
+        let resp = client.user_get(name2).await;
+        if let Ok(_) = resp {
+            assert!(false);
+        }
+
+        client.user_change_password(name1, password2).await?;
+        let resp = client.user_get(name1).await;
+        if let Err(_) = resp {
+            assert!(false);
+        }
+
+        client.role_add(role1).await?;
+        client.user_grant_role(name1, role1).await?;
+        let resp = client.user_get(name1).await;
+        if let Err(_) = resp {
+            assert!(false);
+        }
+
+        client.user_revoke_role(name1, role1).await?;
+        let resp = client.user_get(name1).await;
+        if let Err(_) = resp {
+            assert!(false);
+        }
+
+        let _resp = client.user_delete(name1).await;
+        let _resp = client.user_delete(name2).await;
+        let _resp = client.user_delete(name3).await;
+        let _resp = client.role_delete(role1).await;
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn test_alarm() -> Result<()> {
         let mut client = get_client().await?;
 
@@ -898,8 +1034,7 @@ mod tests {
     async fn test_status() -> Result<()> {
         let mut client = get_client().await?;
         let resp = client.status().await?;
-        let version = resp.version();
-        assert_eq!(version, "3.4.5");
+        let _version = resp.version();
 
         let db_size = resp.db_size();
         assert_ne!(db_size, 0);
