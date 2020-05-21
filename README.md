@@ -19,9 +19,9 @@ It provides asynchronous client backed by [tokio](https://github.com/tokio-rs/to
 - [x] Watch
 - [x] Lease
 - [x] Lock
+- [x] Auth
+- [x] Maintenance
 - [ ] Cluster
-- [ ] Maintenance
-- [ ] Auth
 - [ ] Election
 
 ## Usage
