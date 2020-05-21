@@ -22,6 +22,12 @@ use crate::rpc::maintenance::{
     AlarmAction, AlarmOptions, AlarmResponse, AlarmType, DefragmentResponse, HashKvResponse,
     HashResponse, MaintenanceClient, SnapshotStreaming, StatusResponse,
 };
+
+use crate::rpc::cluster::{
+    ClusterClient, MemberAddResponse, MemberListResponse, MemberPromoteResponse,
+    MemberRemoveResponse, MemberUpdateOptions, MemberUpdateResponse,
+};
+
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 use tonic::metadata::{Ascii, MetadataValue};
 use tonic::transport::Channel;
@@ -35,6 +41,7 @@ pub struct Client {
     lock: LockClient,
     auth: AuthClient,
     maintenance: MaintenanceClient,
+    cluster: ClusterClient,
 }
 
 impl Client {
@@ -90,6 +97,7 @@ impl Client {
         let lease = LeaseClient::new(channel.clone(), interceptor.clone());
         let lock = LockClient::new(channel.clone(), interceptor.clone());
         let auth = AuthClient::new(channel.clone(), interceptor.clone());
+        let cluster = ClusterClient::new(channel.clone(), interceptor.clone());
         let maintenance = MaintenanceClient::new(channel, interceptor);
 
         Ok(Self {
@@ -99,6 +107,7 @@ impl Client {
             lock,
             auth,
             maintenance,
+            cluster,
         })
     }
 
@@ -396,6 +405,56 @@ impl Client {
     #[inline]
     pub async fn snapshot(&mut self) -> Result<SnapshotStreaming> {
         self.maintenance.snapshot().await
+    }
+
+    /// Member Add.
+    #[inline]
+    pub async fn member_add<E: AsRef<str>, S: AsRef<[E]>>(
+        &mut self,
+        urls: S,
+        is_learner: bool,
+    ) -> Result<MemberAddResponse> {
+        const HTTP_PREFIX: &str = "http://";
+
+        let mut eps = Vec::new();
+        for e in urls.as_ref() {
+            let e = e.as_ref();
+            let url = if e.starts_with(HTTP_PREFIX) {
+                e.to_string()
+            } else {
+                HTTP_PREFIX.to_owned() + e
+            };
+            eps.push(url);
+        }
+
+        self.cluster.member_add(eps, is_learner).await
+    }
+
+    /// Member Remove.
+    #[inline]
+    pub async fn member_remove(&mut self, id: u64) -> Result<MemberRemoveResponse> {
+        self.cluster.member_remove(id).await
+    }
+    /// Member Update.
+    #[inline]
+    pub async fn member_update(
+        &mut self,
+        id: u64,
+        url: impl Into<Vec<String>>,
+    ) -> Result<MemberUpdateResponse> {
+        self.cluster.member_update(id, url).await
+    }
+
+    /// Member Promote.
+    #[inline]
+    pub async fn member_promote(&mut self, id: u64) -> Result<MemberPromoteResponse> {
+        self.cluster.member_promote(id).await
+    }
+
+    /// Member List.
+    #[inline]
+    pub async fn member_list(&mut self) -> Result<MemberListResponse> {
+        self.cluster.member_list().await
     }
 }
 
