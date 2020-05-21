@@ -1030,7 +1030,7 @@ impl UserAddOptions {
         Self(PbAuthUserAddRequest {
             name: String::new(),
             password: String::new(),
-            options: Some(PbUserAddOptions::new()),
+            options: Some(PbUserAddOptions { no_password: false }),
         })
     }
 
@@ -1050,7 +1050,7 @@ impl UserAddOptions {
 
     /// Set no password.
     #[inline]
-    pub fn with_no_pwd(mut self) -> Self {
+    pub const fn with_no_pwd(mut self) -> Self {
         self.0.options = Some(PbUserAddOptions { no_password: true });
         self
     }
@@ -1067,14 +1067,6 @@ impl IntoRequest<PbAuthUserAddRequest> for UserAddOptions {
     #[inline]
     fn into_request(self) -> Request<PbAuthUserAddRequest> {
         Request::new(self.into())
-    }
-}
-
-impl PbUserAddOptions {
-    /// Creates a PbUserAddOptions
-    #[inline]
-    pub const fn new() -> Self {
-        Self { no_password: false }
     }
 }
 

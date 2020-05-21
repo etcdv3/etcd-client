@@ -293,7 +293,7 @@ impl Client {
         self.auth.role_revoke_permission(name, key, options).await
     }
 
-    /// Add an user
+    /// Add an user.
     #[inline]
     pub async fn user_add(
         &mut self,
@@ -322,7 +322,7 @@ impl Client {
         self.auth.user_delete(name).await
     }
 
-    /// Change password for an user
+    /// Change password for an user.
     #[inline]
     pub async fn user_change_password(
         &mut self,
@@ -332,7 +332,7 @@ impl Client {
         self.auth.user_change_password(name, password).await
     }
 
-    /// Grant role for an user
+    /// Grant role for an user.
     #[inline]
     pub async fn user_grant_role(
         &mut self,
@@ -342,7 +342,7 @@ impl Client {
         self.auth.user_grant_role(user, role).await
     }
 
-    /// Revoke role for an user
+    /// Revoke role for an user.
     #[inline]
     pub async fn user_revoke_role(
         &mut self,
@@ -997,7 +997,7 @@ mod tests {
     async fn test_alarm() -> Result<()> {
         let mut client = get_client().await?;
 
-        // Test Deactive alarm.
+        // Test deactivate alarm.
         {
             let options = AlarmOptions::new();
             let _resp = client
@@ -1034,7 +1034,6 @@ mod tests {
     async fn test_status() -> Result<()> {
         let mut client = get_client().await?;
         let resp = client.status().await?;
-        let _version = resp.version();
 
         let db_size = resp.db_size();
         assert_ne!(db_size, 0);
