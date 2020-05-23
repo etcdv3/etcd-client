@@ -25,7 +25,7 @@ use crate::rpc::maintenance::{
 
 use crate::rpc::cluster::{
     ClusterClient, MemberAddResponse, MemberListResponse, MemberPromoteResponse,
-    MemberRemoveResponse, MemberUpdateOptions, MemberUpdateResponse,
+    MemberRemoveResponse, MemberAddOptions, MemberUpdateResponse,
 };
 
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
@@ -412,7 +412,7 @@ impl Client {
     pub async fn member_add<E: AsRef<str>, S: AsRef<[E]>>(
         &mut self,
         urls: S,
-        is_learner: bool,
+        options: Option<MemberAddOptions>,
     ) -> Result<MemberAddResponse> {
         const HTTP_PREFIX: &str = "http://";
 
@@ -427,7 +427,7 @@ impl Client {
             eps.push(url);
         }
 
-        self.cluster.member_add(eps, is_learner).await
+        self.cluster.member_add(eps, options).await
     }
 
     /// Member Remove.
@@ -1141,6 +1141,38 @@ mod tests {
                 }
             }
         }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cluster() -> Result<()> {
+        let node1 = "localhost:2520";
+        let node2 = "localhost:2530";
+        let node3 = "localhost:2540";
+        let mut is_learner = true;
+        let mut client = get_client().await?;
+        let resp = client
+            .member_add([node1], Some(MemberAddOptions::new().with_learner(is_learner)))
+            .await?;
+        let id1 = resp.member().unwrap().id;
+
+        let resp = client
+            .member_add([node2], None)
+            .await?;
+        let id2 = resp.member().unwrap().id;
+        is_learner = false;
+        let resp = client
+            .member_add([node3], Some(MemberAddOptions::new().with_learner(is_learner)))
+            .await?;
+        let id3 = resp.member().unwrap().id;
+
+        let resp = client.member_list().await?;
+        let members: Vec<_> = resp.member_list().iter().map(|status| status.id()).collect();
+        assert!(members.contains(&id1));
+        assert!(members.contains(&id2));
+        assert!(members.contains(&id3));
+
+        client.member_remove(id1).await?;
         Ok(())
     }
 }

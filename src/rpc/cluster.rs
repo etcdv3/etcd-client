@@ -43,14 +43,15 @@ impl ClusterClient {
     #[inline]
     pub async fn member_add(
         &mut self,
-        url:impl Into<Vec<String>>,
-        is_learner: bool
+        urls:impl Into<Vec<String>>,
+        options: Option<MemberAddOptions>,
     ) -> Result<MemberAddResponse> {
         let resp = self
             .inner
-            .member_add(MemberAddOptions::new().with_url(url, is_learner))
+            .member_add(options.unwrap_or_default().with_url(urls))
             .await?
             .into_inner();
+
         Ok(MemberAddResponse::new(resp))
     }
 
@@ -112,16 +113,21 @@ pub struct MemberAddOptions(PbMemberAddRequest);
 impl MemberAddOptions {
 
     #[inline]
-    fn with_url(mut self, url: impl Into<Vec<String>>, is_learner: bool) -> Self {
-        self.0.peer_ur_ls = url.into();
-        self.0.is_learner = is_learner;
+    fn with_url(mut self, urls: impl Into<Vec<String>>) -> Self {
+        self.0.peer_ur_ls = urls.into();
         self
     }
 
     /// Creates a `MemberAddOptions`.
     #[inline]
     pub const fn new() -> Self {
-        Self(PbMemberAddRequest {peer_ur_ls: Vec::new(), is_learner: false})
+        Self(PbMemberAddRequest {peer_ur_ls: Vec::new(), is_learner: true})
+    }
+
+    #[inline]
+    pub const fn with_learner(mut self, is_learner: bool) -> Self {
+        self.0.is_learner = is_learner;
+        self
     }
 }
 
@@ -348,6 +354,11 @@ impl MemberInfo {
     #[inline]
     pub const fn id(&self) -> u64 {
         self.0.id
+    }
+
+    #[inline]
+    pub const fn url(&self) -> &Vec<String> {
+        &self.0.peer_ur_ls
     }
 }
 
