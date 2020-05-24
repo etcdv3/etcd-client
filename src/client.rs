@@ -9,6 +9,10 @@ use crate::rpc::auth::{
     UserAddResponse, UserChangePasswordResponse, UserDeleteResponse, UserGetResponse,
     UserGrantRoleResponse, UserListResponse, UserRevokeRoleResponse,
 };
+use crate::rpc::cluster::{
+    ClusterClient, MemberAddOptions, MemberAddResponse, MemberListResponse, MemberPromoteResponse,
+    MemberRemoveResponse, MemberUpdateResponse,
+};
 use crate::rpc::kv::{
     CompactionOptions, CompactionResponse, DeleteOptions, DeleteResponse, GetOptions, GetResponse,
     KvClient, PutOptions, PutResponse, Txn, TxnResponse,
@@ -27,6 +31,8 @@ use tonic::metadata::{Ascii, MetadataValue};
 use tonic::transport::Channel;
 use tonic::Interceptor;
 
+const HTTP_PREFIX: &str = "http://";
+
 /// Asynchronous `etcd` client using v3 API.
 pub struct Client {
     kv: KvClient,
@@ -35,6 +41,7 @@ pub struct Client {
     lock: LockClient,
     auth: AuthClient,
     maintenance: MaintenanceClient,
+    cluster: ClusterClient,
 }
 
 impl Client {
@@ -43,8 +50,6 @@ impl Client {
         endpoints: S,
         options: Option<ConnectOptions>,
     ) -> Result<Self> {
-        const HTTP_PREFIX: &str = "http://";
-
         let endpoints = {
             let mut eps = Vec::new();
             for e in endpoints.as_ref() {
@@ -90,6 +95,7 @@ impl Client {
         let lease = LeaseClient::new(channel.clone(), interceptor.clone());
         let lock = LockClient::new(channel.clone(), interceptor.clone());
         let auth = AuthClient::new(channel.clone(), interceptor.clone());
+        let cluster = ClusterClient::new(channel.clone(), interceptor.clone());
         let maintenance = MaintenanceClient::new(channel, interceptor);
 
         Ok(Self {
@@ -99,6 +105,7 @@ impl Client {
             lock,
             auth,
             maintenance,
+            cluster,
         })
     }
 
@@ -396,6 +403,55 @@ impl Client {
     #[inline]
     pub async fn snapshot(&mut self) -> Result<SnapshotStreaming> {
         self.maintenance.snapshot().await
+    }
+
+    /// Adds current connected server as a member.
+    #[inline]
+    pub async fn member_add<E: AsRef<str>, S: AsRef<[E]>>(
+        &mut self,
+        urls: S,
+        options: Option<MemberAddOptions>,
+    ) -> Result<MemberAddResponse> {
+        let mut eps = Vec::new();
+        for e in urls.as_ref() {
+            let e = e.as_ref();
+            let url = if e.starts_with(HTTP_PREFIX) {
+                e.to_string()
+            } else {
+                HTTP_PREFIX.to_owned() + e
+            };
+            eps.push(url);
+        }
+
+        self.cluster.member_add(eps, options).await
+    }
+
+    /// Remove a member.
+    #[inline]
+    pub async fn member_remove(&mut self, id: u64) -> Result<MemberRemoveResponse> {
+        self.cluster.member_remove(id).await
+    }
+
+    /// Updates the member.
+    #[inline]
+    pub async fn member_update(
+        &mut self,
+        id: u64,
+        url: impl Into<Vec<String>>,
+    ) -> Result<MemberUpdateResponse> {
+        self.cluster.member_update(id, url).await
+    }
+
+    /// Promotes the member.
+    #[inline]
+    pub async fn member_promote(&mut self, id: u64) -> Result<MemberPromoteResponse> {
+        self.cluster.member_promote(id).await
+    }
+
+    /// Lists members.
+    #[inline]
+    pub async fn member_list(&mut self) -> Result<MemberListResponse> {
+        self.cluster.member_list().await
     }
 }
 
@@ -773,8 +829,8 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
     #[ignore]
+    #[tokio::test]
     async fn test_auth() -> Result<()> {
         let mut client = get_client().await?;
         client.auth_enable().await?;
@@ -1082,6 +1138,33 @@ mod tests {
                 }
             }
         }
+        Ok(())
+    }
+
+    #[ignore]
+    #[tokio::test]
+    async fn test_cluster() -> Result<()> {
+        let node1 = "localhost:2520";
+        let node2 = "localhost:2530";
+        let node3 = "localhost:2540";
+        let mut client = get_client().await?;
+        let resp = client
+            .member_add([node1], Some(MemberAddOptions::new().with_is_learner()))
+            .await?;
+        let id1 = resp.member().unwrap().id();
+
+        let resp = client.member_add([node2], None).await?;
+        let id2 = resp.member().unwrap().id();
+        let resp = client.member_add([node3], None).await?;
+        let id3 = resp.member().unwrap().id();
+
+        let resp = client.member_list().await?;
+        let members: Vec<_> = resp.members().iter().map(|member| member.id()).collect();
+        assert!(members.contains(&id1));
+        assert!(members.contains(&id2));
+        assert!(members.contains(&id3));
+
+        client.member_remove(id1).await?;
         Ok(())
     }
 }

@@ -1,5 +1,3 @@
-use tonic_build;
-
 fn main() {
     let proto_root = "proto";
     println!("cargo:rerun-if-changed={}", proto_root);
