@@ -42,7 +42,7 @@ impl ClusterClient {
     ) -> Result<MemberAddResponse> {
         let resp = self
             .inner
-            .member_add(options.unwrap_or_default().with_url(urls))
+            .member_add(options.unwrap_or_default().with_urls(urls))
             .await?
             .into_inner();
 
@@ -105,7 +105,7 @@ pub struct MemberAddOptions(PbMemberAddRequest);
 
 impl MemberAddOptions {
     #[inline]
-    fn with_url(mut self, urls: impl Into<Vec<String>>) -> Self {
+    fn with_urls(mut self, urls: impl Into<Vec<String>>) -> Self {
         self.0.peer_ur_ls = urls.into();
         self
     }
