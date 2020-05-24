@@ -21,7 +21,7 @@ It provides asynchronous client backed by [tokio](https://github.com/tokio-rs/to
 - [x] Lock
 - [x] Auth
 - [x] Maintenance
-- [ ] Cluster
+- [x] Cluster
 - [ ] Election
 
 ## Usage
