@@ -1,20 +1,15 @@
 //! Etcd Cluster RPC.
 
-use super::pb::etcdserverpb;
-
-pub use etcdserverpb::Member;
-
-use crate::rpc::pb::etcdserverpb::cluster_client::ClusterClient as PbClusterClient;
-use etcdserverpb::{
-    MemberAddRequest as PbMemberAddRequest, MemberAddResponse as PbMemberAddResponse,
-    MemberRemoveRequest as PbMemberRemoveRequest, MemberRemoveResponse as PbMemberRemoveResponse,
-    MemberUpdateRequest as PbMemberUpdateRequest, MemberUpdateResponse as PbMemberUpdateResponse,
-    MemberListRequest as PbMemberListRequest, MemberListResponse as PbMemberListResponse,
-    MemberPromoteRequest as PbMemberPromoteRequest, MemberPromoteResponse as PbMemberPromoteResponse,
-    Member as PbMember,
-};
-
 use crate::error::Result;
+use crate::rpc::pb::etcdserverpb::cluster_client::ClusterClient as PbClusterClient;
+use crate::rpc::pb::etcdserverpb::{
+    Member as PbMember, MemberAddRequest as PbMemberAddRequest,
+    MemberAddResponse as PbMemberAddResponse, MemberListRequest as PbMemberListRequest,
+    MemberListResponse as PbMemberListResponse, MemberPromoteRequest as PbMemberPromoteRequest,
+    MemberPromoteResponse as PbMemberPromoteResponse, MemberRemoveRequest as PbMemberRemoveRequest,
+    MemberRemoveResponse as PbMemberRemoveResponse, MemberUpdateRequest as PbMemberUpdateRequest,
+    MemberUpdateResponse as PbMemberUpdateResponse,
+};
 use crate::rpc::ResponseHeader;
 use std::string::String;
 use tonic::transport::Channel;
@@ -38,12 +33,11 @@ impl ClusterClient {
         Self { inner }
     }
 
-
     /// Adds a new member into the cluster.
     #[inline]
     pub async fn member_add(
         &mut self,
-        urls:impl Into<Vec<String>>,
+        urls: impl Into<Vec<String>>,
         options: Option<MemberAddOptions>,
     ) -> Result<MemberAddResponse> {
         let resp = self
@@ -57,7 +51,7 @@ impl ClusterClient {
 
     /// Removes an existing member from the cluster.
     #[inline]
-    pub async fn member_remove(&mut self, id:u64) -> Result<MemberRemoveResponse> {
+    pub async fn member_remove(&mut self, id: u64) -> Result<MemberRemoveResponse> {
         let resp = self
             .inner
             .member_remove(MemberRemoveOptions::new().with_id(id))
@@ -92,10 +86,9 @@ impl ClusterClient {
         Ok(MemberListResponse::new(resp))
     }
 
-
     /// Promotes a member from raft learner (non-voting) to raft voting member.
     #[inline]
-    pub async fn member_promote(&mut self, id:u64) -> Result<MemberPromoteResponse> {
+    pub async fn member_promote(&mut self, id: u64) -> Result<MemberPromoteResponse> {
         let resp = self
             .inner
             .member_promote(MemberPromoteOptions::new().with_id(id))
@@ -107,11 +100,10 @@ impl ClusterClient {
 
 /// Options for `MemberAdd` operation.
 #[derive(Debug, Default, Clone)]
-// #[repr(transparent)]
+#[repr(transparent)]
 pub struct MemberAddOptions(PbMemberAddRequest);
 
 impl MemberAddOptions {
-
     #[inline]
     fn with_url(mut self, urls: impl Into<Vec<String>>) -> Self {
         self.0.peer_ur_ls = urls.into();
@@ -121,12 +113,16 @@ impl MemberAddOptions {
     /// Creates a `MemberAddOptions`.
     #[inline]
     pub const fn new() -> Self {
-        Self(PbMemberAddRequest {peer_ur_ls: Vec::new(), is_learner: true})
+        Self(PbMemberAddRequest {
+            peer_ur_ls: Vec::new(),
+            is_learner: false,
+        })
     }
 
+    /// Sets the member as a learner.
     #[inline]
-    pub const fn with_learner(mut self, is_learner: bool) -> Self {
-        self.0.is_learner = is_learner;
+    pub const fn with_is_learner(mut self) -> Self {
+        self.0.is_learner = true;
         self
     }
 }
@@ -177,8 +173,8 @@ impl MemberAddResponse {
 
     /// Get Member List
     #[inline]
-    pub fn member_list(&self) -> &[MemberInfo] {
-        unsafe { &*(self.0.members.as_slice() as *const _ as *const [MemberInfo]) }
+    pub fn member_list(&self) -> &[Member] {
+        unsafe { &*(self.0.members.as_slice() as *const _ as *const [Member]) }
     }
 }
 
@@ -240,10 +236,10 @@ impl MemberRemoveResponse {
         self.0.header.take().map(ResponseHeader::new)
     }
 
-    /// Get Member List
+    /// A list of all members after removing the member
     #[inline]
-    pub fn member_list(&self) -> &[MemberInfo] {
-        unsafe { &*(self.0.members.as_slice() as *const _ as *const [MemberInfo]) }
+    pub fn members(&self) -> &[Member] {
+        unsafe { &*(self.0.members.as_slice() as *const _ as *const [Member]) }
     }
 }
 
@@ -253,7 +249,6 @@ impl MemberRemoveResponse {
 pub struct MemberUpdateOptions(PbMemberUpdateRequest);
 
 impl MemberUpdateOptions {
-
     #[inline]
     fn with_option(mut self, id: u64, url: impl Into<Vec<String>>) -> Self {
         self.0.id = id;
@@ -264,7 +259,10 @@ impl MemberUpdateOptions {
     /// Creates a `MemberUpdateOptions`.
     #[inline]
     pub const fn new() -> Self {
-        Self(PbMemberUpdateRequest {id:0, peer_ur_ls: Vec::new()})
+        Self(PbMemberUpdateRequest {
+            id: 0,
+            peer_ur_ls: Vec::new(),
+        })
     }
 }
 
@@ -306,10 +304,10 @@ impl MemberUpdateResponse {
         self.0.header.take().map(ResponseHeader::new)
     }
 
-    /// Get Member List
+    /// A list of all members after updating the member.
     #[inline]
-    pub fn member_list(&self) -> &[MemberInfo] {
-        unsafe { &*(self.0.members.as_slice() as *const _ as *const [MemberInfo]) }
+    pub fn members(&self) -> &[Member] {
+        unsafe { &*(self.0.members.as_slice() as *const _ as *const [Member]) }
     }
 }
 
@@ -337,41 +335,60 @@ impl MemberListResponse {
         self.0.header.take().map(ResponseHeader::new)
     }
 
-    /// Get Member Info
+    /// A list of all members associated with the cluster.
     #[inline]
-    pub fn member_list(&self) -> &[MemberInfo] {
-        unsafe { &*(self.0.members.as_slice() as *const _ as *const [MemberInfo]) }
+    pub fn members(&self) -> &[Member] {
+        unsafe { &*(self.0.members.as_slice() as *const _ as *const [Member]) }
     }
 }
 
-/// Member info.
+/// Cluster member.
 #[derive(Debug, Clone, PartialEq)]
 #[repr(transparent)]
-pub struct MemberInfo(PbMember);
+pub struct Member(PbMember);
 
-impl MemberInfo {
+impl Member {
     /// Member id.
     #[inline]
     pub const fn id(&self) -> u64 {
         self.0.id
     }
 
+    /// The human-readable name of the member. If the member is not started, the name will be an empty string.
     #[inline]
-    pub const fn url(&self) -> &Vec<String> {
+    pub fn name(&self) -> &str {
+        &self.0.name
+    }
+
+    /// The list of URLs the member exposes to the cluster for communication.
+    #[inline]
+    pub fn peer_urls(&self) -> &[String] {
         &self.0.peer_ur_ls
+    }
+
+    /// The list of URLs the member exposes to clients for communication. If the member is not started, client URLs will be empty.
+    #[inline]
+    pub fn client_urls(&self) -> &[String] {
+        &self.0.client_ur_ls
+    }
+
+    /// Indicates if the member is raft learner.
+    #[inline]
+    pub const fn is_learner(&self) -> bool {
+        self.0.is_learner
     }
 }
 
-impl From<&PbMember> for &MemberInfo {
+impl From<&PbMember> for &Member {
     #[inline]
     fn from(src: &PbMember) -> Self {
-        unsafe { &*(src as *const _ as *const MemberInfo) }
+        unsafe { &*(src as *const _ as *const Member) }
     }
 }
 
 /// Options for `MemberPromote` operation.
 #[derive(Debug, Default, Clone)]
-// #[repr(transparent)]
+#[repr(transparent)]
 pub struct MemberPromoteOptions(PbMemberPromoteRequest);
 
 impl MemberPromoteOptions {
@@ -427,10 +444,9 @@ impl MemberPromoteResponse {
         self.0.header.take().map(ResponseHeader::new)
     }
 
-    /// Get Member Info
+    /// A list of all members after promoting the member.
     #[inline]
-    pub fn member_list(&self) -> &[MemberInfo] {
-        unsafe { &*(self.0.members.as_slice() as *const _ as *const [MemberInfo]) }
+    pub fn members(&self) -> &[Member] {
+        unsafe { &*(self.0.members.as_slice() as *const _ as *const [Member]) }
     }
 }
-

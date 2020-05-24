@@ -9,6 +9,10 @@ use crate::rpc::auth::{
     UserAddResponse, UserChangePasswordResponse, UserDeleteResponse, UserGetResponse,
     UserGrantRoleResponse, UserListResponse, UserRevokeRoleResponse,
 };
+use crate::rpc::cluster::{
+    ClusterClient, MemberAddOptions, MemberAddResponse, MemberListResponse, MemberPromoteResponse,
+    MemberRemoveResponse, MemberUpdateResponse,
+};
 use crate::rpc::kv::{
     CompactionOptions, CompactionResponse, DeleteOptions, DeleteResponse, GetOptions, GetResponse,
     KvClient, PutOptions, PutResponse, Txn, TxnResponse,
@@ -22,16 +26,12 @@ use crate::rpc::maintenance::{
     AlarmAction, AlarmOptions, AlarmResponse, AlarmType, DefragmentResponse, HashKvResponse,
     HashResponse, MaintenanceClient, SnapshotStreaming, StatusResponse,
 };
-
-use crate::rpc::cluster::{
-    ClusterClient, MemberAddResponse, MemberListResponse, MemberPromoteResponse,
-    MemberRemoveResponse, MemberAddOptions, MemberUpdateResponse,
-};
-
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 use tonic::metadata::{Ascii, MetadataValue};
 use tonic::transport::Channel;
 use tonic::Interceptor;
+
+const HTTP_PREFIX: &str = "http://";
 
 /// Asynchronous `etcd` client using v3 API.
 pub struct Client {
@@ -50,8 +50,6 @@ impl Client {
         endpoints: S,
         options: Option<ConnectOptions>,
     ) -> Result<Self> {
-        const HTTP_PREFIX: &str = "http://";
-
         let endpoints = {
             let mut eps = Vec::new();
             for e in endpoints.as_ref() {
@@ -407,15 +405,13 @@ impl Client {
         self.maintenance.snapshot().await
     }
 
-    /// Member Add.
+    /// Adds current connected server as a member.
     #[inline]
     pub async fn member_add<E: AsRef<str>, S: AsRef<[E]>>(
         &mut self,
         urls: S,
         options: Option<MemberAddOptions>,
     ) -> Result<MemberAddResponse> {
-        const HTTP_PREFIX: &str = "http://";
-
         let mut eps = Vec::new();
         for e in urls.as_ref() {
             let e = e.as_ref();
@@ -430,12 +426,13 @@ impl Client {
         self.cluster.member_add(eps, options).await
     }
 
-    /// Member Remove.
+    /// Remove a member.
     #[inline]
     pub async fn member_remove(&mut self, id: u64) -> Result<MemberRemoveResponse> {
         self.cluster.member_remove(id).await
     }
-    /// Member Update.
+
+    /// Updates the member.
     #[inline]
     pub async fn member_update(
         &mut self,
@@ -445,13 +442,13 @@ impl Client {
         self.cluster.member_update(id, url).await
     }
 
-    /// Member Promote.
+    /// Promotes the member.
     #[inline]
     pub async fn member_promote(&mut self, id: u64) -> Result<MemberPromoteResponse> {
         self.cluster.member_promote(id).await
     }
 
-    /// Member List.
+    /// Lists members.
     #[inline]
     pub async fn member_list(&mut self) -> Result<MemberListResponse> {
         self.cluster.member_list().await
@@ -832,8 +829,8 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
     #[ignore]
+    #[tokio::test]
     async fn test_auth() -> Result<()> {
         let mut client = get_client().await?;
         client.auth_enable().await?;
@@ -1144,30 +1141,25 @@ mod tests {
         Ok(())
     }
 
+    #[ignore]
     #[tokio::test]
     async fn test_cluster() -> Result<()> {
         let node1 = "localhost:2520";
         let node2 = "localhost:2530";
         let node3 = "localhost:2540";
-        let mut is_learner = true;
         let mut client = get_client().await?;
         let resp = client
-            .member_add([node1], Some(MemberAddOptions::new().with_learner(is_learner)))
+            .member_add([node1], Some(MemberAddOptions::new().with_is_learner()))
             .await?;
-        let id1 = resp.member().unwrap().id;
+        let id1 = resp.member().unwrap().id();
 
-        let resp = client
-            .member_add([node2], None)
-            .await?;
-        let id2 = resp.member().unwrap().id;
-        is_learner = false;
-        let resp = client
-            .member_add([node3], Some(MemberAddOptions::new().with_learner(is_learner)))
-            .await?;
-        let id3 = resp.member().unwrap().id;
+        let resp = client.member_add([node2], None).await?;
+        let id2 = resp.member().unwrap().id();
+        let resp = client.member_add([node3], None).await?;
+        let id3 = resp.member().unwrap().id();
 
         let resp = client.member_list().await?;
-        let members: Vec<_> = resp.member_list().iter().map(|status| status.id()).collect();
+        let members: Vec<_> = resp.members().iter().map(|member| member.id()).collect();
         assert!(members.contains(&id1));
         assert!(members.contains(&id2));
         assert!(members.contains(&id3));
