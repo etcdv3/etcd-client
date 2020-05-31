@@ -32,6 +32,9 @@ pub enum Error {
     /// Lease error
     LeaseKeepAliveError(String),
 
+    /// Election error
+    ElectError(String),
+
     /// Invalid metadata value
     InvalidMetadataValue(tonic::metadata::errors::InvalidMetadataValue),
 }
@@ -48,6 +51,7 @@ impl Display for Error {
             Error::WatchError(e) => write!(f, "watch error: {}", e),
             Error::Utf8Error(e) => write!(f, "utf8 error: {}", e),
             Error::LeaseKeepAliveError(e) => write!(f, "lease keep alive error: {}", e),
+            Error::ElectError(e) => write!(f, "election error: {}", e),
             Error::InvalidMetadataValue(e) => write!(f, "invalid metadata value: {}", e),
         }
     }

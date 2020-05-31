@@ -17,6 +17,10 @@ pub use crate::rpc::cluster::{
     Member, MemberAddOptions, MemberAddResponse, MemberListResponse, MemberPromoteResponse,
     MemberRemoveResponse, MemberUpdateResponse,
 };
+pub use crate::rpc::election::{
+    CampaignResponse, LeaderResponse, ObserveStream, ProclaimOptions, ProclaimResponse,
+    ResignOptions, ResignResponse,
+};
 pub use crate::rpc::kv::{
     CompactionOptions, CompactionResponse, Compare, CompareOp, DeleteOptions, DeleteResponse,
     GetOptions, GetResponse, PutOptions, PutResponse, SortOrder, SortTarget, Txn, TxnOp,

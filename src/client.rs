@@ -13,6 +13,10 @@ use crate::rpc::cluster::{
     ClusterClient, MemberAddOptions, MemberAddResponse, MemberListResponse, MemberPromoteResponse,
     MemberRemoveResponse, MemberUpdateResponse,
 };
+use crate::rpc::election::{
+    CampaignResponse, ElectionClient, LeaderResponse, ObserveStream, ProclaimOptions,
+    ProclaimResponse, ResignOptions, ResignResponse,
+};
 use crate::rpc::kv::{
     CompactionOptions, CompactionResponse, DeleteOptions, DeleteResponse, GetOptions, GetResponse,
     KvClient, PutOptions, PutResponse, Txn, TxnResponse,
@@ -24,7 +28,7 @@ use crate::rpc::lease::{
 use crate::rpc::lock::{LockClient, LockOptions, LockResponse, UnlockResponse};
 use crate::rpc::maintenance::{
     AlarmAction, AlarmOptions, AlarmResponse, AlarmType, DefragmentResponse, HashKvResponse,
-    HashResponse, MaintenanceClient, SnapshotStreaming, StatusResponse,
+    HashResponse, MaintenanceClient, MoveLeaderResponse, SnapshotStreaming, StatusResponse,
 };
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 use tonic::metadata::{Ascii, MetadataValue};
@@ -42,6 +46,7 @@ pub struct Client {
     auth: AuthClient,
     maintenance: MaintenanceClient,
     cluster: ClusterClient,
+    election: ElectionClient,
 }
 
 impl Client {
@@ -96,7 +101,8 @@ impl Client {
         let lock = LockClient::new(channel.clone(), interceptor.clone());
         let auth = AuthClient::new(channel.clone(), interceptor.clone());
         let cluster = ClusterClient::new(channel.clone(), interceptor.clone());
-        let maintenance = MaintenanceClient::new(channel, interceptor);
+        let maintenance = MaintenanceClient::new(channel.clone(), interceptor.clone());
+        let election = ElectionClient::new(channel, interceptor);
 
         Ok(Self {
             kv,
@@ -106,6 +112,7 @@ impl Client {
             auth,
             maintenance,
             cluster,
+	    election,
         })
     }
 
@@ -452,6 +459,54 @@ impl Client {
     #[inline]
     pub async fn member_list(&mut self) -> Result<MemberListResponse> {
         self.cluster.member_list().await
+    }
+    
+    /// Move the current leader node to target node.
+    #[inline]
+    pub async fn move_leader(&mut self, target_id: u64) -> Result<MoveLeaderResponse> {
+        self.maintenance.move_leader(target_id).await
+    }
+
+    /// Campaign puts a value as eligible for the election on the prefix key.
+    /// Multiple sessions can participate in the election for the
+    /// same prefix, but only one can be the leader at a time.
+    #[inline]
+    pub async fn campaign(
+        &mut self,
+        name: impl Into<Vec<u8>>,
+        value: impl Into<Vec<u8>>,
+        lease: i64,
+    ) -> Result<CampaignResponse> {
+        self.election.campaign(name, value, lease).await
+    }
+
+    /// Proclaim lets the leader announce a new value without another election.
+    #[inline]
+    pub async fn proclaim(
+        &mut self,
+        value: impl Into<Vec<u8>>,
+        options: Option<ProclaimOptions>,
+    ) -> Result<ProclaimResponse> {
+        self.election.proclaim(value, options).await
+    }
+
+    /// Leader returns the leader value for the current election.
+    #[inline]
+    pub async fn leader(&mut self, name: impl Into<Vec<u8>>) -> Result<LeaderResponse> {
+        self.election.leader(name).await
+    }
+
+    /// Observe returns a channel that reliably observes ordered leader proposals
+    /// as GetResponse values on every current elected leader key.
+    #[inline]
+    pub async fn observe(&mut self, name: impl Into<Vec<u8>>) -> Result<ObserveStream> {
+        self.election.observe(name).await
+    }
+
+    /// Resign releases election leadership and then start a new election
+    #[inline]
+    pub async fn resign(&mut self, option: Option<ResignOptions>) -> Result<ResignResponse> {
+        self.election.resign(option).await
     }
 }
 
@@ -1163,8 +1218,40 @@ mod tests {
         assert!(members.contains(&id1));
         assert!(members.contains(&id2));
         assert!(members.contains(&id3));
+        Ok(())
+    }
 
-        client.member_remove(id1).await?;
+  #[tokio::test]
+    async fn test_compaign() -> Result<()> {
+        let mut client = get_client().await?;
+        let leaseid = 10000;
+        let resp = client
+            .lease_grant(60, Some(LeaseGrantOptions::new().with_id(leaseid)))
+            .await?;
+        assert_eq!(resp.ttl(), 60);
+        assert_eq!(resp.id(), leaseid);
+
+        let resp = client.campaign("myElection", "123", leaseid).await?;
+        let leader = resp.leader().unwrap();
+        assert_eq!(leader.name(), b"myElection");
+        assert_eq!(leader.lease(), 10000);
+        println!("{:?}", leader.key_str());
+        println!("{}", leader.rev());
+
+/*        let resp = client
+            .proclaim(
+                "123",
+                Some(ProclaimOptions::new().with_leader(leader)),
+            )
+            .await?;*/
+
+        let resp = client.leader("myElection").await?;
+        let kv = resp.kv().unwrap();
+        assert_eq!(kv.value(), b"123");
+        assert_eq!(kv.key(), leader.key());
+        println!("key is {:?}", kv.key_str());
+        println!("value is {:?}", kv.value_str());
+
         Ok(())
     }
 }
