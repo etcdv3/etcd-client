@@ -17,6 +17,7 @@ use std::task::{Context, Poll};
 use tokio::stream::Stream;
 use tonic::codegen::Pin;
 
+use tokio::sync::mpsc::{channel, Sender};
 use tonic::transport::Channel;
 use tonic::{Interceptor, IntoRequest, Request, Streaming};
 
@@ -164,8 +165,9 @@ impl ResignOptions {
     }
     /// Leader is the leadership to relinquish by resignation.
     #[inline]
-    pub fn with_leader(mut self, leader: LeaderKey) {
+    pub fn with_leader(mut self, leader: LeaderKey) -> Self {
         self.0.leader = Some(leader.into());
+        self
     }
 }
 
@@ -274,6 +276,38 @@ impl LeaderResponse {
         self.0.kv.take().map(KeyValue::new)
     }
 }
+
+/*
+/// The election observe handle.
+#[derive(Debug)]
+pub struct ElectObserver {
+    name: std::vec::Vec<u8>,
+    sender: Sender<PbLeaderRequest>,
+}
+
+impl ElectObserver {
+    /// Creates a new `ElectObserver`.
+    #[inline]
+    const fn new(name: std::vec::Vec<u8>, sender: Sender<PbLeaderRequest>) -> Self {
+        Self { name, sender }
+    }
+
+    /// The name which user want to observe.
+    #[inline]
+    pub const fn name(&self) ->  &[u8] {
+        self.name()
+    }
+
+    /// Sends a observe request and receive response
+    #[inline]
+    pub async fn observe(&mut self) -> Result<()> {
+        self.sender
+            .send(LeaderOptions::new().with_name(self.name).into())
+            .await
+            .map_err(|e| Error::ElectError(e.to_string()))
+    }
+}
+*/
 
 /// Response for `Observe` operation.
 #[derive(Debug)]
@@ -521,6 +555,15 @@ impl ElectionClient {
     /// as GetResponse values on every current elected leader key.
     #[inline]
     pub async fn observe(&mut self, name: impl Into<Vec<u8>>) -> Result<ObserveStream> {
+        /*
+                let (mut sender, receiver) = channel::<PbLeaderRequest>(100);
+                sender
+                    .send(LeaderOptions::new().with_name(name.into()))
+                    .await
+                    .map_err(|e| Error::LeaseKeepAliveError(e.to_string()))?;
+        */
+        /*        let mut stream = self.inner.observe(receiver).await?.into_inner();*/
+
         let mut stream = self
             .inner
             .observe(LeaderOptions::new().with_name(name))
@@ -534,7 +577,7 @@ impl ElectionClient {
             }
         };
 
-        Ok(ObserveStream::new(resp_stream))
+        Ok((ObserveStream::new(resp_stream)))
     }
 
     /// Resign releases election leadership and then start a new election

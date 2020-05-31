@@ -112,7 +112,7 @@ impl Client {
             auth,
             maintenance,
             cluster,
-	    election,
+            election,
         })
     }
 
@@ -460,7 +460,7 @@ impl Client {
     pub async fn member_list(&mut self) -> Result<MemberListResponse> {
         self.cluster.member_list().await
     }
-    
+
     /// Move the current leader node to target node.
     #[inline]
     pub async fn move_leader(&mut self, target_id: u64) -> Result<MoveLeaderResponse> {
@@ -1221,29 +1221,56 @@ mod tests {
         Ok(())
     }
 
-  #[tokio::test]
-    async fn test_compaign() -> Result<()> {
+    #[ignore]
+    #[tokio::test]
+    async fn test_move_leader() -> Result<()> {
         let mut client = get_client().await?;
-        let leaseid = 10000;
+        let resp = client.member_list().await?;
+        let member_list = resp.members();
+        let member_id = member_list[0].id();
+
+        println!(
+            "member_id {:?}, name is {:?}",
+            member_id,
+            member_list[0].name()
+        );
+
+        let resp = client.move_leader(member_id).await?;
+        let header = resp.header();
+        assert!(header.is_some());
+        //println!("move-leader header {:?}", header.unwrap());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_election() -> Result<()> {
+        let mut client = get_client().await?;
+        let leaseid = 10086;
         let resp = client
-            .lease_grant(60, Some(LeaseGrantOptions::new().with_id(leaseid)))
+            .lease_grant(10, Some(LeaseGrantOptions::new().with_id(leaseid)))
             .await?;
-        assert_eq!(resp.ttl(), 60);
+        assert_eq!(resp.ttl(), 10);
         assert_eq!(resp.id(), leaseid);
 
         let resp = client.campaign("myElection", "123", leaseid).await?;
         let leader = resp.leader().unwrap();
         assert_eq!(leader.name(), b"myElection");
-        assert_eq!(leader.lease(), 10000);
-        println!("{:?}", leader.key_str());
-        println!("{}", leader.rev());
+        assert_eq!(leader.lease(), leaseid);
 
-/*        let resp = client
+        let resp = client
             .proclaim(
                 "123",
-                Some(ProclaimOptions::new().with_leader(leader)),
+                Some(ProclaimOptions::new().with_leader(leader.clone())),
             )
-            .await?;*/
+            .await?;
+        let header = resp.header();
+        println!("proclaim header {:?}", header.unwrap());
+        assert!(header.is_some());
+
+        /*        let mut stream = client.observe(leader.name()).await?;
+
+        let resp = stream.message().await?.unwrap();
+        println!("observe {:?}", resp);*/
 
         let resp = client.leader("myElection").await?;
         let kv = resp.kv().unwrap();
@@ -1251,6 +1278,13 @@ mod tests {
         assert_eq!(kv.key(), leader.key());
         println!("key is {:?}", kv.key_str());
         println!("value is {:?}", kv.value_str());
+
+        let resign_option = ResignOptions::new().with_leader(leader.clone());
+
+        let resp = client.resign(Some(resign_option)).await?;
+        let header = resp.header();
+        println!("resign header {:?}", header.unwrap());
+        assert!(header.is_some());
 
         Ok(())
     }
