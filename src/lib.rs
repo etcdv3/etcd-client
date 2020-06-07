@@ -17,6 +17,10 @@ pub use crate::rpc::cluster::{
     Member, MemberAddOptions, MemberAddResponse, MemberListResponse, MemberPromoteResponse,
     MemberRemoveResponse, MemberUpdateResponse,
 };
+pub use crate::rpc::election::{
+    CampaignResponse, LeaderResponse, ObserveStream, ProclaimOptions, ProclaimResponse,
+    ResignOptions, ResignResponse,
+};
 pub use crate::rpc::kv::{
     CompactionOptions, CompactionResponse, Compare, CompareOp, DeleteOptions, DeleteResponse,
     GetOptions, GetResponse, PutOptions, PutResponse, SortOrder, SortTarget, Txn, TxnOp,
@@ -30,7 +34,8 @@ pub use crate::rpc::lease::{
 pub use crate::rpc::lock::{LockOptions, LockResponse, UnlockResponse};
 pub use crate::rpc::maintenance::{
     AlarmAction, AlarmMember, AlarmOptions, AlarmResponse, AlarmType, DefragmentResponse,
-    HashKvResponse, HashResponse, SnapshotResponse, SnapshotStreaming, StatusResponse,
+    HashKvResponse, HashResponse, MoveLeaderResponse, SnapshotResponse, SnapshotStreaming,
+    StatusResponse,
 };
 pub use crate::rpc::watch::{
     Event, EventType, WatchFilterType, WatchOptions, WatchResponse, WatchStream, Watcher,
