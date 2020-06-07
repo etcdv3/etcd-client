@@ -12,12 +12,10 @@ use crate::rpc::pb::v3electionpb::{
     ResignRequest as PbResignRequest, ResignResponse as PbResignResponse,
 };
 
-use crate::Error;
 use std::task::{Context, Poll};
 use tokio::stream::Stream;
 use tonic::codegen::Pin;
 
-use tokio::sync::mpsc::{channel, Sender};
 use tonic::transport::Channel;
 use tonic::{Interceptor, IntoRequest, Request, Streaming};
 
@@ -294,7 +292,7 @@ impl ElectObserver {
 
     /// The name which user want to observe.
     #[inline]
-    pub const fn name(&self) ->  &[u8] {
+    pub const fn name(&self) -> &[u8] {
         self.name()
     }
 
@@ -302,7 +300,7 @@ impl ElectObserver {
     #[inline]
     pub async fn observe(&mut self) -> Result<()> {
         self.sender
-            .send(LeaderOptions::new().with_name(self.name).into())
+            .send(LeaderOptions::new().with_name(self.name()).into())
             .await
             .map_err(|e| Error::ElectError(e.to_string()))
     }
@@ -564,20 +562,13 @@ impl ElectionClient {
         */
         /*        let mut stream = self.inner.observe(receiver).await?.into_inner();*/
 
-        let mut stream = self
+        let resp = self
             .inner
             .observe(LeaderOptions::new().with_name(name))
             .await?
             .into_inner();
 
-        let resp_stream = match stream.message().await? {
-            Some(_resp) => stream,
-            None => {
-                return Err(Error::ElectError("failed to observe election".to_string()));
-            }
-        };
-
-        Ok((ObserveStream::new(resp_stream)))
+        Ok(ObserveStream::new(resp))
     }
 
     /// Resign releases election leadership and then start a new election

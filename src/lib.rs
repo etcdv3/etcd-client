@@ -34,7 +34,8 @@ pub use crate::rpc::lease::{
 pub use crate::rpc::lock::{LockOptions, LockResponse, UnlockResponse};
 pub use crate::rpc::maintenance::{
     AlarmAction, AlarmMember, AlarmOptions, AlarmResponse, AlarmType, DefragmentResponse,
-    HashKvResponse, HashResponse, SnapshotResponse, SnapshotStreaming, StatusResponse,
+    HashKvResponse, HashResponse, MoveLeaderResponse, SnapshotResponse, SnapshotStreaming,
+    StatusResponse,
 };
 pub use crate::rpc::watch::{
     Event, EventType, WatchFilterType, WatchOptions, WatchResponse, WatchStream, Watcher,

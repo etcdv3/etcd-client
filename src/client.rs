@@ -1221,24 +1221,33 @@ mod tests {
         Ok(())
     }
 
-    #[ignore]
     #[tokio::test]
     async fn test_move_leader() -> Result<()> {
         let mut client = get_client().await?;
         let resp = client.member_list().await?;
         let member_list = resp.members();
-        let member_id = member_list[0].id();
 
-        println!(
-            "member_id {:?}, name is {:?}",
-            member_id,
-            member_list[0].name()
-        );
+        let resp = client.status().await?;
+        let leader_id = resp.leader();
+        println!("status {:?}, leader_id {:?}", resp, resp.leader());
+
+        let mut member_id = leader_id;
+        for member in member_list {
+            println!("member_id {:?}, name is {:?}", member.id(), member.name());
+            if member.id() != leader_id {
+                member_id = member.id();
+                break;
+            }
+        }
 
         let resp = client.move_leader(member_id).await?;
         let header = resp.header();
-        assert!(header.is_some());
-        //println!("move-leader header {:?}", header.unwrap());
+        if member_id == leader_id {
+            assert!(header.is_none());
+        } else {
+            assert!(header.is_some());
+        }
+
         Ok(())
     }
 
@@ -1267,10 +1276,16 @@ mod tests {
         println!("proclaim header {:?}", header.unwrap());
         assert!(header.is_some());
 
-        /*        let mut stream = client.observe(leader.name()).await?;
-
-        let resp = stream.message().await?.unwrap();
-        println!("observe {:?}", resp);*/
+        let mut msg = client.observe(leader.name()).await?;
+        loop {
+            if let Some(resp) = msg.message().await? {
+                assert!(resp.kv().is_some());
+                println!("observe key {:?}", resp.kv().unwrap().key_str());
+                if resp.kv().is_some() {
+                    break;
+                }
+            }
+        }
 
         let resp = client.leader("myElection").await?;
         let kv = resp.kv().unwrap();
