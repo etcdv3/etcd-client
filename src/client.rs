@@ -1254,12 +1254,9 @@ mod tests {
     #[tokio::test]
     async fn test_election() -> Result<()> {
         let mut client = get_client().await?;
-        let lease_id = 10086;
-        let resp = client
-            .lease_grant(10, Some(LeaseGrantOptions::new().with_id(lease_id)))
-            .await?;
+        let resp = client.lease_grant(10, None).await?;
+        let lease_id = resp.id();
         assert_eq!(resp.ttl(), 10);
-        assert_eq!(resp.id(), lease_id);
 
         let resp = client.campaign("myElection", "123", lease_id).await?;
         let leader = resp.leader().unwrap();
