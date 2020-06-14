@@ -22,7 +22,7 @@ It provides asynchronous client backed by [tokio](https://github.com/tokio-rs/to
 - [x] Auth
 - [x] Maintenance
 - [x] Cluster
-- [ ] Election
+- [x] Election
 
 ## Usage
 
