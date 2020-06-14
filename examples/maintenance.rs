@@ -48,5 +48,30 @@ async fn main() -> Result<(), Error> {
         }
     }
 
+    // Mover leader
+    let resp = client.member_list().await?;
+    let member_list = resp.members();
+
+    let resp = client.status().await?;
+    let leader_id = resp.leader();
+    println!("status {:?}, leader_id {:?}", resp, resp.leader());
+
+    let mut member_id = leader_id;
+    for member in member_list {
+        if member.id() != leader_id {
+            member_id = member.id();
+            println!("member_id {:?}, name is {:?}", member.id(), member.name());
+            break;
+        }
+    }
+
+    let resp = client.move_leader(member_id).await?;
+    let header = resp.header();
+    if member_id == leader_id {
+        assert!(header.is_none());
+    } else {
+        println!("move_leader header {:?}", header);
+    }
+
     Ok(())
 }

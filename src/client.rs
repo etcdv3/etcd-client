@@ -13,6 +13,10 @@ use crate::rpc::cluster::{
     ClusterClient, MemberAddOptions, MemberAddResponse, MemberListResponse, MemberPromoteResponse,
     MemberRemoveResponse, MemberUpdateResponse,
 };
+use crate::rpc::election::{
+    CampaignResponse, ElectionClient, LeaderResponse, ObserveStream, ProclaimOptions,
+    ProclaimResponse, ResignOptions, ResignResponse,
+};
 use crate::rpc::kv::{
     CompactionOptions, CompactionResponse, DeleteOptions, DeleteResponse, GetOptions, GetResponse,
     KvClient, PutOptions, PutResponse, Txn, TxnResponse,
@@ -24,7 +28,7 @@ use crate::rpc::lease::{
 use crate::rpc::lock::{LockClient, LockOptions, LockResponse, UnlockResponse};
 use crate::rpc::maintenance::{
     AlarmAction, AlarmOptions, AlarmResponse, AlarmType, DefragmentResponse, HashKvResponse,
-    HashResponse, MaintenanceClient, SnapshotStreaming, StatusResponse,
+    HashResponse, MaintenanceClient, MoveLeaderResponse, SnapshotStreaming, StatusResponse,
 };
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 use tonic::metadata::{Ascii, MetadataValue};
@@ -42,6 +46,7 @@ pub struct Client {
     auth: AuthClient,
     maintenance: MaintenanceClient,
     cluster: ClusterClient,
+    election: ElectionClient,
 }
 
 impl Client {
@@ -96,7 +101,8 @@ impl Client {
         let lock = LockClient::new(channel.clone(), interceptor.clone());
         let auth = AuthClient::new(channel.clone(), interceptor.clone());
         let cluster = ClusterClient::new(channel.clone(), interceptor.clone());
-        let maintenance = MaintenanceClient::new(channel, interceptor);
+        let maintenance = MaintenanceClient::new(channel.clone(), interceptor.clone());
+        let election = ElectionClient::new(channel, interceptor);
 
         Ok(Self {
             kv,
@@ -106,6 +112,7 @@ impl Client {
             auth,
             maintenance,
             cluster,
+            election,
         })
     }
 
@@ -452,6 +459,54 @@ impl Client {
     #[inline]
     pub async fn member_list(&mut self) -> Result<MemberListResponse> {
         self.cluster.member_list().await
+    }
+
+    /// Moves the current leader node to target node.
+    #[inline]
+    pub async fn move_leader(&mut self, target_id: u64) -> Result<MoveLeaderResponse> {
+        self.maintenance.move_leader(target_id).await
+    }
+
+    /// Puts a value as eligible for the election on the prefix key.
+    /// Multiple sessions can participate in the election for the
+    /// same prefix, but only one can be the leader at a time.
+    #[inline]
+    pub async fn campaign(
+        &mut self,
+        name: impl Into<Vec<u8>>,
+        value: impl Into<Vec<u8>>,
+        lease: i64,
+    ) -> Result<CampaignResponse> {
+        self.election.campaign(name, value, lease).await
+    }
+
+    /// Lets the leader announce a new value without another election.
+    #[inline]
+    pub async fn proclaim(
+        &mut self,
+        value: impl Into<Vec<u8>>,
+        options: Option<ProclaimOptions>,
+    ) -> Result<ProclaimResponse> {
+        self.election.proclaim(value, options).await
+    }
+
+    /// Returns the leader value for the current election.
+    #[inline]
+    pub async fn leader(&mut self, name: impl Into<Vec<u8>>) -> Result<LeaderResponse> {
+        self.election.leader(name).await
+    }
+
+    /// Returns a channel that reliably observes ordered leader proposals
+    /// as GetResponse values on every current elected leader key.
+    #[inline]
+    pub async fn observe(&mut self, name: impl Into<Vec<u8>>) -> Result<ObserveStream> {
+        self.election.observe(name).await
+    }
+
+    /// Releases election leadership and then start a new election
+    #[inline]
+    pub async fn resign(&mut self, option: Option<ResignOptions>) -> Result<ResignResponse> {
+        self.election.resign(option).await
     }
 }
 
@@ -1163,8 +1218,86 @@ mod tests {
         assert!(members.contains(&id1));
         assert!(members.contains(&id2));
         assert!(members.contains(&id3));
+        Ok(())
+    }
 
-        client.member_remove(id1).await?;
+    #[tokio::test]
+    async fn test_move_leader() -> Result<()> {
+        let mut client = get_client().await?;
+        let resp = client.member_list().await?;
+        let member_list = resp.members();
+
+        let resp = client.status().await?;
+        let leader_id = resp.leader();
+        println!("status {:?}, leader_id {:?}", resp, resp.leader());
+
+        let mut member_id = leader_id;
+        for member in member_list {
+            println!("member_id {:?}, name is {:?}", member.id(), member.name());
+            if member.id() != leader_id {
+                member_id = member.id();
+                break;
+            }
+        }
+
+        let resp = client.move_leader(member_id).await?;
+        let header = resp.header();
+        if member_id == leader_id {
+            assert!(header.is_none());
+        } else {
+            assert!(header.is_some());
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_election() -> Result<()> {
+        let mut client = get_client().await?;
+        let resp = client.lease_grant(10, None).await?;
+        let lease_id = resp.id();
+        assert_eq!(resp.ttl(), 10);
+
+        let resp = client.campaign("myElection", "123", lease_id).await?;
+        let leader = resp.leader().unwrap();
+        assert_eq!(leader.name(), b"myElection");
+        assert_eq!(leader.lease(), lease_id);
+
+        let resp = client
+            .proclaim(
+                "123",
+                Some(ProclaimOptions::new().with_leader(leader.clone())),
+            )
+            .await?;
+        let header = resp.header();
+        println!("proclaim header {:?}", header.unwrap());
+        assert!(header.is_some());
+
+        let mut msg = client.observe(leader.name()).await?;
+        loop {
+            if let Some(resp) = msg.message().await? {
+                assert!(resp.kv().is_some());
+                println!("observe key {:?}", resp.kv().unwrap().key_str());
+                if resp.kv().is_some() {
+                    break;
+                }
+            }
+        }
+
+        let resp = client.leader("myElection").await?;
+        let kv = resp.kv().unwrap();
+        assert_eq!(kv.value(), b"123");
+        assert_eq!(kv.key(), leader.key());
+        println!("key is {:?}", kv.key_str());
+        println!("value is {:?}", kv.value_str());
+
+        let resign_option = ResignOptions::new().with_leader(leader.clone());
+
+        let resp = client.resign(Some(resign_option)).await?;
+        let header = resp.header();
+        println!("resign header {:?}", header.unwrap());
+        assert!(header.is_some());
+
         Ok(())
     }
 }

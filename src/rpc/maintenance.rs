@@ -10,6 +10,7 @@ use crate::rpc::pb::etcdserverpb::{
     DefragmentRequest as PbDefragmentRequest, DefragmentResponse as PbDefragmentResponse,
     HashKvRequest as PbHashKvRequest, HashKvResponse as PbHashKvResponse,
     HashRequest as PbHashRequest, HashResponse as PbHashResponse,
+    MoveLeaderRequest as PbMoveLeaderRequest, MoveLeaderResponse as PbMoveLeaderResponse,
     SnapshotRequest as PbSnapshotRequest, SnapshotResponse as PbSnapshotResponse,
     StatusRequest as PbStatusRequest, StatusResponse as PbStatusResponse,
 };
@@ -470,7 +471,7 @@ impl SnapshotResponse {
 pub struct SnapshotStreaming(PbStreaming<PbSnapshotResponse>);
 
 impl SnapshotStreaming {
-    /// Fetchs the next message from this stream.
+    /// Fetches the next message from this stream.
     #[inline]
     pub async fn message(&mut self) -> Result<Option<SnapshotResponse>> {
         let ret = self.0.message().await?;
@@ -478,6 +479,64 @@ impl SnapshotStreaming {
             Some(rsp) => Ok(Some(SnapshotResponse::new(rsp))),
             None => Ok(None),
         }
+    }
+}
+
+/// Options for `MoveLeader` operation.
+#[derive(Debug, Default, Clone)]
+#[repr(transparent)]
+pub struct MoveLeaderOptions(PbMoveLeaderRequest);
+
+impl MoveLeaderOptions {
+    /// Sets target_id
+    #[inline]
+    const fn with_target_id(mut self, target_id: u64) -> Self {
+        self.0.target_id = target_id;
+        self
+    }
+
+    /// Creates a `MoveLeaderOptions`.
+    #[inline]
+    pub const fn new() -> Self {
+        Self(PbMoveLeaderRequest { target_id: 0 })
+    }
+}
+
+impl From<MoveLeaderOptions> for PbMoveLeaderRequest {
+    #[inline]
+    fn from(options: MoveLeaderOptions) -> Self {
+        options.0
+    }
+}
+
+impl IntoRequest<PbMoveLeaderRequest> for MoveLeaderOptions {
+    #[inline]
+    fn into_request(self) -> Request<PbMoveLeaderRequest> {
+        Request::new(self.into())
+    }
+}
+
+/// Response for `MoveLeader` operation.
+#[derive(Debug, Clone)]
+#[repr(transparent)]
+pub struct MoveLeaderResponse(PbMoveLeaderResponse);
+
+impl MoveLeaderResponse {
+    #[inline]
+    const fn new(resp: PbMoveLeaderResponse) -> Self {
+        Self(resp)
+    }
+
+    /// Get response header.
+    #[inline]
+    pub fn header(&self) -> Option<&ResponseHeader> {
+        self.0.header.as_ref().map(From::from)
+    }
+
+    /// Takes the header out of the response, leaving a [`None`] in its place.
+    #[inline]
+    pub fn take_header(&mut self) -> Option<ResponseHeader> {
+        self.0.header.take().map(ResponseHeader::new)
     }
 }
 
@@ -561,5 +620,16 @@ impl MaintenanceClient {
             .await?
             .into_inner();
         Ok(SnapshotStreaming(resp))
+    }
+
+    /// Moves the current leader node to target node.
+    #[inline]
+    pub async fn move_leader(&mut self, target_id: u64) -> Result<MoveLeaderResponse> {
+        let resp = self
+            .inner
+            .move_leader(MoveLeaderOptions::new().with_target_id(target_id))
+            .await?
+            .into_inner();
+        Ok(MoveLeaderResponse::new(resp))
     }
 }
