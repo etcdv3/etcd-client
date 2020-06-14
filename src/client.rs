@@ -461,13 +461,13 @@ impl Client {
         self.cluster.member_list().await
     }
 
-    /// Move the current leader node to target node.
+    /// Moves the current leader node to target node.
     #[inline]
     pub async fn move_leader(&mut self, target_id: u64) -> Result<MoveLeaderResponse> {
         self.maintenance.move_leader(target_id).await
     }
 
-    /// Campaign puts a value as eligible for the election on the prefix key.
+    /// Puts a value as eligible for the election on the prefix key.
     /// Multiple sessions can participate in the election for the
     /// same prefix, but only one can be the leader at a time.
     #[inline]
@@ -480,7 +480,7 @@ impl Client {
         self.election.campaign(name, value, lease).await
     }
 
-    /// Proclaim lets the leader announce a new value without another election.
+    /// Lets the leader announce a new value without another election.
     #[inline]
     pub async fn proclaim(
         &mut self,
@@ -490,20 +490,20 @@ impl Client {
         self.election.proclaim(value, options).await
     }
 
-    /// Leader returns the leader value for the current election.
+    /// Returns the leader value for the current election.
     #[inline]
     pub async fn leader(&mut self, name: impl Into<Vec<u8>>) -> Result<LeaderResponse> {
         self.election.leader(name).await
     }
 
-    /// Observe returns a channel that reliably observes ordered leader proposals
+    /// Returns a channel that reliably observes ordered leader proposals
     /// as GetResponse values on every current elected leader key.
     #[inline]
     pub async fn observe(&mut self, name: impl Into<Vec<u8>>) -> Result<ObserveStream> {
         self.election.observe(name).await
     }
 
-    /// Resign releases election leadership and then start a new election
+    /// Releases election leadership and then start a new election
     #[inline]
     pub async fn resign(&mut self, option: Option<ResignOptions>) -> Result<ResignResponse> {
         self.election.resign(option).await
@@ -1254,17 +1254,17 @@ mod tests {
     #[tokio::test]
     async fn test_election() -> Result<()> {
         let mut client = get_client().await?;
-        let leaseid = 10086;
+        let lease_id = 10086;
         let resp = client
-            .lease_grant(10, Some(LeaseGrantOptions::new().with_id(leaseid)))
+            .lease_grant(10, Some(LeaseGrantOptions::new().with_id(lease_id)))
             .await?;
         assert_eq!(resp.ttl(), 10);
-        assert_eq!(resp.id(), leaseid);
+        assert_eq!(resp.id(), lease_id);
 
-        let resp = client.campaign("myElection", "123", leaseid).await?;
+        let resp = client.campaign("myElection", "123", lease_id).await?;
         let leader = resp.leader().unwrap();
         assert_eq!(leader.name(), b"myElection");
-        assert_eq!(leader.lease(), leaseid);
+        assert_eq!(leader.lease(), lease_id);
 
         let resp = client
             .proclaim(

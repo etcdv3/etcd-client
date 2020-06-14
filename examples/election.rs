@@ -5,14 +5,14 @@ use etcd_client::*;
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     let mut client = Client::connect(["localhost:2379"], None).await?;
-    let leaseid = 10086;
+    let lease_id = 10086;
     let resp = client
-        .lease_grant(10, Some(LeaseGrantOptions::new().with_id(leaseid)))
+        .lease_grant(10, Some(LeaseGrantOptions::new().with_id(lease_id)))
         .await?;
     println!("grant ttl:{:?}, id:{:?}", resp.ttl(), resp.id());
 
     // campaign
-    let resp = client.campaign("myElection", "123", leaseid).await?;
+    let resp = client.campaign("myElection", "123", lease_id).await?;
     let leader = resp.leader().unwrap();
     println!(
         "election name:{:?}, leaseId:{:?}",

@@ -2,20 +2,16 @@
 
 use crate::error::Result;
 use crate::rpc::pb::v3electionpb::election_client::ElectionClient as PbElectionClient;
-
-use crate::rpc::{KeyValue, ResponseHeader};
-
 use crate::rpc::pb::v3electionpb::{
     CampaignRequest as PbCampaignRequest, CampaignResponse as PbCampaignResponse,
     LeaderKey as PbLeaderKey, LeaderRequest as PbLeaderRequest, LeaderResponse as PbLeaderResponse,
     ProclaimRequest as PbProclaimRequest, ProclaimResponse as PbProclaimResponse,
     ResignRequest as PbResignRequest, ResignResponse as PbResignResponse,
 };
-
+use crate::rpc::{KeyValue, ResponseHeader};
 use std::task::{Context, Poll};
 use tokio::stream::Stream;
 use tonic::codegen::Pin;
-
 use tonic::transport::Channel;
 use tonic::{Interceptor, IntoRequest, Request, Streaming};
 
@@ -49,7 +45,7 @@ impl CampaignOptions {
 
     /// Lease is the ID of the lease attached to leadership of the election
     #[inline]
-    fn with_lease(mut self, lease: i64) -> Self {
+    const fn with_lease(mut self, lease: i64) -> Self {
         self.0.lease = lease;
         self
     }
@@ -90,14 +86,14 @@ impl ProclaimOptions {
         })
     }
 
-    /// Value is the initial proclaimed value set when the campaigner wins the election.
+    /// The initial proclaimed value set when the campaigner wins the election.
     #[inline]
     fn with_value(mut self, value: impl Into<Vec<u8>>) -> Self {
         self.0.value = value.into();
         self
     }
 
-    /// Leader is the leadership hold on the election.
+    /// The leadership hold on the election.
     #[inline]
     pub fn with_leader(mut self, leader: LeaderKey) -> Self {
         self.0.leader = Some(leader.into());
@@ -129,6 +125,7 @@ impl LeaderOptions {
     pub const fn new() -> Self {
         Self(PbLeaderRequest { name: Vec::new() })
     }
+
     /// Name is the election identifier for the leadership information.
     #[inline]
     pub fn with_name(mut self, name: impl Into<Vec<u8>>) -> Self {
@@ -161,7 +158,8 @@ impl ResignOptions {
     pub const fn new() -> Self {
         Self(PbResignRequest { leader: None })
     }
-    /// Leader is the leadership to relinquish by resignation.
+
+    /// The leadership to relinquish by resignation.
     #[inline]
     pub fn with_leader(mut self, leader: LeaderKey) -> Self {
         self.0.leader = Some(leader.into());
@@ -183,16 +181,17 @@ impl IntoRequest<PbResignRequest> for ResignOptions {
     }
 }
 
-/// Response for `Compaign` operation.
+/// Response for `Campaign` operation.
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct CampaignResponse(PbCampaignResponse);
 
 impl CampaignResponse {
     #[inline]
-    pub const fn new(resp: PbCampaignResponse) -> Self {
+    const fn new(resp: PbCampaignResponse) -> Self {
         Self(resp)
     }
+
     /// Get response header.
     #[inline]
     pub fn header(&self) -> Option<&ResponseHeader> {
@@ -205,15 +204,16 @@ impl CampaignResponse {
         self.0.header.take().map(ResponseHeader::new)
     }
 
-    /// Leader describes the resources used for holding leadereship of the election.
+    /// Describes the resources used for holding leadership of the election.
     #[inline]
     pub fn leader(&self) -> Option<&LeaderKey> {
         self.0.leader.as_ref().map(From::from)
     }
+
     /// Takes the leader out of the response, leaving a [`None`] in its place.
     #[inline]
     pub fn take_leader(&mut self) -> Option<LeaderKey> {
-        self.0.leader.take().map(LeaderKey::new)
+        self.0.leader.take().map(From::from)
     }
 }
 
@@ -224,10 +224,11 @@ pub struct ProclaimResponse(PbProclaimResponse);
 
 impl ProclaimResponse {
     #[inline]
-    pub const fn new(resp: PbProclaimResponse) -> Self {
+    const fn new(resp: PbProclaimResponse) -> Self {
         Self(resp)
     }
-    /// Get response header.
+
+    /// Gets response header.
     #[inline]
     pub fn header(&self) -> Option<&ResponseHeader> {
         self.0.header.as_ref().map(From::from)
@@ -247,10 +248,11 @@ pub struct LeaderResponse(PbLeaderResponse);
 
 impl LeaderResponse {
     #[inline]
-    pub const fn new(resp: PbLeaderResponse) -> Self {
+    const fn new(resp: PbLeaderResponse) -> Self {
         Self(resp)
     }
-    /// Get response header.
+
+    /// Gets response header.
     #[inline]
     pub fn header(&self) -> Option<&ResponseHeader> {
         self.0.header.as_ref().map(From::from)
@@ -262,7 +264,7 @@ impl LeaderResponse {
         self.0.header.take().map(ResponseHeader::new)
     }
 
-    /// Kv is the key-value pair representing the latest leader update.
+    /// The key-value pair representing the latest leader update.
     #[inline]
     pub fn kv(&self) -> Option<&KeyValue> {
         self.0.kv.as_ref().map(From::from)
@@ -274,38 +276,6 @@ impl LeaderResponse {
         self.0.kv.take().map(KeyValue::new)
     }
 }
-
-/*
-/// The election observe handle.
-#[derive(Debug)]
-pub struct ElectObserver {
-    name: std::vec::Vec<u8>,
-    sender: Sender<PbLeaderRequest>,
-}
-
-impl ElectObserver {
-    /// Creates a new `ElectObserver`.
-    #[inline]
-    const fn new(name: std::vec::Vec<u8>, sender: Sender<PbLeaderRequest>) -> Self {
-        Self { name, sender }
-    }
-
-    /// The name which user want to observe.
-    #[inline]
-    pub const fn name(&self) -> &[u8] {
-        self.name()
-    }
-
-    /// Sends a observe request and receive response
-    #[inline]
-    pub async fn observe(&mut self) -> Result<()> {
-        self.sender
-            .send(LeaderOptions::new().with_name(self.name()).into())
-            .await
-            .map_err(|e| Error::ElectError(e.to_string()))
-    }
-}
-*/
 
 /// Response for `Observe` operation.
 #[derive(Debug)]
@@ -355,7 +325,7 @@ impl ResignResponse {
         Self(resp)
     }
 
-    /// Get response header.
+    /// Gets response header.
     #[inline]
     pub fn header(&self) -> Option<&ResponseHeader> {
         self.0.header.as_ref().map(From::from)
@@ -368,59 +338,64 @@ impl ResignResponse {
     }
 }
 
-/// LeaderKey of election
+/// Leader key of election
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct LeaderKey(PbLeaderKey);
 
 impl LeaderKey {
-    /// LeaderKey from pb election.
+    /// Creates a new leader key.
     #[inline]
-    pub(crate) const fn new(leader_key: PbLeaderKey) -> Self {
-        Self(leader_key)
+    pub const fn new() -> Self {
+        Self(PbLeaderKey {
+            name: Vec::new(),
+            key: Vec::new(),
+            rev: 0,
+            lease: 0,
+        })
     }
 
-    /// Name is the election identifier that correponds to the leadership key.
+    /// The election identifier that corresponds to the leadership key.
     #[inline]
     pub fn with_name(mut self, name: impl Into<Vec<u8>>) -> Self {
         self.0.name = name.into();
         self
     }
 
-    /// Key is an opaque key representing the ownership of the election.
+    /// An opaque key representing the ownership of the election.
     #[inline]
     pub fn with_key(mut self, key: impl Into<Vec<u8>>) -> Self {
         self.0.key = key.into();
         self
     }
 
-    /// Rev is the creation revision of the key
+    /// The creation revision of the key
     #[inline]
-    pub fn with_rev(mut self, rev: i64) -> Self {
+    pub const fn with_rev(mut self, rev: i64) -> Self {
         self.0.rev = rev;
         self
     }
 
-    /// Lease is the lease ID of the election leader.
+    /// The lease ID of the election leader.
     #[inline]
-    pub fn with_lease(mut self, lease: i64) -> Self {
+    pub const fn with_lease(mut self, lease: i64) -> Self {
         self.0.lease = lease;
         self
     }
 
-    /// The name in byte. name is the election identifier that correponds to the leadership key.
+    /// The name in byte. name is the election identifier that corresponds to the leadership key.
     #[inline]
     pub fn name(&self) -> &[u8] {
         &self.0.name
     }
 
-    /// The name in string. name is the election identifier that correponds to the leadership key.
+    /// The name in string. name is the election identifier that corresponds to the leadership key.
     #[inline]
     pub fn name_str(&self) -> Result<&str> {
         std::str::from_utf8(self.name()).map_err(From::from)
     }
 
-    /// The name in string. name is the election identifier that correponds to the leadership key.
+    /// The name in string. name is the election identifier that corresponds to the leadership key.
     ///
     /// # Safety
     /// This function is unsafe because it does not check that the bytes of the key are valid UTF-8.
@@ -457,7 +432,7 @@ impl LeaderKey {
         std::str::from_utf8_unchecked(self.key())
     }
 
-    /// The rev is the creation revision of the key.  It can be used to test for ownership
+    /// The creation revision of the key.  It can be used to test for ownership
     /// of an election during transactions by testing the key's creation revision
     /// matches rev.
     #[inline]
@@ -465,7 +440,7 @@ impl LeaderKey {
         self.0.rev
     }
 
-    /// lease is the lease ID of the election leader.
+    /// The lease ID of the election leader.
     #[inline]
     pub const fn lease(&self) -> i64 {
         self.0.lease
@@ -479,6 +454,13 @@ impl From<LeaderKey> for PbLeaderKey {
     }
 }
 
+impl From<PbLeaderKey> for LeaderKey {
+    #[inline]
+    fn from(key: PbLeaderKey) -> Self {
+        Self(key)
+    }
+}
+
 impl From<&PbLeaderKey> for &LeaderKey {
     #[inline]
     fn from(src: &PbLeaderKey) -> Self {
@@ -487,7 +469,7 @@ impl From<&PbLeaderKey> for &LeaderKey {
 }
 
 impl ElectionClient {
-    /// Create a election
+    /// Creates a election
     #[inline]
     pub fn new(channel: Channel, interceptor: Option<Interceptor>) -> Self {
         let inner_channel = match interceptor {
@@ -500,7 +482,7 @@ impl ElectionClient {
         }
     }
 
-    /// Campaign puts a value as eligible for the election on the prefix key.
+    /// Puts a value as eligible for the election on the prefix key.
     /// Multiple sessions can participate in the election for the
     /// same prefix, but only one can be the leader at a time.
     #[inline]
@@ -523,7 +505,7 @@ impl ElectionClient {
         Ok(CampaignResponse::new(resp))
     }
 
-    /// Proclaim lets the leader announce a new value without another election.
+    /// Lets the leader announce a new value without another election.
     #[inline]
     pub async fn proclaim(
         &mut self,
@@ -538,7 +520,7 @@ impl ElectionClient {
         Ok(ProclaimResponse::new(resp))
     }
 
-    /// Leader returns the leader value for the current election.
+    /// Returns the leader value for the current election.
     #[inline]
     pub async fn leader(&mut self, name: impl Into<Vec<u8>>) -> Result<LeaderResponse> {
         let resp = self
@@ -549,19 +531,10 @@ impl ElectionClient {
         Ok(LeaderResponse::new(resp))
     }
 
-    /// Observe returns a channel that reliably observes ordered leader proposals
+    /// Returns a channel that reliably observes ordered leader proposals
     /// as GetResponse values on every current elected leader key.
     #[inline]
     pub async fn observe(&mut self, name: impl Into<Vec<u8>>) -> Result<ObserveStream> {
-        /*
-                let (mut sender, receiver) = channel::<PbLeaderRequest>(100);
-                sender
-                    .send(LeaderOptions::new().with_name(name.into()))
-                    .await
-                    .map_err(|e| Error::LeaseKeepAliveError(e.to_string()))?;
-        */
-        /*        let mut stream = self.inner.observe(receiver).await?.into_inner();*/
-
         let resp = self
             .inner
             .observe(LeaderOptions::new().with_name(name))
@@ -571,7 +544,7 @@ impl ElectionClient {
         Ok(ObserveStream::new(resp))
     }
 
-    /// Resign releases election leadership and then start a new election
+    /// Releases election leadership and then start a new election
     #[inline]
     pub async fn resign(&mut self, option: Option<ResignOptions>) -> Result<ResignResponse> {
         let resp = self

@@ -48,7 +48,7 @@ async fn main() -> Result<(), Error> {
         }
     }
 
-    // Mover_leader
+    // Mover leader
     let resp = client.member_list().await?;
     let member_list = resp.members();
 

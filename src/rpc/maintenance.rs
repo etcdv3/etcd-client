@@ -471,7 +471,7 @@ impl SnapshotResponse {
 pub struct SnapshotStreaming(PbStreaming<PbSnapshotResponse>);
 
 impl SnapshotStreaming {
-    /// Fetchs the next message from this stream.
+    /// Fetches the next message from this stream.
     #[inline]
     pub async fn message(&mut self) -> Result<Option<SnapshotResponse>> {
         let ret = self.0.message().await?;
@@ -488,9 +488,9 @@ impl SnapshotStreaming {
 pub struct MoveLeaderOptions(PbMoveLeaderRequest);
 
 impl MoveLeaderOptions {
-    /// Set target_id
+    /// Sets target_id
     #[inline]
-    fn with_target_id(mut self, target_id: u64) -> Self {
+    const fn with_target_id(mut self, target_id: u64) -> Self {
         self.0.target_id = target_id;
         self
     }
@@ -523,9 +523,10 @@ pub struct MoveLeaderResponse(PbMoveLeaderResponse);
 
 impl MoveLeaderResponse {
     #[inline]
-    pub const fn new(resp: PbMoveLeaderResponse) -> Self {
+    const fn new(resp: PbMoveLeaderResponse) -> Self {
         Self(resp)
     }
+
     /// Get response header.
     #[inline]
     pub fn header(&self) -> Option<&ResponseHeader> {
@@ -621,7 +622,8 @@ impl MaintenanceClient {
         Ok(SnapshotStreaming(resp))
     }
 
-    /// Move the current leader node to target node.
+    /// Moves the current leader node to target node.
+    #[inline]
     pub async fn move_leader(&mut self, target_id: u64) -> Result<MoveLeaderResponse> {
         let resp = self
             .inner

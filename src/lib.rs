@@ -18,7 +18,7 @@ pub use crate::rpc::cluster::{
     MemberRemoveResponse, MemberUpdateResponse,
 };
 pub use crate::rpc::election::{
-    CampaignResponse, LeaderResponse, ObserveStream, ProclaimOptions, ProclaimResponse,
+    CampaignResponse, LeaderKey, LeaderResponse, ObserveStream, ProclaimOptions, ProclaimResponse,
     ResignOptions, ResignResponse,
 };
 pub use crate::rpc::kv::{
