@@ -4,7 +4,6 @@ fn main() {
 
     tonic_build::configure()
         .build_server(false)
-        .out_dir("src/rpc/pb")
         .compile(
             &[
                 "proto/auth.proto",

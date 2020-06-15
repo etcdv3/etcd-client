@@ -2,5 +2,4 @@
 .vscode
 /target
 Cargo.lock
-src/rpc/pb/*pb.rs
 **/*.rs.bk
