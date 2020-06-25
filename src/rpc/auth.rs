@@ -38,6 +38,7 @@ use tonic::{Interceptor, IntoRequest, Request};
 
 /// Client for Auth operations.
 #[repr(transparent)]
+#[derive(Clone)]
 pub struct AuthClient {
     inner: PbAuthClient<Channel>,
 }

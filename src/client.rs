@@ -38,6 +38,7 @@ use tonic::Interceptor;
 const HTTP_PREFIX: &str = "http://";
 
 /// Asynchronous `etcd` client using v3 API.
+#[derive(Clone)]
 pub struct Client {
     kv: KvClient,
     watch: WatchClient,

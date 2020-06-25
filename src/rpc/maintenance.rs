@@ -23,6 +23,7 @@ use tonic::{Interceptor, IntoRequest, Request};
 
 /// Client for maintenance operations.
 #[repr(transparent)]
+#[derive(Clone)]
 pub struct MaintenanceClient {
     inner: PbMaintenanceClient<Channel>,
 }

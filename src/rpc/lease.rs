@@ -24,6 +24,7 @@ use tonic::{Interceptor, IntoRequest, Request, Streaming};
 
 /// Client for lease operations.
 #[repr(transparent)]
+#[derive(Clone)]
 pub struct LeaseClient {
     inner: PbLeaseClient<Channel>,
 }

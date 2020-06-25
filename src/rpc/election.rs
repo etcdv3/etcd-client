@@ -17,6 +17,7 @@ use tonic::{Interceptor, IntoRequest, Request, Streaming};
 
 /// Client for Elect operations.
 #[repr(transparent)]
+#[derive(Clone)]
 pub struct ElectionClient {
     inner: PbElectionClient<Channel>,
 }

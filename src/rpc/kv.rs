@@ -22,6 +22,7 @@ use tonic::{Interceptor, IntoRequest, Request};
 
 /// Client for KV operations.
 #[repr(transparent)]
+#[derive(Clone)]
 pub struct KvClient {
     inner: PbKvClient<Channel>,
 }

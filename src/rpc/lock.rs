@@ -15,6 +15,7 @@ use tonic::{Interceptor, IntoRequest, Request};
 
 /// Client for Lock operations.
 #[repr(transparent)]
+#[derive(Clone)]
 pub struct LockClient {
     inner: PbLockClient<Channel>,
 }

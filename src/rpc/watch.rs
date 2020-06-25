@@ -20,6 +20,7 @@ use tonic::{Interceptor, Streaming};
 
 /// Client for watch operations.
 #[repr(transparent)]
+#[derive(Clone)]
 pub struct WatchClient {
     inner: PbWatchClient<Channel>,
 }

@@ -17,6 +17,7 @@ use tonic::{Interceptor, IntoRequest, Request};
 
 /// Client for Cluster operations.
 #[repr(transparent)]
+#[derive(Clone)]
 pub struct ClusterClient {
     inner: PbClusterClient<Channel>,
 }
