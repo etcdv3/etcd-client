@@ -33,9 +33,12 @@ use crate::rpc::maintenance::{
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 use tonic::metadata::{Ascii, MetadataValue};
 use tonic::transport::Channel;
+#[cfg(feature = "tls-roots")]
+use tonic::transport::ClientTlsConfig;
 use tonic::Interceptor;
 
 const HTTP_PREFIX: &str = "http://";
+const HTTPS_PREFIX: &str = "https://";
 
 /// Asynchronous `etcd` client using v3 API.
 #[derive(Clone)]
@@ -62,6 +65,13 @@ impl Client {
                 let e = e.as_ref();
                 let channel = if e.starts_with(HTTP_PREFIX) {
                     Channel::builder(e.parse()?)
+                } else if e.starts_with(HTTPS_PREFIX) {
+                    #[cfg(not(feature = "tls-roots"))]
+                    return Err(Error::InvalidArgs(String::from(
+                        "HTTPS URLs are only supported with the feature \"tls-roots\"",
+                    )));
+                    #[cfg(feature = "tls-roots")]
+                    Channel::builder(e.parse()?).tls_config(ClientTlsConfig::new())?
                 } else {
                     let e = HTTP_PREFIX.to_owned() + e;
                     Channel::builder(e.parse()?)
@@ -423,7 +433,7 @@ impl Client {
         let mut eps = Vec::new();
         for e in urls.as_ref() {
             let e = e.as_ref();
-            let url = if e.starts_with(HTTP_PREFIX) {
+            let url = if e.starts_with(HTTP_PREFIX) || e.starts_with(HTTPS_PREFIX) {
                 e.to_string()
             } else {
                 HTTP_PREFIX.to_owned() + e

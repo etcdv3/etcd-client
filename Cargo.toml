@@ -11,6 +11,9 @@ homepage = "https://github.com/etcdv3/etcd-client"
 documentation = "https://docs.rs/etcd-client/"
 keywords = ["etcd", "v3", "api", "client", "async"]
 
+[features]
+tls-roots = ["tonic/tls-roots"]
+
 [dependencies]
 tonic = "0.3"
 prost = "0.6"
