@@ -41,3 +41,5 @@ pub use crate::rpc::watch::{
     Event, EventType, WatchFilterType, WatchOptions, WatchResponse, WatchStream, Watcher,
 };
 pub use crate::rpc::{KeyValue, ResponseHeader};
+#[cfg(feature = "tls")]
+pub use tonic::transport::{Certificate, ClientTlsConfig as TlsOptions, Identity};

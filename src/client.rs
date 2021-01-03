@@ -31,6 +31,8 @@ use crate::rpc::maintenance::{
     HashResponse, MaintenanceClient, MoveLeaderResponse, SnapshotStreaming, StatusResponse,
 };
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
+#[cfg(feature = "tls")]
+use crate::TlsOptions;
 use tonic::metadata::{Ascii, MetadataValue};
 use tonic::transport::Channel;
 use tonic::Interceptor;
@@ -596,9 +598,6 @@ impl ConnectOptions {
         }
     }
 }
-
-#[cfg(feature = "tls")]
-pub use tonic::transport::{Certificate, ClientTlsConfig as TlsOptions, Identity};
 
 #[cfg(test)]
 mod tests {
