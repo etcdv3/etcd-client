@@ -33,8 +33,6 @@ use crate::rpc::maintenance::{
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 use tonic::metadata::{Ascii, MetadataValue};
 use tonic::transport::Channel;
-#[cfg(feature = "tls-roots")]
-use tonic::transport::ClientTlsConfig;
 use tonic::Interceptor;
 
 const HTTP_PREFIX: &str = "http://";
@@ -64,17 +62,59 @@ impl Client {
             for e in endpoints.as_ref() {
                 let e = e.as_ref();
                 let channel = if e.starts_with(HTTP_PREFIX) {
+                    #[cfg(feature = "tls")]
+                    if let Some(ref connect_options) = options {
+                        if let Some(_) = connect_options.tls {
+                            return Err(Error::InvalidArgs(String::from(
+                                "TLS options are only supported with HTTPS URLs",
+                            )));
+                        }
+                    }
+
                     Channel::builder(e.parse()?)
                 } else if e.starts_with(HTTPS_PREFIX) {
-                    #[cfg(not(feature = "tls-roots"))]
+                    #[cfg(not(feature = "tls"))]
                     return Err(Error::InvalidArgs(String::from(
-                        "HTTPS URLs are only supported with the feature \"tls-roots\"",
+                        "HTTPS URLs are only supported with the feature \"tls\"",
                     )));
-                    #[cfg(feature = "tls-roots")]
-                    Channel::builder(e.parse()?).tls_config(ClientTlsConfig::new())?
+
+                    #[cfg(feature = "tls")]
+                    {
+                        let tls = if let Some(ref connect_options) = options {
+                            connect_options.tls.clone()
+                        } else {
+                            None
+                        }
+                        .unwrap_or_else(TlsOptions::new);
+
+                        Channel::builder(e.parse()?).tls_config(tls)?
+                    }
                 } else {
-                    let e = HTTP_PREFIX.to_owned() + e;
-                    Channel::builder(e.parse()?)
+                    #[cfg(feature = "tls")]
+                    {
+                        let tls = if let Some(ref connect_options) = options {
+                            connect_options.tls.clone()
+                        } else {
+                            None
+                        };
+
+                        match tls {
+                            Some(tls) => {
+                                let e = HTTPS_PREFIX.to_owned() + e;
+                                Channel::builder(e.parse()?).tls_config(tls)?
+                            }
+                            None => {
+                                let e = HTTP_PREFIX.to_owned() + e;
+                                Channel::builder(e.parse()?)
+                            }
+                        }
+                    }
+
+                    #[cfg(not(feature = "tls"))]
+                    {
+                        let e = HTTP_PREFIX.to_owned() + e;
+                        Channel::builder(e.parse()?)
+                    }
                 };
                 eps.push(channel);
             }
@@ -526,6 +566,8 @@ impl Client {
 pub struct ConnectOptions {
     /// user is a pair values of name and password
     user: Option<(String, String)>,
+    #[cfg(feature = "tls")]
+    tls: Option<TlsOptions>,
 }
 
 impl ConnectOptions {
@@ -536,12 +578,27 @@ impl ConnectOptions {
         self
     }
 
+    /// Sets TLS options.
+    #[cfg(feature = "tls")]
+    #[inline]
+    pub fn with_tls(mut self, tls: TlsOptions) -> Self {
+        self.tls = Some(tls);
+        self
+    }
+
     /// Creates a `ConnectOptions`.
     #[inline]
     pub const fn new() -> Self {
-        ConnectOptions { user: None }
+        ConnectOptions {
+            user: None,
+            #[cfg(feature = "tls")]
+            tls: None,
+        }
     }
 }
+
+#[cfg(feature = "tls")]
+pub use tonic::transport::{Certificate, ClientTlsConfig as TlsOptions, Identity};
 
 #[cfg(test)]
 mod tests {

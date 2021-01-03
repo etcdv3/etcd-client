@@ -12,7 +12,8 @@ documentation = "https://docs.rs/etcd-client/"
 keywords = ["etcd", "v3", "api", "client", "async"]
 
 [features]
-tls-roots = ["tonic/tls-roots"]
+tls = ["tonic/tls"]
+tls-roots = ["tls", "tonic/tls-roots"]
 
 [dependencies]
 tonic = "0.3"
