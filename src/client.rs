@@ -581,6 +581,8 @@ impl ConnectOptions {
     }
 
     /// Sets TLS options.
+    ///
+    /// Notes that this function have to work with `HTTPS` URLs.
     #[cfg(feature = "tls")]
     #[inline]
     pub fn with_tls(mut self, tls: TlsOptions) -> Self {
