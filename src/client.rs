@@ -31,11 +31,14 @@ use crate::rpc::maintenance::{
     HashResponse, MaintenanceClient, MoveLeaderResponse, SnapshotStreaming, StatusResponse,
 };
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
+#[cfg(feature = "tls")]
+use crate::TlsOptions;
 use tonic::metadata::{Ascii, MetadataValue};
 use tonic::transport::Channel;
 use tonic::Interceptor;
 
 const HTTP_PREFIX: &str = "http://";
+const HTTPS_PREFIX: &str = "https://";
 
 /// Asynchronous `etcd` client using v3 API.
 #[derive(Clone)]
@@ -61,10 +64,59 @@ impl Client {
             for e in endpoints.as_ref() {
                 let e = e.as_ref();
                 let channel = if e.starts_with(HTTP_PREFIX) {
+                    #[cfg(feature = "tls")]
+                    if let Some(ref connect_options) = options {
+                        if let Some(_) = connect_options.tls {
+                            return Err(Error::InvalidArgs(String::from(
+                                "TLS options are only supported with HTTPS URLs",
+                            )));
+                        }
+                    }
+
                     Channel::builder(e.parse()?)
+                } else if e.starts_with(HTTPS_PREFIX) {
+                    #[cfg(not(feature = "tls"))]
+                    return Err(Error::InvalidArgs(String::from(
+                        "HTTPS URLs are only supported with the feature \"tls\"",
+                    )));
+
+                    #[cfg(feature = "tls")]
+                    {
+                        let tls = if let Some(ref connect_options) = options {
+                            connect_options.tls.clone()
+                        } else {
+                            None
+                        }
+                        .unwrap_or_else(TlsOptions::new);
+
+                        Channel::builder(e.parse()?).tls_config(tls)?
+                    }
                 } else {
-                    let e = HTTP_PREFIX.to_owned() + e;
-                    Channel::builder(e.parse()?)
+                    #[cfg(feature = "tls")]
+                    {
+                        let tls = if let Some(ref connect_options) = options {
+                            connect_options.tls.clone()
+                        } else {
+                            None
+                        };
+
+                        match tls {
+                            Some(tls) => {
+                                let e = HTTPS_PREFIX.to_owned() + e;
+                                Channel::builder(e.parse()?).tls_config(tls)?
+                            }
+                            None => {
+                                let e = HTTP_PREFIX.to_owned() + e;
+                                Channel::builder(e.parse()?)
+                            }
+                        }
+                    }
+
+                    #[cfg(not(feature = "tls"))]
+                    {
+                        let e = HTTP_PREFIX.to_owned() + e;
+                        Channel::builder(e.parse()?)
+                    }
                 };
                 eps.push(channel);
             }
@@ -423,7 +475,7 @@ impl Client {
         let mut eps = Vec::new();
         for e in urls.as_ref() {
             let e = e.as_ref();
-            let url = if e.starts_with(HTTP_PREFIX) {
+            let url = if e.starts_with(HTTP_PREFIX) || e.starts_with(HTTPS_PREFIX) {
                 e.to_string()
             } else {
                 HTTP_PREFIX.to_owned() + e
@@ -516,6 +568,8 @@ impl Client {
 pub struct ConnectOptions {
     /// user is a pair values of name and password
     user: Option<(String, String)>,
+    #[cfg(feature = "tls")]
+    tls: Option<TlsOptions>,
 }
 
 impl ConnectOptions {
@@ -526,10 +580,24 @@ impl ConnectOptions {
         self
     }
 
+    /// Sets TLS options.
+    ///
+    /// Notes that this function have to work with `HTTPS` URLs.
+    #[cfg(feature = "tls")]
+    #[inline]
+    pub fn with_tls(mut self, tls: TlsOptions) -> Self {
+        self.tls = Some(tls);
+        self
+    }
+
     /// Creates a `ConnectOptions`.
     #[inline]
     pub const fn new() -> Self {
-        ConnectOptions { user: None }
+        ConnectOptions {
+            user: None,
+            #[cfg(feature = "tls")]
+            tls: None,
+        }
     }
 }
 
