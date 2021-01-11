@@ -52,7 +52,7 @@ impl WatchClient {
             .send(options.unwrap_or_default().with_key(key).into())
             .await
             .map_err(|e| Error::WatchError(e.to_string()))?;
-            
+
         let receiver = ReceiverStream::new(receiver);
 
         let mut stream = self.inner.watch(receiver).await?.into_inner();
