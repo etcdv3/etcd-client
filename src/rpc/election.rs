@@ -10,7 +10,7 @@ use crate::rpc::pb::v3electionpb::{
 };
 use crate::rpc::{KeyValue, ResponseHeader};
 use std::task::{Context, Poll};
-use tokio::stream::Stream;
+use tokio_stream::Stream;
 use tonic::codegen::Pin;
 use tonic::transport::Channel;
 use tonic::{Interceptor, IntoRequest, Request, Streaming};
