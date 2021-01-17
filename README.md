@@ -18,10 +18,10 @@ It provides asynchronous client backed by [tokio](https://github.com/tokio-rs/to
 - [x] KV
 - [x] Watch
 - [x] Lease
-- [x] Lock
 - [x] Auth
 - [x] Maintenance
 - [x] Cluster
+- [x] Lock
 - [x] Election
 
 ## Usage
@@ -60,7 +60,7 @@ Examples can be found in [`examples`](./examples).
 
 ## Test
 
-We test this library using etcd 3.4.
+We test this library with etcd 3.4.
 
 Notes that we use a fixed `etcd` server URI (localhost:2379) to connect to etcd server.
 
