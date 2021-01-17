@@ -15,11 +15,11 @@ use crate::rpc::pb::etcdserverpb::{
 use crate::rpc::ResponseHeader;
 use crate::Error;
 
+use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::sync::mpsc::{channel, Sender};
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::Stream;
-use tonic::codegen::Pin;
 use tonic::transport::Channel;
 use tonic::{Interceptor, IntoRequest, Request, Streaming};
 
