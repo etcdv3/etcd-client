@@ -30,7 +30,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-etcd-client = "0.5"
+etcd-client = "0.6"
 tokio = { version = "0.2", features = ["full"] }
 ```
 
