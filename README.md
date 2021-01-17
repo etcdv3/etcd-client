@@ -31,7 +31,7 @@ Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
 etcd-client = "0.6"
-tokio = { version = "0.2", features = ["full"] }
+tokio = { version = "1.0", features = ["full"] }
 ```
 
 To get started using `etcd-client`:
