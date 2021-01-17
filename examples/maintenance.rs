@@ -11,27 +11,23 @@ async fn main() -> Result<(), Error> {
         .alarm(AlarmAction::Get, AlarmType::None, Some(AlarmOptions::new()))
         .await?;
     let mems = resp.alarms();
-    print!("{} members have alarm.\n", mems.len());
+    println!("{} members have alarm.", mems.len());
 
     // Get status.
     let resp = client.status().await?;
-    print!(
-        "version: {}, db_size: {} \n",
-        resp.version(),
-        resp.db_size()
-    );
+    println!("version: {}, db_size: {}", resp.version(), resp.db_size());
 
     // Defragment.
     let _resp = client.defragment().await?;
 
     // Get hash value.
     let resp = client.hash().await?;
-    print!("hash: {} \n", resp.hash());
+    println!("hash: {}", resp.hash());
 
     // Get hash key value.
     let resp = client.hash_kv(0).await?;
-    print!(
-        "hash: {} revision: {} \n",
+    println!(
+        "hash: {}, revision: {}",
         resp.hash(),
         resp.compact_version()
     );
@@ -41,7 +37,7 @@ async fn main() -> Result<(), Error> {
     loop {
         let resp = msg.message().await?;
         if let Some(r) = resp {
-            print!("Receive blob len {}\n", r.blob().len());
+            println!("Receive blob len {}", r.blob().len());
             if r.remaining_bytes() == 0 {
                 break;
             }

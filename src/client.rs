@@ -949,7 +949,7 @@ mod tests {
         let key_str = std::str::from_utf8(key)?;
         assert!(key_str.starts_with("lock-test/"));
 
-        client.unlock(key.clone()).await?;
+        client.unlock(key).await?;
         Ok(())
     }
 
@@ -960,10 +960,7 @@ mod tests {
         client.auth_enable().await?;
 
         // after enable auth, must operate by authenticated client
-        let resp = client.put("auth-test", "value", None).await;
-        if let Ok(_) = resp {
-            assert!(false);
-        }
+        client.put("auth-test", "value", None).await.unwrap_err();
 
         // connect with authenticate, the user must already exists
         let options = Some(ConnectOptions::new().with_user(
@@ -989,34 +986,22 @@ mod tests {
         let role1 = "role1";
         let role2 = "role2";
 
-        let _resp = client.role_delete(role1).await;
-        let _resp = client.role_delete(role2).await;
+        let _ = client.role_delete(role1).await;
+        let _ = client.role_delete(role2).await;
+
         client.role_add(role1).await?;
 
-        let resp = client.role_get(role1).await;
-        if let Err(_) = resp {
-            assert!(false);
-        }
+        client.role_get(role1).await?;
 
         client.role_delete(role1).await?;
-        let resp = client.role_get(role1).await;
-        if let Ok(_) = resp {
-            assert!(false);
-        }
+        client.role_get(role1).await.unwrap_err();
 
         client.role_add(role2).await?;
-        let resp = client.role_get(role2).await;
-        if let Err(_) = resp {
-            assert!(false);
-        }
+        client.role_get(role2).await?;
 
-        let resp = client.role_list().await;
-        if let Err(_) = resp {
-            assert!(false);
-        }
-
-        if let Ok(l) = resp {
-            assert!(l.roles().contains(&role2.to_string()));
+        {
+            let resp = client.role_list().await?;
+            assert!(resp.roles().contains(&role2.to_string()));
         }
 
         client
@@ -1041,12 +1026,9 @@ mod tests {
             )
             .await?;
 
-        let resp = client.role_get(role2).await;
-        if let Err(_) = resp {
-            assert!(false);
-        }
-        if let Ok(r) = resp {
-            let permissions = r.permissions();
+        {
+            let resp = client.role_get(role2).await?;
+            let permissions = resp.permissions();
             assert!(permissions.contains(&Permission::read("123")));
             assert!(permissions.contains(&Permission::write("abc").with_from_key()));
             assert!(permissions.contains(&Permission::read_write("hi").with_range_end("hjj")));
@@ -1085,13 +1067,8 @@ mod tests {
             )
             .await?;
 
-        let resp = client.role_get(role2).await;
-        if let Err(_) = resp {
-            assert!(false);
-        }
-        if let Ok(r) = resp {
-            assert!(r.permissions().is_empty());
-        }
+        let resp = client.role_get(role2).await?;
+        assert!(resp.permissions().is_empty());
 
         client.role_delete(role2).await?;
 
@@ -1126,49 +1103,30 @@ mod tests {
 
         client.user_add(name3, password3, None).await?;
 
-        let resp = client.user_get(name1).await;
-        if let Err(_) = resp {
-            assert!(false);
-        }
+        client.user_get(name1).await?;
 
-        let resp = client.user_list().await;
-        if let Err(_) = resp {
-            assert!(false);
-        }
-
-        if let Ok(l) = resp {
-            assert!(l.users().contains(&name1.to_string()));
+        {
+            let resp = client.user_list().await?;
+            assert!(resp.users().contains(&name1.to_string()));
         }
 
         client.user_delete(name2).await?;
-        let resp = client.user_get(name2).await;
-        if let Ok(_) = resp {
-            assert!(false);
-        }
+        client.user_get(name2).await.unwrap_err();
 
         client.user_change_password(name1, password2).await?;
-        let resp = client.user_get(name1).await;
-        if let Err(_) = resp {
-            assert!(false);
-        }
+        client.user_get(name1).await?;
 
         client.role_add(role1).await?;
         client.user_grant_role(name1, role1).await?;
-        let resp = client.user_get(name1).await;
-        if let Err(_) = resp {
-            assert!(false);
-        }
+        client.user_get(name1).await?;
 
         client.user_revoke_role(name1, role1).await?;
-        let resp = client.user_get(name1).await;
-        if let Err(_) = resp {
-            assert!(false);
-        }
+        client.user_get(name1).await?;
 
-        let _resp = client.user_delete(name1).await;
-        let _resp = client.user_delete(name2).await;
-        let _resp = client.user_delete(name3).await;
-        let _resp = client.role_delete(role1).await;
+        let _ = client.user_delete(name1).await;
+        let _ = client.user_delete(name2).await;
+        let _ = client.user_delete(name3).await;
+        let _ = client.role_delete(role1).await;
 
         Ok(())
     }
@@ -1256,7 +1214,7 @@ mod tests {
         let mut msg = client.snapshot().await?;
         loop {
             if let Some(resp) = msg.message().await? {
-                assert!(resp.blob().len() > 0);
+                assert!(!resp.blob().is_empty());
                 if resp.remaining_bytes() == 0 {
                     break;
                 }

@@ -15,10 +15,11 @@ use crate::rpc::pb::etcdserverpb::{
 use crate::rpc::ResponseHeader;
 use crate::Error;
 
+use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::stream::Stream;
 use tokio::sync::mpsc::{channel, Sender};
-use tonic::codegen::Pin;
+use tokio_stream::wrappers::ReceiverStream;
+use tokio_stream::Stream;
 use tonic::transport::Channel;
 use tonic::{Interceptor, IntoRequest, Request, Streaming};
 
@@ -73,11 +74,13 @@ impl LeaseClient {
     /// to the server and streaming keep alive responses from the server to the client.
     #[inline]
     pub async fn keep_alive(&mut self, id: i64) -> Result<(LeaseKeeper, LeaseKeepAliveStream)> {
-        let (mut sender, receiver) = channel::<PbLeaseKeepAliveRequest>(100);
+        let (sender, receiver) = channel::<PbLeaseKeepAliveRequest>(100);
         sender
             .send(LeaseKeepAliveOptions::new().with_id(id).into())
             .await
             .map_err(|e| Error::LeaseKeepAliveError(e.to_string()))?;
+
+        let receiver = ReceiverStream::new(receiver);
 
         let mut stream = self.inner.lease_keep_alive(receiver).await?.into_inner();
 

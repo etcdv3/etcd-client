@@ -9,9 +9,9 @@ use crate::rpc::pb::v3electionpb::{
     ResignRequest as PbResignRequest, ResignResponse as PbResignResponse,
 };
 use crate::rpc::{KeyValue, ResponseHeader};
+use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::stream::Stream;
-use tonic::codegen::Pin;
+use tokio_stream::Stream;
 use tonic::transport::Channel;
 use tonic::{Interceptor, IntoRequest, Request, Streaming};
 

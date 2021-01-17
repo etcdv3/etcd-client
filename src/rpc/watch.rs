@@ -11,10 +11,10 @@ use crate::rpc::pb::etcdserverpb::{
 };
 use crate::rpc::pb::mvccpb::Event as PbEvent;
 use crate::rpc::{KeyRange, KeyValue, ResponseHeader};
+use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::stream::Stream;
 use tokio::sync::mpsc::{channel, Sender};
-use tonic::codegen::Pin;
+use tokio_stream::{wrappers::ReceiverStream, Stream};
 use tonic::transport::Channel;
 use tonic::{Interceptor, Streaming};
 
@@ -47,11 +47,13 @@ impl WatchClient {
         key: impl Into<Vec<u8>>,
         options: Option<WatchOptions>,
     ) -> Result<(Watcher, WatchStream)> {
-        let (mut sender, receiver) = channel::<WatchRequest>(100);
+        let (sender, receiver) = channel::<WatchRequest>(100);
         sender
             .send(options.unwrap_or_default().with_key(key).into())
             .await
             .map_err(|e| Error::WatchError(e.to_string()))?;
+
+        let receiver = ReceiverStream::new(receiver);
 
         let mut stream = self.inner.watch(receiver).await?.into_inner();
 

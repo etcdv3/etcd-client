@@ -13,7 +13,7 @@ async fn main() -> Result<(), Error> {
     println!("the key is {:?}", key_str);
 
     println!("try to unlock it");
-    client.unlock(key.clone()).await?;
+    client.unlock(key).await?;
     println!("finish!");
     println!();
 
@@ -38,7 +38,7 @@ async fn main() -> Result<(), Error> {
     println!("the key is {:?}", key_str);
 
     println!("try to unlock it");
-    client.unlock(key.clone()).await?;
+    client.unlock(key).await?;
     println!("finish!");
 
     Ok(())

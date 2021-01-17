@@ -16,13 +16,14 @@ tls = ["tonic/tls"]
 tls-roots = ["tls", "tonic/tls-roots"]
 
 [dependencies]
-tonic = "0.3"
-prost = "0.6"
-tokio = { version = "0.2", features = ["stream"] }
-http = "0.2"
+tonic = "0.4.0"
+prost = "0.7.0"
+tokio = "1.0.2"
+tokio-stream = "0.1.2"
+http = "0.2.3"
 
 [dev-dependencies]
-tokio = { version = "0.2", features = ["full"] }
+tokio = { version = "1.0.2", features = ["full"] }
 
 [build-dependencies]
-tonic-build = { version = "0.3", default-features = false, features = ["prost"] }
+tonic-build = { version = "0.4.0", default-features = false, features = ["prost"] }
