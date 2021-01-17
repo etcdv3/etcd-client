@@ -58,6 +58,11 @@ async fn main() -> Result<(), Error> {
 
 Examples can be found in [`examples`](./examples).
 
+## Feature Flags
+
+- `tls`: Enables the `rustls`-based TLS connection. Not enabled by default.
+- `tls-roots`: Adds system trust roots to `rustls`-based TLS connection using the `rustls-native-certs` crate. Not enabled by default.
+
 ## Test
 
 We test this library with etcd 3.4.
