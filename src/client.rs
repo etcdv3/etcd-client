@@ -169,6 +169,54 @@ impl Client {
         })
     }
 
+    /// Gets a KV client.
+    #[inline]
+    pub fn kv_client(&self) -> KvClient {
+        self.kv.clone()
+    }
+
+    /// Gets a watch client.
+    #[inline]
+    pub fn watch_client(&self) -> WatchClient {
+        self.watch.clone()
+    }
+
+    /// Gets a lease client.
+    #[inline]
+    pub fn lease_client(&self) -> LeaseClient {
+        self.lease.clone()
+    }
+
+    /// Gets an auth client.
+    #[inline]
+    pub fn auth_client(&self) -> AuthClient {
+        self.auth.clone()
+    }
+
+    /// Gets a maintenance client.
+    #[inline]
+    pub fn maintenance_client(&self) -> MaintenanceClient {
+        self.maintenance.clone()
+    }
+
+    /// Gets a cluster client.
+    #[inline]
+    pub fn cluster_client(&self) -> ClusterClient {
+        self.cluster.clone()
+    }
+
+    /// Gets a lock client.
+    #[inline]
+    pub fn lock_client(&self) -> LockClient {
+        self.lock.clone()
+    }
+
+    /// Gets a election client.
+    #[inline]
+    pub fn election_client(&self) -> ElectionClient {
+        self.election.clone()
+    }
+
     /// Put the given key into the key-value store.
     /// A put request increments the revision of the key-value store
     /// and generates one event in the event history.

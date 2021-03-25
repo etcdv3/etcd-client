@@ -25,7 +25,7 @@ pub struct ClusterClient {
 impl ClusterClient {
     /// Creates an Cluster client.
     #[inline]
-    pub fn new(channel: Channel, interceptor: Option<Interceptor>) -> Self {
+    pub(crate) fn new(channel: Channel, interceptor: Option<Interceptor>) -> Self {
         let inner = match interceptor {
             Some(it) => PbClusterClient::with_interceptor(channel, it),
             None => PbClusterClient::new(channel),

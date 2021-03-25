@@ -30,7 +30,7 @@ pub struct KvClient {
 impl KvClient {
     /// Creates a kv client.
     #[inline]
-    pub fn new(channel: Channel, interceptor: Option<Interceptor>) -> Self {
+    pub(crate) fn new(channel: Channel, interceptor: Option<Interceptor>) -> Self {
         let inner = match interceptor {
             Some(it) => PbKvClient::with_interceptor(channel, it),
             None => PbKvClient::new(channel),

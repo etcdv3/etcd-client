@@ -544,7 +544,7 @@ impl MoveLeaderResponse {
 impl MaintenanceClient {
     /// Creates a maintenance client.
     #[inline]
-    pub fn new(channel: Channel, interceptor: Option<Interceptor>) -> Self {
+    pub(crate) fn new(channel: Channel, interceptor: Option<Interceptor>) -> Self {
         let inner = match interceptor {
             Some(it) => PbMaintenanceClient::with_interceptor(channel, it),
             None => PbMaintenanceClient::new(channel),

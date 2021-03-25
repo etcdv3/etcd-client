@@ -472,7 +472,7 @@ impl From<&PbLeaderKey> for &LeaderKey {
 impl ElectionClient {
     /// Creates a election
     #[inline]
-    pub fn new(channel: Channel, interceptor: Option<Interceptor>) -> Self {
+    pub(crate) fn new(channel: Channel, interceptor: Option<Interceptor>) -> Self {
         let inner_channel = match interceptor {
             Some(it) => PbElectionClient::with_interceptor(channel, it),
             None => PbElectionClient::new(channel),

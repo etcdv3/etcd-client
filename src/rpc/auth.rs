@@ -46,7 +46,7 @@ pub struct AuthClient {
 impl AuthClient {
     /// Creates an auth client.
     #[inline]
-    pub fn new(channel: Channel, interceptor: Option<Interceptor>) -> Self {
+    pub(crate) fn new(channel: Channel, interceptor: Option<Interceptor>) -> Self {
         let inner = match interceptor {
             Some(it) => PbAuthClient::with_interceptor(channel, it),
             None => PbAuthClient::new(channel),
