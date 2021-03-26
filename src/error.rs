@@ -15,13 +15,13 @@ pub enum Error {
     InvalidUri(http::uri::InvalidUri),
 
     /// IO error
-    IOError(std::io::Error),
+    IoError(std::io::Error),
 
     /// Transport error
     TransportError(tonic::transport::Error),
 
     /// gRPC status
-    GRPCStatus(tonic::Status),
+    GRpcStatus(tonic::Status),
 
     /// Watch error
     WatchError(String),
@@ -45,9 +45,9 @@ impl Display for Error {
         match self {
             Error::InvalidArgs(e) => write!(f, "invalid arguments: {}", e),
             Error::InvalidUri(e) => write!(f, "invalid uri: {}", e),
-            Error::IOError(e) => write!(f, "io error: {}", e),
+            Error::IoError(e) => write!(f, "io error: {}", e),
             Error::TransportError(e) => write!(f, "transport error: {}", e),
-            Error::GRPCStatus(e) => write!(f, "grep request error: {}", e),
+            Error::GRpcStatus(e) => write!(f, "grpc request error: {}", e),
             Error::WatchError(e) => write!(f, "watch error: {}", e),
             Error::Utf8Error(e) => write!(f, "utf8 error: {}", e),
             Error::LeaseKeepAliveError(e) => write!(f, "lease keep alive error: {}", e),
@@ -69,7 +69,7 @@ impl From<http::uri::InvalidUri> for Error {
 impl From<std::io::Error> for Error {
     #[inline]
     fn from(e: std::io::Error) -> Self {
-        Error::IOError(e)
+        Error::IoError(e)
     }
 }
 
@@ -83,7 +83,7 @@ impl From<tonic::transport::Error> for Error {
 impl From<tonic::Status> for Error {
     #[inline]
     fn from(e: tonic::Status) -> Self {
-        Error::GRPCStatus(e)
+        Error::GRpcStatus(e)
     }
 }
 
