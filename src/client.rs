@@ -66,7 +66,7 @@ impl Client {
                 let channel = if e.starts_with(HTTP_PREFIX) {
                     #[cfg(feature = "tls")]
                     if let Some(ref connect_options) = options {
-                        if let Some(_) = connect_options.tls {
+                        if connect_options.tls.is_some() {
                             return Err(Error::InvalidArgs(String::from(
                                 "TLS options are only supported with HTTPS URLs",
                             )));
