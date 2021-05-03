@@ -27,3 +27,7 @@ tokio = { version = "1.4.0", features = ["full"] }
 
 [build-dependencies]
 tonic-build = { version = "0.4.1", default-features = false, features = ["prost"] }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

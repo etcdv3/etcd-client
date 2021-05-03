@@ -53,6 +53,8 @@
 //! - `tls-roots`: Adds system trust roots to `rustls`-based TLS connection using the
 //! `rustls-native-certs` crate. Not enabled by default.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
 mod client;
 mod error;
 mod rpc;
@@ -95,5 +97,7 @@ pub use crate::rpc::watch::{
     Watcher,
 };
 pub use crate::rpc::{KeyValue, ResponseHeader};
+
 #[cfg(feature = "tls")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tls")))]
 pub use tonic::transport::{Certificate, ClientTlsConfig as TlsOptions, Identity};
