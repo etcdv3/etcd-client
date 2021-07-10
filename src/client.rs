@@ -750,6 +750,8 @@ mod tests {
         client.put("del11", "11", None).await?;
         client.put("del20", "20", None).await?;
         client.put("del21", "21", None).await?;
+        client.put("del31", "31", None).await?;
+        client.put("del32", "32", None).await?;
 
         // delete key
         {
@@ -772,6 +774,18 @@ mod tests {
                     "del11",
                     Some(GetOptions::new().with_range("del22").with_count_only()),
                 )
+                .await?;
+            assert_eq!(resp.count(), 0);
+        }
+
+        // delete key with prefix
+        {
+            let resp = client
+                .delete("del3", Some(DeleteOptions::new().with_prefix()))
+                .await?;
+            assert_eq!(resp.deleted(), 2);
+            let resp = client
+                .get("del32", Some(GetOptions::new().with_count_only()))
                 .await?;
             assert_eq!(resp.count(), 0);
         }

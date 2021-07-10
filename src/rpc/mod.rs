@@ -178,7 +178,7 @@ struct KeyRange {
     range_end: Vec<u8>,
     with_prefix: bool,
     with_from_key: bool,
-    with_all_key: bool,
+    with_all_keys: bool,
 }
 
 impl KeyRange {
@@ -189,7 +189,7 @@ impl KeyRange {
             range_end: Vec::new(),
             with_prefix: false,
             with_from_key: false,
-            with_all_key: false,
+            with_all_keys: false,
         }
     }
 
@@ -206,7 +206,7 @@ impl KeyRange {
         self.range_end = end_key.into();
         self.with_prefix = false;
         self.with_from_key = false;
-        self.with_all_key = false;
+        self.with_all_keys = false;
     }
 
     /// Sets all keys >= key.
@@ -214,7 +214,7 @@ impl KeyRange {
     pub fn with_from_key(&mut self) {
         self.with_from_key = true;
         self.with_prefix = false;
-        self.with_all_key = false;
+        self.with_all_keys = false;
     }
 
     /// Sets all keys prefixed with key.
@@ -222,13 +222,13 @@ impl KeyRange {
     pub fn with_prefix(&mut self) {
         self.with_prefix = true;
         self.with_from_key = false;
-        self.with_all_key = false;
+        self.with_all_keys = false;
     }
 
     /// Sets all keys.
     #[inline]
     pub fn with_all_keys(&mut self) {
-        self.with_all_key = true;
+        self.with_all_keys = true;
         self.with_prefix = false;
         self.with_from_key = false;
     }
@@ -236,7 +236,7 @@ impl KeyRange {
     /// Build the key and range end.
     #[inline]
     pub fn build(mut self) -> (Vec<u8>, Vec<u8>) {
-        if self.with_all_key {
+        if self.with_all_keys {
             self.key = vec![b'\0'];
             self.range_end = vec![b'\0'];
         } else if self.with_from_key {

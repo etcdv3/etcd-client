@@ -451,35 +451,57 @@ impl GetResponse {
 
 /// Options for `Delete` operation.
 #[derive(Debug, Default, Clone)]
-#[repr(transparent)]
-pub struct DeleteOptions(PbDeleteRequest);
+pub struct DeleteOptions {
+    req: PbDeleteRequest,
+    key_range: KeyRange,
+}
 
 impl DeleteOptions {
     /// Sets key.
     #[inline]
     fn with_key(mut self, key: impl Into<Vec<u8>>) -> Self {
-        self.0.key = key.into();
+        self.key_range.with_key(key);
         self
     }
 
     /// Creates a `DeleteOptions`.
     #[inline]
     pub const fn new() -> Self {
-        Self(PbDeleteRequest {
-            key: Vec::new(),
-            range_end: Vec::new(),
-            prev_kv: false,
-        })
+        Self {
+            req: PbDeleteRequest {
+                key: Vec::new(),
+                range_end: Vec::new(),
+                prev_kv: false,
+            },
+            key_range: KeyRange::new(),
+        }
     }
 
     /// `end_key` is the key following the last key to delete for the range [key, end_key).
-    /// If `end_key` is not given, the range is defined to contain only the key argument.
-    /// If `end_key` is one bit larger than the given key, then the range is all the keys
-    /// with the prefix (the given key).
-    /// If `end_key` is '\0', the range is all keys greater than or equal to the key argument.
     #[inline]
     pub fn with_range(mut self, end_key: impl Into<Vec<u8>>) -> Self {
-        self.0.range_end = end_key.into();
+        self.key_range.with_range(end_key);
+        self
+    }
+
+    /// Deletes all keys >= key.
+    #[inline]
+    pub fn with_from_key(mut self) -> Self {
+        self.key_range.with_from_key();
+        self
+    }
+
+    /// Deletes all keys prefixed with key.
+    #[inline]
+    pub fn with_prefix(mut self) -> Self {
+        self.key_range.with_prefix();
+        self
+    }
+
+    /// Deletes all keys.
+    #[inline]
+    pub fn with_all_keys(mut self) -> Self {
+        self.key_range.with_all_keys();
         self
     }
 
@@ -487,15 +509,18 @@ impl DeleteOptions {
     /// The previous key-value pairs will be returned in the delete response.
     #[inline]
     pub const fn with_prev_key(mut self) -> Self {
-        self.0.prev_kv = true;
+        self.req.prev_kv = true;
         self
     }
 }
 
 impl From<DeleteOptions> for PbDeleteRequest {
     #[inline]
-    fn from(options: DeleteOptions) -> Self {
-        options.0
+    fn from(mut options: DeleteOptions) -> Self {
+        let (key, rang_end) = options.key_range.build();
+        options.req.key = key;
+        options.req.range_end = rang_end;
+        options.req
     }
 }
 
