@@ -2,32 +2,33 @@
 
 use super::pb::v3lockpb;
 
+use tower::Layer;
 pub use v3lockpb::lock_client::LockClient as PbLockClient;
 pub use v3lockpb::{
     LockRequest as PbLockRequest, LockResponse as PbLockResponse, UnlockRequest as PbUnlockRequest,
     UnlockResponse as PbUnlockResponse,
 };
 
-use crate::error::Result;
 use crate::rpc::ResponseHeader;
+use crate::{
+    client::{AuthLayer, AuthService},
+};
+use crate::error::Result;
 use tonic::transport::Channel;
-use tonic::{Interceptor, IntoRequest, Request};
+use tonic::{IntoRequest, Request};
 
 /// Client for Lock operations.
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct LockClient {
-    inner: PbLockClient<Channel>,
+    inner: PbLockClient<AuthService<Channel>>,
 }
 
 impl LockClient {
     /// Creates a lock client.
     #[inline]
-    pub(crate) fn new(channel: Channel, interceptor: Option<Interceptor>) -> Self {
-        let inner = match interceptor {
-            Some(it) => PbLockClient::with_interceptor(channel, it),
-            None => PbLockClient::new(channel),
-        };
+    pub(crate) fn new(channel: Channel, auth_layer: AuthLayer) -> Self {
+        let inner = PbLockClient::new(auth_layer.layer(channel));
 
         Self { inner }
     }

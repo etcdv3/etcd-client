@@ -1,7 +1,6 @@
 //! Etcd Cluster RPC.
 
 use crate::error::Result;
-use crate::rpc::pb::etcdserverpb::cluster_client::ClusterClient as PbClusterClient;
 use crate::rpc::pb::etcdserverpb::{
     Member as PbMember, MemberAddRequest as PbMemberAddRequest,
     MemberAddResponse as PbMemberAddResponse, MemberListRequest as PbMemberListRequest,
@@ -11,25 +10,27 @@ use crate::rpc::pb::etcdserverpb::{
     MemberUpdateResponse as PbMemberUpdateResponse,
 };
 use crate::rpc::ResponseHeader;
+use crate::{
+    client::{AuthLayer, AuthService},
+};
+use crate::rpc::pb::etcdserverpb::cluster_client::ClusterClient as PbClusterClient;
 use std::string::String;
 use tonic::transport::Channel;
-use tonic::{Interceptor, IntoRequest, Request};
+use tonic::{IntoRequest, Request};
+use tower::Layer;
 
 /// Client for Cluster operations.
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct ClusterClient {
-    inner: PbClusterClient<Channel>,
+    inner: PbClusterClient<AuthService<Channel>>,
 }
 
 impl ClusterClient {
     /// Creates an Cluster client.
     #[inline]
-    pub(crate) fn new(channel: Channel, interceptor: Option<Interceptor>) -> Self {
-        let inner = match interceptor {
-            Some(it) => PbClusterClient::with_interceptor(channel, it),
-            None => PbClusterClient::new(channel),
-        };
+    pub(crate) fn new(channel: Channel, auth_layer: AuthLayer) -> Self {
+        let inner = PbClusterClient::new(auth_layer.layer(channel));
 
         Self { inner }
     }

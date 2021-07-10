@@ -1,5 +1,8 @@
 //! Asynchronous client & synchronous client.
 
+mod auth;
+
+pub(crate) use self::auth::{AuthLayer, AuthService};
 use crate::error::{Error, Result};
 use crate::rpc::auth::Permission;
 use crate::rpc::auth::{AuthClient, AuthDisableResponse, AuthEnableResponse};
@@ -33,9 +36,7 @@ use crate::rpc::maintenance::{
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 #[cfg(feature = "tls")]
 use crate::TlsOptions;
-use tonic::metadata::{Ascii, MetadataValue};
 use tonic::transport::Channel;
-use tonic::Interceptor;
 
 const HTTP_PREFIX: &str = "http://";
 const HTTPS_PREFIX: &str = "https://";
@@ -129,33 +130,25 @@ impl Client {
             _ => Channel::balance_list(endpoints.into_iter()),
         };
 
-        let interceptor = if let Some(connect_options) = options {
-            if let Some((name, password)) = connect_options.user {
-                let mut tmp_auth = AuthClient::new(channel.clone(), None);
+        let auth_token: Option<http::HeaderValue> =
+            if let Some((name, password)) = options.and_then(|options| options.user) {
+                let mut tmp_auth = AuthClient::new(channel.clone(), AuthLayer::new(None));
                 let resp = tmp_auth.authenticate(name, password).await?;
-                let token: MetadataValue<Ascii> = resp.token().parse()?;
-
-                Some(Interceptor::new(move |mut request| {
-                    let metadata = request.metadata_mut();
-                    // authorization for http::header::AUTHORIZATION
-                    metadata.insert("authorization", token.clone());
-                    Ok(request)
-                }))
+                Some(resp.token().parse()?)
             } else {
                 None
-            }
-        } else {
-            None
-        };
+            };
 
-        let kv = KvClient::new(channel.clone(), interceptor.clone());
-        let watch = WatchClient::new(channel.clone(), interceptor.clone());
-        let lease = LeaseClient::new(channel.clone(), interceptor.clone());
-        let lock = LockClient::new(channel.clone(), interceptor.clone());
-        let auth = AuthClient::new(channel.clone(), interceptor.clone());
-        let cluster = ClusterClient::new(channel.clone(), interceptor.clone());
-        let maintenance = MaintenanceClient::new(channel.clone(), interceptor.clone());
-        let election = ElectionClient::new(channel, interceptor);
+        let auth_layer = AuthLayer::new(auth_token);
+
+        let kv = KvClient::new(channel.clone(), auth_layer.clone());
+        let watch = WatchClient::new(channel.clone(), auth_layer.clone());
+        let lease = LeaseClient::new(channel.clone(), auth_layer.clone());
+        let lock = LockClient::new(channel.clone(), auth_layer.clone());
+        let auth = AuthClient::new(channel.clone(), auth_layer.clone());
+        let cluster = ClusterClient::new(channel.clone(), auth_layer.clone());
+        let maintenance = MaintenanceClient::new(channel.clone(), auth_layer.clone());
+        let election = ElectionClient::new(channel, auth_layer);
 
         Ok(Self {
             kv,

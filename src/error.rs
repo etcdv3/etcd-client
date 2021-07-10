@@ -36,7 +36,7 @@ pub enum Error {
     ElectError(String),
 
     /// Invalid metadata value
-    InvalidMetadataValue(tonic::metadata::errors::InvalidMetadataValue),
+    InvalidHeaderValue(http::header::InvalidHeaderValue),
 }
 
 impl Display for Error {
@@ -52,7 +52,7 @@ impl Display for Error {
             Error::Utf8Error(e) => write!(f, "utf8 error: {}", e),
             Error::LeaseKeepAliveError(e) => write!(f, "lease keep alive error: {}", e),
             Error::ElectError(e) => write!(f, "election error: {}", e),
-            Error::InvalidMetadataValue(e) => write!(f, "invalid metadata value: {}", e),
+            Error::InvalidHeaderValue(e) => write!(f, "invalid metadata value: {}", e),
         }
     }
 }
@@ -94,9 +94,9 @@ impl From<Utf8Error> for Error {
     }
 }
 
-impl From<tonic::metadata::errors::InvalidMetadataValue> for Error {
+impl From<http::header::InvalidHeaderValue> for Error {
     #[inline]
-    fn from(e: tonic::metadata::errors::InvalidMetadataValue) -> Self {
-        Error::InvalidMetadataValue(e)
+    fn from(e: http::header::InvalidHeaderValue) -> Self {
+        Error::InvalidHeaderValue(e)
     }
 }

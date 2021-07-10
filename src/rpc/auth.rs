@@ -4,7 +4,6 @@ pub use crate::rpc::pb::authpb::permission::Type as PermissionType;
 
 use crate::error::Result;
 use crate::rpc::pb::authpb::{Permission as PbPermission, UserAddOptions as PbUserAddOptions};
-use crate::rpc::pb::etcdserverpb::auth_client::AuthClient as PbAuthClient;
 use crate::rpc::pb::etcdserverpb::{
     AuthDisableRequest as PbAuthDisableRequest, AuthDisableResponse as PbAuthDisableResponse,
     AuthEnableRequest as PbAuthEnableRequest, AuthEnableResponse as PbAuthEnableResponse,
@@ -32,25 +31,26 @@ use crate::rpc::pb::etcdserverpb::{
 };
 use crate::rpc::ResponseHeader;
 use crate::rpc::{get_prefix, KeyRange};
+use crate::{
+    client::{AuthLayer, AuthService},
+};
+use crate::rpc::pb::etcdserverpb::auth_client::AuthClient as PbAuthClient;
 use std::string::String;
 use tonic::transport::Channel;
-use tonic::{Interceptor, IntoRequest, Request};
+use tonic::{IntoRequest, Request};
 
 /// Client for Auth operations.
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct AuthClient {
-    inner: PbAuthClient<Channel>,
+    inner: PbAuthClient<AuthService<Channel>>,
 }
 
 impl AuthClient {
     /// Creates an auth client.
     #[inline]
-    pub(crate) fn new(channel: Channel, interceptor: Option<Interceptor>) -> Self {
-        let inner = match interceptor {
-            Some(it) => PbAuthClient::with_interceptor(channel, it),
-            None => PbAuthClient::new(channel),
-        };
+    pub(crate) fn new(channel: Channel, auth_layer: AuthLayer) -> Self {
+        let inner = PbAuthClient::new(auth_layer.layer(channel));
 
         Self { inner }
     }
@@ -1154,6 +1154,7 @@ impl UserGetResponse {
     }
 }
 
+use tower::Layer;
 /// Options for list user operation.
 use PbAuthUserListRequest as AuthUserListOptions;
 

@@ -4,7 +4,6 @@ pub use crate::rpc::pb::etcdserverpb::compare::CompareResult as CompareOp;
 pub use crate::rpc::pb::etcdserverpb::range_request::{SortOrder, SortTarget};
 
 use crate::error::Result;
-use crate::rpc::pb::etcdserverpb::compare::{CompareTarget, TargetUnion};
 use crate::rpc::pb::etcdserverpb::kv_client::KvClient as PbKvClient;
 use crate::rpc::pb::etcdserverpb::request_op::Request as PbTxnOp;
 use crate::rpc::pb::etcdserverpb::response_op::Response as PbTxnOpResponse;
@@ -17,24 +16,26 @@ use crate::rpc::pb::etcdserverpb::{
     RequestOp as PbTxnRequestOp, TxnRequest as PbTxnRequest, TxnResponse as PbTxnResponse,
 };
 use crate::rpc::{get_prefix, KeyRange, KeyValue, ResponseHeader};
+use crate::{
+    client::{AuthLayer, AuthService},
+};
+use crate::rpc::pb::etcdserverpb::compare::{CompareTarget, TargetUnion};
 use tonic::transport::Channel;
-use tonic::{Interceptor, IntoRequest, Request};
+use tonic::{IntoRequest, Request};
+use tower::Layer;
 
 /// Client for KV operations.
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct KvClient {
-    inner: PbKvClient<Channel>,
+    inner: PbKvClient<AuthService<Channel>>,
 }
 
 impl KvClient {
     /// Creates a kv client.
     #[inline]
-    pub(crate) fn new(channel: Channel, interceptor: Option<Interceptor>) -> Self {
-        let inner = match interceptor {
-            Some(it) => PbKvClient::with_interceptor(channel, it),
-            None => PbKvClient::new(channel),
-        };
+    pub(crate) fn new(channel: Channel, auth_layer: AuthLayer) -> Self {
+        let inner = PbKvClient::new(auth_layer.layer(channel));
 
         Self { inner }
     }

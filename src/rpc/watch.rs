@@ -2,6 +2,7 @@
 
 pub use crate::rpc::pb::mvccpb::event::EventType;
 
+use crate::client::{AuthLayer, AuthService};
 use crate::error::{Error, Result};
 use crate::rpc::pb::etcdserverpb::watch_client::WatchClient as PbWatchClient;
 use crate::rpc::pb::etcdserverpb::watch_request::RequestUnion as WatchRequestUnion;
@@ -16,23 +17,21 @@ use std::task::{Context, Poll};
 use tokio::sync::mpsc::{channel, Sender};
 use tokio_stream::{wrappers::ReceiverStream, Stream};
 use tonic::transport::Channel;
-use tonic::{Interceptor, Streaming};
+use tonic::Streaming;
+use tower::Layer;
 
 /// Client for watch operations.
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct WatchClient {
-    inner: PbWatchClient<Channel>,
+    inner: PbWatchClient<AuthService<Channel>>,
 }
 
 impl WatchClient {
     /// Creates a watch client.
     #[inline]
-    pub(crate) fn new(channel: Channel, interceptor: Option<Interceptor>) -> Self {
-        let inner = match interceptor {
-            Some(it) => PbWatchClient::with_interceptor(channel, it),
-            None => PbWatchClient::new(channel),
-        };
+    pub(crate) fn new(channel: Channel, auth_layer: AuthLayer) -> Self {
+        let inner = PbWatchClient::new(auth_layer.layer(channel));
 
         Self { inner }
     }

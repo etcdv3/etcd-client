@@ -2,7 +2,6 @@
 
 use super::pb::etcdserverpb;
 
-use crate::error::Result;
 pub use crate::rpc::pb::etcdserverpb::alarm_request::AlarmAction;
 pub use crate::rpc::pb::etcdserverpb::AlarmType;
 use crate::rpc::pb::etcdserverpb::{
@@ -15,17 +14,22 @@ use crate::rpc::pb::etcdserverpb::{
     StatusRequest as PbStatusRequest, StatusResponse as PbStatusResponse,
 };
 use crate::rpc::ResponseHeader;
+use crate::{
+    client::{AuthLayer, AuthService},
+};
+use crate::error::Result;
 use etcdserverpb::maintenance_client::MaintenanceClient as PbMaintenanceClient;
 pub use etcdserverpb::AlarmMember as PbAlarmMember;
 use tonic::codec::Streaming as PbStreaming;
 use tonic::transport::Channel;
-use tonic::{Interceptor, IntoRequest, Request};
+use tonic::{IntoRequest, Request};
+use tower::Layer;
 
 /// Client for maintenance operations.
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct MaintenanceClient {
-    inner: PbMaintenanceClient<Channel>,
+    inner: PbMaintenanceClient<AuthService<Channel>>,
 }
 
 /// Options for `alarm` operation.
@@ -544,11 +548,8 @@ impl MoveLeaderResponse {
 impl MaintenanceClient {
     /// Creates a maintenance client.
     #[inline]
-    pub(crate) fn new(channel: Channel, interceptor: Option<Interceptor>) -> Self {
-        let inner = match interceptor {
-            Some(it) => PbMaintenanceClient::with_interceptor(channel, it),
-            None => PbMaintenanceClient::new(channel),
-        };
+    pub(crate) fn new(channel: Channel, auth_layer: AuthLayer) -> Self {
+        let inner = PbMaintenanceClient::new(auth_layer.layer(channel));
 
         Self { inner }
     }
