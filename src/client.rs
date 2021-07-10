@@ -704,7 +704,7 @@ mod tests {
         {
             let resp = client.get("get11", None).await?;
             assert_eq!(resp.count(), 1);
-            assert_eq!(resp.more(), false);
+            assert!(!resp.more());
             assert_eq!(resp.kvs().len(), 1);
             assert_eq!(resp.kvs()[0].key(), b"get11");
             assert_eq!(resp.kvs()[0].value(), b"11");
@@ -718,7 +718,7 @@ mod tests {
                     Some(GetOptions::new().with_from_key().with_limit(2)),
                 )
                 .await?;
-            assert_eq!(resp.more(), true);
+            assert!(resp.more());
             assert_eq!(resp.kvs().len(), 2);
             assert_eq!(resp.kvs()[0].key(), b"get11");
             assert_eq!(resp.kvs()[0].value(), b"11");
@@ -732,7 +732,7 @@ mod tests {
                 .get("get1", Some(GetOptions::new().with_prefix()))
                 .await?;
             assert_eq!(resp.count(), 2);
-            assert_eq!(resp.more(), false);
+            assert!(!resp.more());
             assert_eq!(resp.kvs().len(), 2);
             assert_eq!(resp.kvs()[0].key(), b"get10");
             assert_eq!(resp.kvs()[0].value(), b"10");
