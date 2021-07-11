@@ -1,8 +1,8 @@
 //! Asynchronous client & synchronous client.
 
-mod auth;
+use std::sync::Arc;
 
-pub(crate) use self::auth::{AuthLayer, AuthService};
+pub(crate) use crate::auth::AuthService;
 use crate::error::{Error, Result};
 use crate::rpc::auth::Permission;
 use crate::rpc::auth::{AuthClient, AuthDisableResponse, AuthEnableResponse};
@@ -130,25 +130,23 @@ impl Client {
             _ => Channel::balance_list(endpoints.into_iter()),
         };
 
-        let auth_token: Option<http::HeaderValue> =
+        let auth_token: Option<Arc<http::HeaderValue>> =
             if let Some((name, password)) = options.and_then(|options| options.user) {
-                let mut tmp_auth = AuthClient::new(channel.clone(), AuthLayer::new(None));
+                let mut tmp_auth = AuthClient::new(channel.clone(), None);
                 let resp = tmp_auth.authenticate(name, password).await?;
-                Some(resp.token().parse()?)
+                Some(Arc::new(resp.token().parse()?))
             } else {
                 None
             };
 
-        let auth_layer = AuthLayer::new(auth_token);
-
-        let kv = KvClient::new(channel.clone(), auth_layer.clone());
-        let watch = WatchClient::new(channel.clone(), auth_layer.clone());
-        let lease = LeaseClient::new(channel.clone(), auth_layer.clone());
-        let lock = LockClient::new(channel.clone(), auth_layer.clone());
-        let auth = AuthClient::new(channel.clone(), auth_layer.clone());
-        let cluster = ClusterClient::new(channel.clone(), auth_layer.clone());
-        let maintenance = MaintenanceClient::new(channel.clone(), auth_layer.clone());
-        let election = ElectionClient::new(channel, auth_layer);
+        let kv = KvClient::new(channel.clone(), auth_token.clone());
+        let watch = WatchClient::new(channel.clone(), auth_token.clone());
+        let lease = LeaseClient::new(channel.clone(), auth_token.clone());
+        let lock = LockClient::new(channel.clone(), auth_token.clone());
+        let auth = AuthClient::new(channel.clone(), auth_token.clone());
+        let cluster = ClusterClient::new(channel.clone(), auth_token.clone());
+        let maintenance = MaintenanceClient::new(channel.clone(), auth_token.clone());
+        let election = ElectionClient::new(channel, auth_token);
 
         Ok(Self {
             kv,

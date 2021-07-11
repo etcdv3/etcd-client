@@ -1,19 +1,19 @@
 //! Etcd Lock RPC.
 
+use std::sync::Arc;
+
 use super::pb::v3lockpb;
 
-use tower::Layer;
+use http::HeaderValue;
 pub use v3lockpb::lock_client::LockClient as PbLockClient;
 pub use v3lockpb::{
     LockRequest as PbLockRequest, LockResponse as PbLockResponse, UnlockRequest as PbUnlockRequest,
     UnlockResponse as PbUnlockResponse,
 };
 
-use crate::rpc::ResponseHeader;
-use crate::{
-    client::{AuthLayer, AuthService},
-};
+use crate::client::AuthService;
 use crate::error::Result;
+use crate::rpc::ResponseHeader;
 use tonic::transport::Channel;
 use tonic::{IntoRequest, Request};
 
@@ -27,8 +27,8 @@ pub struct LockClient {
 impl LockClient {
     /// Creates a lock client.
     #[inline]
-    pub(crate) fn new(channel: Channel, auth_layer: AuthLayer) -> Self {
-        let inner = PbLockClient::new(auth_layer.layer(channel));
+    pub(crate) fn new(channel: Channel, auth_token: Option<Arc<HeaderValue>>) -> Self {
+        let inner = PbLockClient::new(AuthService::new(channel, auth_token));
 
         Self { inner }
     }

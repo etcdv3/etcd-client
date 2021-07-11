@@ -55,6 +55,7 @@
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+mod auth;
 mod client;
 mod error;
 mod rpc;

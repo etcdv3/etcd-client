@@ -4,35 +4,17 @@ use std::{
 };
 
 use http::{header::AUTHORIZATION, HeaderValue, Request};
-use tower::{Layer, Service};
-
-#[derive(Debug, Clone)]
-pub(crate) struct AuthLayer {
-    token: Option<Arc<HeaderValue>>,
-}
-
-impl AuthLayer {
-    pub(crate) fn new(token: Option<HeaderValue>) -> Self {
-        Self {
-            token: token.map(Arc::new),
-        }
-    }
-}
+use tower_service::Service;
 
 #[derive(Debug, Clone)]
 pub(crate) struct AuthService<S> {
-    token: Option<Arc<HeaderValue>>,
     inner: S,
+    token: Option<Arc<HeaderValue>>,
 }
 
-impl<S> Layer<S> for AuthLayer {
-    type Service = AuthService<S>;
-
-    fn layer(&self, inner: S) -> Self::Service {
-        Self::Service {
-            token: self.token.clone(),
-            inner,
-        }
+impl<S> AuthService<S> {
+    pub(crate) fn new(inner: S, token: Option<Arc<HeaderValue>>) -> Self {
+        Self { inner, token }
     }
 }
 

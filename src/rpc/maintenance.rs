@@ -1,7 +1,11 @@
 //! Etcd Maintenance RPC.
 
+use std::sync::Arc;
+
 use super::pb::etcdserverpb;
 
+use crate::client::AuthService;
+use crate::error::Result;
 pub use crate::rpc::pb::etcdserverpb::alarm_request::AlarmAction;
 pub use crate::rpc::pb::etcdserverpb::AlarmType;
 use crate::rpc::pb::etcdserverpb::{
@@ -14,16 +18,12 @@ use crate::rpc::pb::etcdserverpb::{
     StatusRequest as PbStatusRequest, StatusResponse as PbStatusResponse,
 };
 use crate::rpc::ResponseHeader;
-use crate::{
-    client::{AuthLayer, AuthService},
-};
-use crate::error::Result;
 use etcdserverpb::maintenance_client::MaintenanceClient as PbMaintenanceClient;
 pub use etcdserverpb::AlarmMember as PbAlarmMember;
+use http::HeaderValue;
 use tonic::codec::Streaming as PbStreaming;
 use tonic::transport::Channel;
 use tonic::{IntoRequest, Request};
-use tower::Layer;
 
 /// Client for maintenance operations.
 #[repr(transparent)]
@@ -548,8 +548,8 @@ impl MoveLeaderResponse {
 impl MaintenanceClient {
     /// Creates a maintenance client.
     #[inline]
-    pub(crate) fn new(channel: Channel, auth_layer: AuthLayer) -> Self {
-        let inner = PbMaintenanceClient::new(auth_layer.layer(channel));
+    pub(crate) fn new(channel: Channel, auth_token: Option<Arc<HeaderValue>>) -> Self {
+        let inner = PbMaintenanceClient::new(AuthService::new(channel, auth_token));
 
         Self { inner }
     }

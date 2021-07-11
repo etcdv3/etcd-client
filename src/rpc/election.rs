@@ -1,6 +1,6 @@
 //! Etcd Election RPC.
 
-use crate::client::{AuthLayer, AuthService};
+use crate::client::AuthService;
 use crate::error::Result;
 use crate::rpc::pb::v3electionpb::election_client::ElectionClient as PbElectionClient;
 use crate::rpc::pb::v3electionpb::{
@@ -10,12 +10,12 @@ use crate::rpc::pb::v3electionpb::{
     ResignRequest as PbResignRequest, ResignResponse as PbResignResponse,
 };
 use crate::rpc::{KeyValue, ResponseHeader};
-use std::pin::Pin;
+use http::HeaderValue;
 use std::task::{Context, Poll};
+use std::{pin::Pin, sync::Arc};
 use tokio_stream::Stream;
 use tonic::transport::Channel;
 use tonic::{IntoRequest, Request, Streaming};
-use tower::Layer;
 
 /// Client for Elect operations.
 #[repr(transparent)]
@@ -474,8 +474,8 @@ impl From<&PbLeaderKey> for &LeaderKey {
 impl ElectionClient {
     /// Creates a election
     #[inline]
-    pub(crate) fn new(channel: Channel, auth_layer: AuthLayer) -> Self {
-        let inner = PbElectionClient::new(auth_layer.layer(channel));
+    pub(crate) fn new(channel: Channel, auth_token: Option<Arc<HeaderValue>>) -> Self {
+        let inner = PbElectionClient::new(AuthService::new(channel, auth_token));
 
         Self { inner }
     }

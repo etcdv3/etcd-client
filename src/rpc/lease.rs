@@ -1,6 +1,6 @@
 //! Etcd Lease RPC.
 
-use crate::client::{AuthLayer, AuthService};
+use crate::client::AuthService;
 use crate::error::Result;
 use crate::rpc::pb::etcdserverpb::lease_client::LeaseClient as PbLeaseClient;
 use crate::rpc::pb::etcdserverpb::{
@@ -16,14 +16,14 @@ use crate::rpc::pb::etcdserverpb::{
 use crate::rpc::ResponseHeader;
 use crate::Error;
 
-use std::pin::Pin;
+use http::HeaderValue;
 use std::task::{Context, Poll};
+use std::{pin::Pin, sync::Arc};
 use tokio::sync::mpsc::{channel, Sender};
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::Stream;
 use tonic::transport::Channel;
 use tonic::{IntoRequest, Request, Streaming};
-use tower::Layer;
 
 /// Client for lease operations.
 #[repr(transparent)]
@@ -35,8 +35,8 @@ pub struct LeaseClient {
 impl LeaseClient {
     /// Creates a `LeaseClient`.
     #[inline]
-    pub(crate) fn new(channel: Channel, auth_layer: AuthLayer) -> Self {
-        let inner = PbLeaseClient::new(auth_layer.layer(channel));
+    pub(crate) fn new(channel: Channel, auth_token: Option<Arc<HeaderValue>>) -> Self {
+        let inner = PbLeaseClient::new(AuthService::new(channel, auth_token));
 
         Self { inner }
     }

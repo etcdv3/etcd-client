@@ -2,8 +2,10 @@
 
 pub use crate::rpc::pb::authpb::permission::Type as PermissionType;
 
+use crate::client::AuthService;
 use crate::error::Result;
 use crate::rpc::pb::authpb::{Permission as PbPermission, UserAddOptions as PbUserAddOptions};
+use crate::rpc::pb::etcdserverpb::auth_client::AuthClient as PbAuthClient;
 use crate::rpc::pb::etcdserverpb::{
     AuthDisableRequest as PbAuthDisableRequest, AuthDisableResponse as PbAuthDisableResponse,
     AuthEnableRequest as PbAuthEnableRequest, AuthEnableResponse as PbAuthEnableResponse,
@@ -31,11 +33,8 @@ use crate::rpc::pb::etcdserverpb::{
 };
 use crate::rpc::ResponseHeader;
 use crate::rpc::{get_prefix, KeyRange};
-use crate::{
-    client::{AuthLayer, AuthService},
-};
-use crate::rpc::pb::etcdserverpb::auth_client::AuthClient as PbAuthClient;
-use std::string::String;
+use http::HeaderValue;
+use std::{string::String, sync::Arc};
 use tonic::transport::Channel;
 use tonic::{IntoRequest, Request};
 
@@ -49,8 +48,8 @@ pub struct AuthClient {
 impl AuthClient {
     /// Creates an auth client.
     #[inline]
-    pub(crate) fn new(channel: Channel, auth_layer: AuthLayer) -> Self {
-        let inner = PbAuthClient::new(auth_layer.layer(channel));
+    pub(crate) fn new(channel: Channel, auth_token: Option<Arc<HeaderValue>>) -> Self {
+        let inner = PbAuthClient::new(AuthService::new(channel, auth_token));
 
         Self { inner }
     }
@@ -1154,7 +1153,6 @@ impl UserGetResponse {
     }
 }
 
-use tower::Layer;
 /// Options for list user operation.
 use PbAuthUserListRequest as AuthUserListOptions;
 
