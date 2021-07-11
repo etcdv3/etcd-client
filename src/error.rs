@@ -35,7 +35,7 @@ pub enum Error {
     /// Election error
     ElectError(String),
 
-    /// Invalid metadata value
+    /// Invalid header value
     InvalidHeaderValue(http::header::InvalidHeaderValue),
 }
 
