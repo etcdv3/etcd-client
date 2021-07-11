@@ -1,34 +1,31 @@
 //! Etcd Lock RPC.
 
 use super::pb::v3lockpb;
-
-pub use v3lockpb::lock_client::LockClient as PbLockClient;
-pub use v3lockpb::{
+use crate::auth::AuthService;
+use crate::error::Result;
+use crate::rpc::ResponseHeader;
+use http::HeaderValue;
+use std::sync::Arc;
+use tonic::transport::Channel;
+use tonic::{IntoRequest, Request};
+use v3lockpb::lock_client::LockClient as PbLockClient;
+use v3lockpb::{
     LockRequest as PbLockRequest, LockResponse as PbLockResponse, UnlockRequest as PbUnlockRequest,
     UnlockResponse as PbUnlockResponse,
 };
-
-use crate::error::Result;
-use crate::rpc::ResponseHeader;
-use tonic::transport::Channel;
-use tonic::{Interceptor, IntoRequest, Request};
 
 /// Client for Lock operations.
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct LockClient {
-    inner: PbLockClient<Channel>,
+    inner: PbLockClient<AuthService<Channel>>,
 }
 
 impl LockClient {
     /// Creates a lock client.
     #[inline]
-    pub(crate) fn new(channel: Channel, interceptor: Option<Interceptor>) -> Self {
-        let inner = match interceptor {
-            Some(it) => PbLockClient::with_interceptor(channel, it),
-            None => PbLockClient::new(channel),
-        };
-
+    pub(crate) fn new(channel: Channel, auth_token: Option<Arc<HeaderValue>>) -> Self {
+        let inner = PbLockClient::new(AuthService::new(channel, auth_token));
         Self { inner }
     }
 

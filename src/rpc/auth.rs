@@ -2,6 +2,7 @@
 
 pub use crate::rpc::pb::authpb::permission::Type as PermissionType;
 
+use crate::auth::AuthService;
 use crate::error::Result;
 use crate::rpc::pb::authpb::{Permission as PbPermission, UserAddOptions as PbUserAddOptions};
 use crate::rpc::pb::etcdserverpb::auth_client::AuthClient as PbAuthClient;
@@ -32,26 +33,23 @@ use crate::rpc::pb::etcdserverpb::{
 };
 use crate::rpc::ResponseHeader;
 use crate::rpc::{get_prefix, KeyRange};
-use std::string::String;
+use http::HeaderValue;
+use std::{string::String, sync::Arc};
 use tonic::transport::Channel;
-use tonic::{Interceptor, IntoRequest, Request};
+use tonic::{IntoRequest, Request};
 
 /// Client for Auth operations.
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct AuthClient {
-    inner: PbAuthClient<Channel>,
+    inner: PbAuthClient<AuthService<Channel>>,
 }
 
 impl AuthClient {
     /// Creates an auth client.
     #[inline]
-    pub(crate) fn new(channel: Channel, interceptor: Option<Interceptor>) -> Self {
-        let inner = match interceptor {
-            Some(it) => PbAuthClient::with_interceptor(channel, it),
-            None => PbAuthClient::new(channel),
-        };
-
+    pub(crate) fn new(channel: Channel, auth_token: Option<Arc<HeaderValue>>) -> Self {
+        let inner = PbAuthClient::new(AuthService::new(channel, auth_token));
         Self { inner }
     }
 
