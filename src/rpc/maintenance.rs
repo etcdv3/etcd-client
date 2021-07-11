@@ -1,13 +1,11 @@
 //! Etcd Maintenance RPC.
 
-use std::sync::Arc;
-
-use super::pb::etcdserverpb;
-
-use crate::client::AuthService;
-use crate::error::Result;
 pub use crate::rpc::pb::etcdserverpb::alarm_request::AlarmAction;
 pub use crate::rpc::pb::etcdserverpb::AlarmType;
+
+use super::pb::etcdserverpb;
+use crate::auth::AuthService;
+use crate::error::Result;
 use crate::rpc::pb::etcdserverpb::{
     AlarmRequest as PbAlarmRequest, AlarmResponse as PbAlarmResponse,
     DefragmentRequest as PbDefragmentRequest, DefragmentResponse as PbDefragmentResponse,
@@ -19,8 +17,9 @@ use crate::rpc::pb::etcdserverpb::{
 };
 use crate::rpc::ResponseHeader;
 use etcdserverpb::maintenance_client::MaintenanceClient as PbMaintenanceClient;
-pub use etcdserverpb::AlarmMember as PbAlarmMember;
+use etcdserverpb::AlarmMember as PbAlarmMember;
 use http::HeaderValue;
+use std::sync::Arc;
 use tonic::codec::Streaming as PbStreaming;
 use tonic::transport::Channel;
 use tonic::{IntoRequest, Request};
@@ -550,7 +549,6 @@ impl MaintenanceClient {
     #[inline]
     pub(crate) fn new(channel: Channel, auth_token: Option<Arc<HeaderValue>>) -> Self {
         let inner = PbMaintenanceClient::new(AuthService::new(channel, auth_token));
-
         Self { inner }
     }
 

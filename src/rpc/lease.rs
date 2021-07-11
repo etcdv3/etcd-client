@@ -1,6 +1,6 @@
 //! Etcd Lease RPC.
 
-use crate::client::AuthService;
+use crate::auth::AuthService;
 use crate::error::Result;
 use crate::rpc::pb::etcdserverpb::lease_client::LeaseClient as PbLeaseClient;
 use crate::rpc::pb::etcdserverpb::{
@@ -12,13 +12,12 @@ use crate::rpc::pb::etcdserverpb::{
     LeaseTimeToLiveRequest as PbLeaseTimeToLiveRequest,
     LeaseTimeToLiveResponse as PbLeaseTimeToLiveResponse,
 };
-
 use crate::rpc::ResponseHeader;
 use crate::Error;
-
 use http::HeaderValue;
+use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
-use std::{pin::Pin, sync::Arc};
 use tokio::sync::mpsc::{channel, Sender};
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::Stream;
@@ -37,7 +36,6 @@ impl LeaseClient {
     #[inline]
     pub(crate) fn new(channel: Channel, auth_token: Option<Arc<HeaderValue>>) -> Self {
         let inner = PbLeaseClient::new(AuthService::new(channel, auth_token));
-
         Self { inner }
     }
 

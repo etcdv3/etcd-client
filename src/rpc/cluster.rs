@@ -1,6 +1,6 @@
 //! Etcd Cluster RPC.
 
-use crate::client::AuthService;
+use crate::auth::AuthService;
 use crate::error::Result;
 use crate::rpc::pb::etcdserverpb::cluster_client::ClusterClient as PbClusterClient;
 use crate::rpc::pb::etcdserverpb::{
@@ -29,7 +29,6 @@ impl ClusterClient {
     #[inline]
     pub(crate) fn new(channel: Channel, auth_token: Option<Arc<HeaderValue>>) -> Self {
         let inner = PbClusterClient::new(AuthService::new(channel, auth_token));
-
         Self { inner }
     }
 

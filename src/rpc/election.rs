@@ -1,6 +1,6 @@
 //! Etcd Election RPC.
 
-use crate::client::AuthService;
+use crate::auth::AuthService;
 use crate::error::Result;
 use crate::rpc::pb::v3electionpb::election_client::ElectionClient as PbElectionClient;
 use crate::rpc::pb::v3electionpb::{
@@ -476,7 +476,6 @@ impl ElectionClient {
     #[inline]
     pub(crate) fn new(channel: Channel, auth_token: Option<Arc<HeaderValue>>) -> Self {
         let inner = PbElectionClient::new(AuthService::new(channel, auth_token));
-
         Self { inner }
     }
 

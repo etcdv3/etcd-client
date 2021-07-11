@@ -2,7 +2,7 @@
 
 pub use crate::rpc::pb::mvccpb::event::EventType;
 
-use crate::client::AuthService;
+use crate::auth::AuthService;
 use crate::error::{Error, Result};
 use crate::rpc::pb::etcdserverpb::watch_client::WatchClient as PbWatchClient;
 use crate::rpc::pb::etcdserverpb::watch_request::RequestUnion as WatchRequestUnion;
@@ -13,8 +13,9 @@ use crate::rpc::pb::etcdserverpb::{
 use crate::rpc::pb::mvccpb::Event as PbEvent;
 use crate::rpc::{KeyRange, KeyValue, ResponseHeader};
 use http::HeaderValue;
+use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
-use std::{pin::Pin, sync::Arc};
 use tokio::sync::mpsc::{channel, Sender};
 use tokio_stream::{wrappers::ReceiverStream, Stream};
 use tonic::transport::Channel;
@@ -32,7 +33,6 @@ impl WatchClient {
     #[inline]
     pub(crate) fn new(channel: Channel, auth_token: Option<Arc<HeaderValue>>) -> Self {
         let inner = PbWatchClient::new(AuthService::new(channel, auth_token));
-
         Self { inner }
     }
 

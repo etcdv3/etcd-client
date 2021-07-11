@@ -2,7 +2,7 @@
 
 pub use crate::rpc::pb::authpb::permission::Type as PermissionType;
 
-use crate::client::AuthService;
+use crate::auth::AuthService;
 use crate::error::Result;
 use crate::rpc::pb::authpb::{Permission as PbPermission, UserAddOptions as PbUserAddOptions};
 use crate::rpc::pb::etcdserverpb::auth_client::AuthClient as PbAuthClient;
@@ -50,7 +50,6 @@ impl AuthClient {
     #[inline]
     pub(crate) fn new(channel: Channel, auth_token: Option<Arc<HeaderValue>>) -> Self {
         let inner = PbAuthClient::new(AuthService::new(channel, auth_token));
-
         Self { inner }
     }
 

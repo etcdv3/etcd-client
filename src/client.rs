@@ -1,8 +1,5 @@
 //! Asynchronous client & synchronous client.
 
-use std::sync::Arc;
-
-pub(crate) use crate::auth::AuthService;
 use crate::error::{Error, Result};
 use crate::rpc::auth::Permission;
 use crate::rpc::auth::{AuthClient, AuthDisableResponse, AuthEnableResponse};
@@ -36,6 +33,7 @@ use crate::rpc::maintenance::{
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 #[cfg(feature = "tls")]
 use crate::TlsOptions;
+use std::sync::Arc;
 use tonic::transport::Channel;
 
 const HTTP_PREFIX: &str = "http://";
