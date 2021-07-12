@@ -52,6 +52,8 @@
 //! enabled by default.
 //! - `tls-roots`: Adds system trust roots to `rustls`-based TLS connection using the
 //! `rustls-native-certs` crate. Not enabled by default.
+//! - `protobuf-response-structs`: Exposes structs used to create regular `etcd-client`
+//! responses. Useful for mocking. Not enabled by default.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
@@ -98,6 +100,55 @@ pub use crate::rpc::watch::{
     Watcher,
 };
 pub use crate::rpc::{KeyValue, ResponseHeader};
+
+/// Exposes internal protobuf representations used create regular public response types.
+#[cfg(feature = "protobuf-response-structs")]
+#[cfg_attr(docsrs, doc(cfg(feature = "protobuf-response-structs")))]
+pub mod internal {
+    pub use crate::rpc::pb::etcdserverpb::maintenance_client::MaintenanceClient as PbMaintenanceClient;
+    pub use crate::rpc::pb::etcdserverpb::AlarmMember as PbAlarmMember;
+    pub use crate::rpc::pb::etcdserverpb::{
+        AlarmResponse as PbAlarmResponse, AuthDisableResponse as PbAuthDisableResponse,
+        AuthEnableResponse as PbAuthEnableResponse, AuthRoleAddResponse as PbAuthRoleAddResponse,
+        AuthRoleDeleteResponse as PbAuthRoleDeleteResponse,
+        AuthRoleGetResponse as PbAuthRoleGetResponse,
+        AuthRoleGrantPermissionResponse as PbAuthRoleGrantPermissionResponse,
+        AuthRoleListResponse as PbAuthRoleListResponse,
+        AuthRoleRevokePermissionResponse as PbAuthRoleRevokePermissionResponse,
+        AuthUserAddResponse as PbAuthUserAddResponse,
+        AuthUserChangePasswordResponse as PbAuthUserChangePasswordResponse,
+        AuthUserDeleteResponse as PbAuthUserDeleteResponse,
+        AuthUserGetResponse as PbAuthUserGetResponse,
+        AuthUserGrantRoleResponse as PbAuthUserGrantRoleResponse,
+        AuthUserListResponse as PbAuthUserListResponse,
+        AuthUserRevokeRoleResponse as PbAuthUserRevokeRoleResponse,
+        AuthenticateResponse as PbAuthenticateResponse, CompactionResponse as PbCompactionResponse,
+        Compare as PbCompare, DefragmentResponse as PbDefragmentResponse,
+        DeleteRangeResponse as PbDeleteResponse, HashKvResponse as PbHashKvResponse,
+        HashResponse as PbHashResponse, LeaseGrantResponse as PbLeaseGrantResponse,
+        LeaseKeepAliveResponse as PbLeaseKeepAliveResponse,
+        LeaseLeasesResponse as PbLeaseLeasesResponse, LeaseRevokeResponse as PbLeaseRevokeResponse,
+        LeaseStatus as PbLeaseStatus, LeaseTimeToLiveResponse as PbLeaseTimeToLiveResponse,
+        Member as PbMember, MemberAddResponse as PbMemberAddResponse,
+        MemberListResponse as PbMemberListResponse,
+        MemberPromoteResponse as PbMemberPromoteResponse,
+        MemberRemoveResponse as PbMemberRemoveResponse,
+        MemberUpdateResponse as PbMemberUpdateResponse, MoveLeaderResponse as PbMoveLeaderResponse,
+        PutResponse as PbPutResponse, RangeResponse as PbRangeResponse,
+        ResponseHeader as PbResponseHeader, StatusResponse as PbStatusResponse,
+        TxnResponse as PbTxnResponse, WatchResponse as PbWatchResponse,
+    };
+    pub use crate::rpc::pb::mvccpb::Event as PbEvent;
+    pub use crate::rpc::pb::v3electionpb::{
+        CampaignResponse as PbCampaignResponse, LeaderKey as PbLeaderKey,
+        LeaderResponse as PbLeaderResponse, ProclaimResponse as PbProclaimResponse,
+        ResignResponse as PbResignResponse,
+    };
+    pub use crate::rpc::pb::v3lockpb::{
+        LockResponse as PbLockResponse, UnlockResponse as PbUnlockResponse,
+    };
+    pub use crate::rpc::pb::mvccpb::KeyValue as PbKeyValue;
+}
 
 #[cfg(feature = "tls")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tls")))]

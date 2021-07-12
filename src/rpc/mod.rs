@@ -1,5 +1,9 @@
 //! Etcd RPC interfaces.
 
+#[cfg(feature = "protobuf-response-structs")]
+pub mod pb;
+
+#[cfg(not(feature = "protobuf-response-structs"))]
 mod pb;
 
 pub mod auth;
