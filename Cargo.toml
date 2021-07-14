@@ -14,7 +14,6 @@ keywords = ["etcd", "v3", "api", "client", "async"]
 [features]
 tls = ["tonic/tls"]
 tls-roots = ["tls", "tonic/tls-roots"]
-protobuf-response-structs = ["pub-field"]
 pub-field = ["visible"]
 
 [dependencies]

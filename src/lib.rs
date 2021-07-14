@@ -52,8 +52,8 @@
 //! enabled by default.
 //! - `tls-roots`: Adds system trust roots to `rustls`-based TLS connection using the
 //! `rustls-native-certs` crate. Not enabled by default.
-//! - `protobuf-response-structs`: Exposes structs used to create regular `etcd-client`
-//! responses. Useful for mocking. Not enabled by default.
+//! - `pub-field`: Exposes structs used to create regular `etcd-client` responses
+//! including internal protobuf representations. Useful for mocking. Not enabled by default.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
@@ -101,9 +101,9 @@ pub use crate::rpc::watch::{
 };
 pub use crate::rpc::{KeyValue, ResponseHeader};
 
-/// Exposes internal protobuf representations used create regular public response types.
-#[cfg(feature = "protobuf-response-structs")]
-#[cfg_attr(docsrs, doc(cfg(feature = "protobuf-response-structs")))]
+/// Exposes internal protobuf representations used to create regular public response types.
+#[cfg(feature = "pub-field")]
+#[cfg_attr(docsrs, doc(cfg(feature = "pub-field")))]
 pub mod internal {
     pub use crate::rpc::pb::etcdserverpb::AlarmMember as PbAlarmMember;
     pub use crate::rpc::pb::etcdserverpb::{
