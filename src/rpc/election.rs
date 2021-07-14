@@ -185,6 +185,7 @@ impl IntoRequest<PbResignRequest> for ResignOptions {
 }
 
 /// Response for `Campaign` operation.
+#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct CampaignResponse(PbCampaignResponse);
@@ -221,6 +222,7 @@ impl CampaignResponse {
 }
 
 /// Response for `Proclaim` operation.
+#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct ProclaimResponse(PbProclaimResponse);
@@ -245,6 +247,7 @@ impl ProclaimResponse {
 }
 
 /// Response for `Leader` operation.
+#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct LeaderResponse(PbLeaderResponse);
@@ -281,6 +284,7 @@ impl LeaderResponse {
 }
 
 /// Response for `Observe` operation.
+#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
 #[derive(Debug)]
 pub struct ObserveStream {
     stream: Streaming<PbLeaderResponse>,
@@ -318,6 +322,7 @@ impl Stream for ObserveStream {
 }
 
 /// Response for `Resign` operation.
+#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct ResignResponse(PbResignResponse);

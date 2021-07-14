@@ -105,7 +105,6 @@ pub use crate::rpc::{KeyValue, ResponseHeader};
 #[cfg(feature = "protobuf-response-structs")]
 #[cfg_attr(docsrs, doc(cfg(feature = "protobuf-response-structs")))]
 pub mod internal {
-    pub use crate::rpc::pb::etcdserverpb::maintenance_client::MaintenanceClient as PbMaintenanceClient;
     pub use crate::rpc::pb::etcdserverpb::AlarmMember as PbAlarmMember;
     pub use crate::rpc::pb::etcdserverpb::{
         AlarmResponse as PbAlarmResponse, AuthDisableResponse as PbAuthDisableResponse,
@@ -139,6 +138,7 @@ pub mod internal {
         TxnResponse as PbTxnResponse, WatchResponse as PbWatchResponse,
     };
     pub use crate::rpc::pb::mvccpb::Event as PbEvent;
+    pub use crate::rpc::pb::mvccpb::KeyValue as PbKeyValue;
     pub use crate::rpc::pb::v3electionpb::{
         CampaignResponse as PbCampaignResponse, LeaderKey as PbLeaderKey,
         LeaderResponse as PbLeaderResponse, ProclaimResponse as PbProclaimResponse,
@@ -147,7 +147,6 @@ pub mod internal {
     pub use crate::rpc::pb::v3lockpb::{
         LockResponse as PbLockResponse, UnlockResponse as PbUnlockResponse,
     };
-    pub use crate::rpc::pb::mvccpb::KeyValue as PbKeyValue;
 }
 
 #[cfg(feature = "tls")]

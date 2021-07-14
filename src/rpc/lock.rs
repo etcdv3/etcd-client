@@ -112,6 +112,7 @@ impl IntoRequest<PbLockRequest> for LockOptions {
 }
 
 /// Response for `Lock` operation.
+#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
 #[derive(Debug, Default, Clone)]
 #[repr(transparent)]
 pub struct LockResponse(PbLockResponse);
@@ -179,6 +180,7 @@ impl IntoRequest<PbUnlockRequest> for UnlockOptions {
 }
 
 /// Response for `Unlock` operation.
+#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
 #[derive(Debug, Default, Clone)]
 #[repr(transparent)]
 pub struct UnlockResponse(PbUnlockResponse);
