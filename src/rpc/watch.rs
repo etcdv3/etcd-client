@@ -232,7 +232,7 @@ pub enum WatchFilterType {
 }
 
 /// Response for `Watch` operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct WatchResponse(PbWatchResponse);
@@ -306,7 +306,7 @@ impl WatchResponse {
 }
 
 /// Watching event.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct Event(PbEvent);
@@ -342,7 +342,7 @@ impl Event {
 }
 
 /// The watching handle.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug)]
 pub struct Watcher {
     watch_id: i64,
@@ -387,7 +387,7 @@ impl Watcher {
 }
 
 /// The watch response stream.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug)]
 pub struct WatchStream {
     stream: Streaming<PbWatchResponse>,

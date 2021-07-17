@@ -297,7 +297,7 @@ impl IntoRequest<PbAuthEnableRequest> for AuthEnableOptions {
 }
 
 /// Response for `AuthEnable` operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Default, Clone)]
 #[repr(transparent)]
 pub struct AuthEnableResponse(PbAuthEnableResponse);
@@ -349,7 +349,7 @@ impl IntoRequest<PbAuthDisableRequest> for AuthDisableOptions {
 }
 
 /// Response for `AuthDisable` operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Default, Clone)]
 #[repr(transparent)]
 pub struct AuthDisableResponse(PbAuthDisableResponse);
@@ -413,7 +413,7 @@ impl IntoRequest<PbAuthenticateRequest> for AuthenticateOptions {
 }
 
 /// Response for `Authenticate` operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Default, Clone)]
 #[repr(transparent)]
 pub struct AuthenticateResponse(PbAuthenticateResponse);
@@ -474,7 +474,7 @@ impl IntoRequest<PbAuthRoleAddRequest> for RoleAddOptions {
 }
 
 /// Response for role add operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct RoleAddResponse(PbAuthRoleAddResponse);
@@ -527,7 +527,7 @@ impl IntoRequest<PbAuthRoleDeleteRequest> for RoleDeleteOptions {
 }
 
 /// Response for delete role operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct RoleDeleteResponse(PbAuthRoleDeleteResponse);
@@ -792,7 +792,7 @@ impl From<Permission> for PbPermission {
 }
 
 /// Response for get role operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct RoleGetResponse(PbAuthRoleGetResponse);
@@ -831,7 +831,7 @@ impl RoleGetResponse {
 use PbAuthRoleListRequest as AuthRoleListOptions;
 
 /// Response for list role operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct RoleListResponse(PbAuthRoleListResponse);
@@ -893,7 +893,7 @@ impl IntoRequest<PbAuthRoleGrantPermissionRequest> for RoleGrantPermissionOption
 }
 
 /// Response for grant role permission operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct RoleGrantPermissionResponse(PbAuthRoleGrantPermissionResponse);
@@ -1001,7 +1001,7 @@ impl IntoRequest<PbAuthRoleRevokePermissionRequest> for RoleRevokePermissionOpti
 }
 
 /// Response for revoke role permission operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct RoleRevokePermissionResponse(PbAuthRoleRevokePermissionResponse);
@@ -1079,7 +1079,7 @@ impl IntoRequest<PbAuthUserAddRequest> for UserAddOptions {
 }
 
 /// Response for use add operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct UserAddResponse(PbAuthUserAddResponse);
@@ -1132,7 +1132,7 @@ impl IntoRequest<PbAuthUserGetRequest> for UserGetOptions {
 }
 
 /// Response for get user operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct UserGetResponse(PbAuthUserGetResponse);
@@ -1167,7 +1167,7 @@ impl UserGetResponse {
 use PbAuthUserListRequest as AuthUserListOptions;
 
 /// Response for list user operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct UserListResponse(PbAuthUserListResponse);
@@ -1226,7 +1226,7 @@ impl IntoRequest<PbAuthUserDeleteRequest> for UserDeleteOptions {
 }
 
 /// Response for delete user operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct UserDeleteResponse(PbAuthUserDeleteResponse);
@@ -1282,7 +1282,7 @@ impl IntoRequest<PbAuthUserChangePasswordRequest> for UserChangePasswordOptions 
 }
 
 /// Response for change user's password operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct UserChangePasswordResponse(PbAuthUserChangePasswordResponse);
@@ -1335,7 +1335,7 @@ impl IntoRequest<PbAuthUserGrantRoleRequest> for UserGrantRoleOptions {
 }
 
 /// Response for grant role for an user operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct UserGrantRoleResponse(PbAuthUserGrantRoleResponse);
@@ -1388,7 +1388,7 @@ impl IntoRequest<PbAuthUserRevokeRoleRequest> for UserRevokeRoleOptions {
 }
 
 /// Response for revoke role for an user operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct UserRevokeRoleResponse(PbAuthUserRevokeRoleResponse);

@@ -207,13 +207,13 @@ impl IntoRequest<PbSnapshotRequest> for SnapshotOptions {
 }
 
 /// Response for `alarm` operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct AlarmResponse(PbAlarmResponse);
 
 /// Alarm member of respond.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Clone, PartialEq)]
 pub struct AlarmMember {
     /// memberID is the ID of the member associated with the raised alarm.
@@ -263,7 +263,7 @@ impl AlarmResponse {
 }
 
 /// Response for `status` operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct StatusResponse(PbStatusResponse);
@@ -343,7 +343,7 @@ impl StatusResponse {
 }
 
 /// Response for `defragment` operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct DefragmentResponse(PbDefragmentResponse);
@@ -369,7 +369,7 @@ impl DefragmentResponse {
 }
 
 /// Response for `hash` operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct HashResponse(PbHashResponse);
@@ -401,7 +401,7 @@ impl HashResponse {
 }
 
 /// Response for `hash_kv` operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct HashKvResponse(PbHashKvResponse);
@@ -439,7 +439,7 @@ impl HashKvResponse {
 }
 
 /// Response for `snapshot` operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct SnapshotResponse(PbSnapshotResponse);
@@ -477,7 +477,7 @@ impl SnapshotResponse {
 }
 
 /// Response for `snapshot` operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct SnapshotStreaming(PbStreaming<PbSnapshotResponse>);
@@ -529,7 +529,7 @@ impl IntoRequest<PbMoveLeaderRequest> for MoveLeaderOptions {
 }
 
 /// Response for `MoveLeader` operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct MoveLeaderResponse(PbMoveLeaderResponse);

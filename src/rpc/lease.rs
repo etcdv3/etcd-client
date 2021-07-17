@@ -165,7 +165,7 @@ impl IntoRequest<PbLeaseGrantRequest> for LeaseGrantOptions {
 }
 
 /// Response for `Grant` operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct LeaseGrantResponse(PbLeaseGrantResponse);
@@ -243,7 +243,7 @@ impl IntoRequest<PbLeaseRevokeRequest> for LeaseRevokeOptions {
 }
 
 /// Response for `Revoke` operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct LeaseRevokeResponse(PbLeaseRevokeResponse);
@@ -303,7 +303,7 @@ impl IntoRequest<PbLeaseKeepAliveRequest> for LeaseKeepAliveOptions {
 }
 
 /// Response for `KeepAlive` operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct LeaseKeepAliveResponse(PbLeaseKeepAliveResponse);
@@ -382,7 +382,7 @@ impl IntoRequest<PbLeaseTimeToLiveRequest> for LeaseTimeToLiveOptions {
 }
 
 /// Response for `TimeToLive` operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct LeaseTimeToLiveResponse(PbLeaseTimeToLiveResponse);
@@ -432,7 +432,7 @@ impl LeaseTimeToLiveResponse {
 }
 
 /// Response for `Leases` operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct LeaseLeasesResponse(PbLeaseLeasesResponse);
@@ -464,7 +464,7 @@ impl LeaseLeasesResponse {
 }
 
 /// Lease status.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone, PartialEq)]
 #[repr(transparent)]
 pub struct LeaseStatus(PbLeaseStatus);
@@ -485,7 +485,7 @@ impl From<&PbLeaseStatus> for &LeaseStatus {
 }
 
 /// The lease keep alive handle.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug)]
 pub struct LeaseKeeper {
     id: i64,
@@ -516,7 +516,7 @@ impl LeaseKeeper {
 }
 
 /// The lease keep alive response stream.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug)]
 pub struct LeaseKeepAliveStream {
     stream: Streaming<PbLeaseKeepAliveResponse>,

@@ -52,7 +52,7 @@
 //! enabled by default.
 //! - `tls-roots`: Adds system trust roots to `rustls`-based TLS connection using the
 //! `rustls-native-certs` crate. Not enabled by default.
-//! - `pub-field`: Exposes structs used to create regular `etcd-client` responses
+//! - `pub-response-field`: Exposes structs used to create regular `etcd-client` responses
 //! including internal protobuf representations. Useful for mocking. Not enabled by default.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
@@ -101,10 +101,14 @@ pub use crate::rpc::watch::{
 };
 pub use crate::rpc::{KeyValue, ResponseHeader};
 
+#[cfg(feature = "tls")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tls")))]
+pub use tonic::transport::{Certificate, ClientTlsConfig as TlsOptions, Identity};
+
 /// Exposes internal protobuf representations used to create regular public response types.
-#[cfg(feature = "pub-field")]
-#[cfg_attr(docsrs, doc(cfg(feature = "pub-field")))]
-pub mod internal {
+#[cfg(feature = "pub-response-field")]
+#[cfg_attr(docsrs, doc(cfg(feature = "pub-response-field")))]
+pub mod proto {
     pub use crate::rpc::pb::etcdserverpb::AlarmMember as PbAlarmMember;
     pub use crate::rpc::pb::etcdserverpb::{
         AlarmResponse as PbAlarmResponse, AuthDisableResponse as PbAuthDisableResponse,
@@ -134,8 +138,9 @@ pub mod internal {
         MemberRemoveResponse as PbMemberRemoveResponse,
         MemberUpdateResponse as PbMemberUpdateResponse, MoveLeaderResponse as PbMoveLeaderResponse,
         PutResponse as PbPutResponse, RangeResponse as PbRangeResponse,
-        ResponseHeader as PbResponseHeader, StatusResponse as PbStatusResponse,
-        TxnResponse as PbTxnResponse, WatchResponse as PbWatchResponse,
+        ResponseHeader as PbResponseHeader, SnapshotResponse as PbSnapshotResponse,
+        StatusResponse as PbStatusResponse, TxnResponse as PbTxnResponse,
+        WatchResponse as PbWatchResponse,
     };
     pub use crate::rpc::pb::mvccpb::Event as PbEvent;
     pub use crate::rpc::pb::mvccpb::KeyValue as PbKeyValue;
@@ -148,7 +153,3 @@ pub mod internal {
         LockResponse as PbLockResponse, UnlockResponse as PbUnlockResponse,
     };
 }
-
-#[cfg(feature = "tls")]
-#[cfg_attr(docsrs, doc(cfg(feature = "tls")))]
-pub use tonic::transport::{Certificate, ClientTlsConfig as TlsOptions, Identity};

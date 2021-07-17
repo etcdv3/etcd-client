@@ -141,7 +141,7 @@ impl IntoRequest<PbMemberAddRequest> for MemberAddOptions {
 }
 
 /// Response for `MemberAdd` operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Default, Clone)]
 #[repr(transparent)]
 pub struct MemberAddResponse(PbMemberAddResponse);
@@ -213,7 +213,7 @@ impl IntoRequest<PbMemberRemoveRequest> for MemberRemoveOptions {
 }
 
 /// Response for `MemberRemove` operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Default, Clone)]
 #[repr(transparent)]
 pub struct MemberRemoveResponse(PbMemberRemoveResponse);
@@ -282,7 +282,7 @@ impl IntoRequest<PbMemberUpdateRequest> for MemberUpdateOptions {
 }
 
 /// Response for `MemberUpdate` operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Default, Clone)]
 #[repr(transparent)]
 pub struct MemberUpdateResponse(PbMemberUpdateResponse);
@@ -314,7 +314,7 @@ impl MemberUpdateResponse {
 }
 
 /// Response for `MemberList` operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct MemberListResponse(PbMemberListResponse);
@@ -346,7 +346,7 @@ impl MemberListResponse {
 }
 
 /// Cluster member.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone, PartialEq)]
 #[repr(transparent)]
 pub struct Member(PbMember);
@@ -425,7 +425,7 @@ impl IntoRequest<PbMemberPromoteRequest> for MemberPromoteOptions {
 }
 
 /// Response for `MemberPromote` operation.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Default, Clone)]
 #[repr(transparent)]
 pub struct MemberPromoteResponse(PbMemberPromoteResponse);
