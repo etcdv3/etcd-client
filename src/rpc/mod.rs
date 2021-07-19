@@ -1,5 +1,9 @@
 //! Etcd RPC interfaces.
 
+#[cfg(feature = "pub-response-field")]
+pub(crate) mod pb;
+
+#[cfg(not(feature = "pub-response-field"))]
 mod pb;
 
 pub mod auth;
@@ -16,6 +20,7 @@ use pb::etcdserverpb::ResponseHeader as PbResponseHeader;
 use pb::mvccpb::KeyValue as PbKeyValue;
 
 /// General `etcd` response header.
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct ResponseHeader(PbResponseHeader);
@@ -63,6 +68,7 @@ impl From<&PbResponseHeader> for &ResponseHeader {
 }
 
 /// Key-value pair.
+#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct KeyValue(PbKeyValue);

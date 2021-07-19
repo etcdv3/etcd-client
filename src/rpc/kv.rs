@@ -189,6 +189,7 @@ impl IntoRequest<PbPutRequest> for PutOptions {
 }
 
 /// Response for `Put` operation.
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct PutResponse(PbPutResponse);
@@ -405,6 +406,7 @@ impl IntoRequest<PbRangeRequest> for GetOptions {
 }
 
 /// Response for `Get` operation.
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct GetResponse(PbRangeResponse);
@@ -531,6 +533,7 @@ impl IntoRequest<PbDeleteRequest> for DeleteOptions {
 }
 
 /// Response for `Delete` operation.
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct DeleteResponse(PbDeleteResponse);
@@ -607,6 +610,7 @@ impl IntoRequest<PbCompactionRequest> for CompactionOptions {
 }
 
 /// Response for `Compact` operation.
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct CompactionResponse(PbCompactionResponse);
@@ -857,6 +861,7 @@ impl IntoRequest<PbTxnRequest> for Txn {
 }
 
 /// Transaction operation response.
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 pub enum TxnOpResponse {
     Put(PutResponse),
@@ -866,6 +871,7 @@ pub enum TxnOpResponse {
 }
 
 /// Response for `Txn` operation.
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct TxnResponse(PbTxnResponse);
