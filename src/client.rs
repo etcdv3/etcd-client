@@ -34,6 +34,7 @@ use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 #[cfg(feature = "tls")]
 use crate::TlsOptions;
 use std::sync::Arc;
+use std::time::Duration;
 use tonic::transport::Channel;
 
 const HTTP_PREFIX: &str = "http://";
@@ -62,7 +63,7 @@ impl Client {
             let mut eps = Vec::new();
             for e in endpoints.as_ref() {
                 let e = e.as_ref();
-                let channel = if e.starts_with(HTTP_PREFIX) {
+                let mut channel = if e.starts_with(HTTP_PREFIX) {
                     #[cfg(feature = "tls")]
                     if let Some(ref connect_options) = options {
                         if connect_options.tls.is_some() {
@@ -117,6 +118,15 @@ impl Client {
                         Channel::builder(e.parse()?)
                     }
                 };
+
+                let keep_alive = options.as_ref().and_then(|options| options.keep_alive);
+                if let Some((interval, timeout)) = keep_alive {
+                    channel = channel
+                        .keep_alive_while_idle(true)
+                        .http2_keep_alive_interval(interval)
+                        .keep_alive_timeout(timeout);
+                }
+
                 eps.push(channel);
             }
             eps
@@ -607,6 +617,8 @@ pub struct ConnectOptions {
     user: Option<(String, String)>,
     #[cfg(feature = "tls")]
     tls: Option<TlsOptions>,
+    /// (keep_alive_timeout, keep_alive_interval)
+    keep_alive: Option<(Duration, Duration)>,
 }
 
 impl ConnectOptions {
@@ -628,6 +640,13 @@ impl ConnectOptions {
         self
     }
 
+    /// Enable HTTP2 keep alive with `interval` and `timeout`.
+    #[inline]
+    pub fn with_keep_alive(mut self, interval: Duration, timeout: Duration) -> Self {
+        self.keep_alive = Some((interval, timeout));
+        self
+    }
+
     /// Creates a `ConnectOptions`.
     #[inline]
     pub const fn new() -> Self {
@@ -635,6 +654,7 @@ impl ConnectOptions {
             user: None,
             #[cfg(feature = "tls")]
             tls: None,
+            keep_alive: None,
         }
     }
 }
