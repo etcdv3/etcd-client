@@ -615,10 +615,10 @@ impl Client {
 pub struct ConnectOptions {
     /// user is a pair values of name and password
     user: Option<(String, String)>,
+    /// HTTP2 keep-alive: (keep_alive_interval, keep_alive_timeout)
+    keep_alive: Option<(Duration, Duration)>,
     #[cfg(feature = "tls")]
     tls: Option<TlsOptions>,
-    /// (keep_alive_timeout, keep_alive_interval)
-    keep_alive: Option<(Duration, Duration)>,
 }
 
 impl ConnectOptions {
@@ -640,7 +640,7 @@ impl ConnectOptions {
         self
     }
 
-    /// Enable HTTP2 keep alive with `interval` and `timeout`.
+    /// Enable HTTP2 keep-alive with `interval` and `timeout`.
     #[inline]
     pub fn with_keep_alive(mut self, interval: Duration, timeout: Duration) -> Self {
         self.keep_alive = Some((interval, timeout));
