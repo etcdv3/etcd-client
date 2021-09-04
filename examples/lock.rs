@@ -31,10 +31,10 @@ async fn main() -> Result<(), Error> {
         "try to lock with name \'lock-test2\' and lease {:?}",
         lease_id
     );
-    let loptions = LockOptions::new().with_lease(lease_id);
-    let resp = client.lock("lock-test2", Some(loptions)).await?;
+    let lock_options = LockOptions::new().with_lease(lease_id);
+    let resp = client.lock("lock-test2", Some(lock_options)).await?;
     let key = resp.key();
-    let key_str = std::str::from_utf8(&key);
+    let key_str = std::str::from_utf8(key);
     println!("the key is {:?}", key_str);
 
     println!("try to unlock it");
