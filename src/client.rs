@@ -652,9 +652,9 @@ impl ConnectOptions {
     pub const fn new() -> Self {
         ConnectOptions {
             user: None,
+            keep_alive: None,
             #[cfg(feature = "tls")]
             tls: None,
-            keep_alive: None,
         }
     }
 }
