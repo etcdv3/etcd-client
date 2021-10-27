@@ -109,8 +109,12 @@ pub use tonic::transport::{Certificate, ClientTlsConfig as TlsOptions, Identity}
 #[cfg(feature = "pub-response-field")]
 #[cfg_attr(docsrs, doc(cfg(feature = "pub-response-field")))]
 pub mod proto {
+    pub use crate::rpc::pb::etcdserverpb::compare::{
+        CompareTarget as PbCompareTarget, TargetUnion as PbTargetUnion,
+    };
     pub use crate::rpc::pb::etcdserverpb::AlarmMember as PbAlarmMember;
     pub use crate::rpc::pb::etcdserverpb::{
+        request_op::Request as PbTxnOpRequest, response_op::Response as PbTxnOpResponse,
         AlarmResponse as PbAlarmResponse, AuthDisableResponse as PbAuthDisableResponse,
         AuthEnableResponse as PbAuthEnableResponse, AuthRoleAddResponse as PbAuthRoleAddResponse,
         AuthRoleDeleteResponse as PbAuthRoleDeleteResponse,
@@ -138,9 +142,10 @@ pub mod proto {
         MemberRemoveResponse as PbMemberRemoveResponse,
         MemberUpdateResponse as PbMemberUpdateResponse, MoveLeaderResponse as PbMoveLeaderResponse,
         PutResponse as PbPutResponse, RangeResponse as PbRangeResponse,
-        ResponseHeader as PbResponseHeader, SnapshotResponse as PbSnapshotResponse,
-        StatusResponse as PbStatusResponse, TxnResponse as PbTxnResponse,
-        WatchResponse as PbWatchResponse,
+        RequestOp as PbTxnRequestOp, ResponseHeader as PbResponseHeader,
+        ResponseOp as PbResponseOp, SnapshotResponse as PbSnapshotResponse,
+        StatusResponse as PbStatusResponse, TxnRequest as PbTxnRequest,
+        TxnResponse as PbTxnResponse, WatchResponse as PbWatchResponse,
     };
     pub use crate::rpc::pb::mvccpb::Event as PbEvent;
     pub use crate::rpc::pb::mvccpb::KeyValue as PbKeyValue;
