@@ -68,7 +68,7 @@ impl From<&PbResponseHeader> for &ResponseHeader {
 }
 
 /// Key-value pair.
-#[cfg_attr(feature = "pub-field", visible::StructFields(pub))]
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct KeyValue(PbKeyValue);
