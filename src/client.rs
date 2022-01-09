@@ -134,7 +134,7 @@ impl Client {
 
         let channel = match endpoints.len() {
             0 => return Err(Error::InvalidArgs(String::from("empty endpoints"))),
-            1 => endpoints[0].connect().await?,
+            1 => endpoints[0].connect_lazy(),
             _ => Channel::balance_list(endpoints.into_iter()),
         };
 
