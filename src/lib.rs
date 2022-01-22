@@ -24,7 +24,7 @@
 //!
 //! To get started using `etcd-client`:
 //!
-//! ```Rust
+//! ```rust
 //! use etcd_client::{Client, Error};
 //!
 //! #[tokio::main]

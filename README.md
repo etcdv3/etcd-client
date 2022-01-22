@@ -36,7 +36,7 @@ tokio = { version = "1.0", features = ["full"] }
 
 To get started using `etcd-client`:
 
-```Rust
+```rust
 use etcd_client::{Client, Error};
 
 #[tokio::main]
