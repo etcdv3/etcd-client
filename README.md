@@ -66,7 +66,7 @@ Examples can be found in [`examples`](./examples).
 
 ## Test
 
-We test this library with etcd 3.4.
+We test this library with etcd 3.5.
 
 Notes that we use a fixed `etcd` server URI (localhost:2379) to connect to etcd server.
 
