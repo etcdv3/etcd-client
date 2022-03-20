@@ -35,7 +35,7 @@ use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 use crate::TlsOptions;
 use std::sync::Arc;
 use std::time::Duration;
-use tonic::transport::Channel;
+use tonic::transport::{Channel, Endpoint};
 
 const HTTP_PREFIX: &str = "http://";
 const HTTPS_PREFIX: &str = "https://";
@@ -57,80 +57,12 @@ impl Client {
     /// Connect to `etcd` servers from given `endpoints`.
     pub async fn connect<E: AsRef<str>, S: AsRef<[E]>>(
         endpoints: S,
-        options: Option<ConnectOptions>,
+        mut options: Option<ConnectOptions>,
     ) -> Result<Self> {
         let endpoints = {
             let mut eps = Vec::new();
             for e in endpoints.as_ref() {
-                let e = e.as_ref();
-                let mut channel = if e.starts_with(HTTP_PREFIX) {
-                    #[cfg(feature = "tls")]
-                    if let Some(ref connect_options) = options {
-                        if connect_options.tls.is_some() {
-                            return Err(Error::InvalidArgs(String::from(
-                                "TLS options are only supported with HTTPS URLs",
-                            )));
-                        }
-                    }
-
-                    Channel::builder(e.parse()?)
-                } else if e.starts_with(HTTPS_PREFIX) {
-                    #[cfg(not(feature = "tls"))]
-                    return Err(Error::InvalidArgs(String::from(
-                        "HTTPS URLs are only supported with the feature \"tls\"",
-                    )));
-
-                    #[cfg(feature = "tls")]
-                    {
-                        let tls = if let Some(ref connect_options) = options {
-                            connect_options.tls.clone()
-                        } else {
-                            None
-                        }
-                        .unwrap_or_else(TlsOptions::new);
-
-                        Channel::builder(e.parse()?).tls_config(tls)?
-                    }
-                } else {
-                    #[cfg(feature = "tls")]
-                    {
-                        let tls = if let Some(ref connect_options) = options {
-                            connect_options.tls.clone()
-                        } else {
-                            None
-                        };
-
-                        match tls {
-                            Some(tls) => {
-                                let e = HTTPS_PREFIX.to_owned() + e;
-                                Channel::builder(e.parse()?).tls_config(tls)?
-                            }
-                            None => {
-                                let e = HTTP_PREFIX.to_owned() + e;
-                                Channel::builder(e.parse()?)
-                            }
-                        }
-                    }
-
-                    #[cfg(not(feature = "tls"))]
-                    {
-                        let e = HTTP_PREFIX.to_owned() + e;
-                        Channel::builder(e.parse()?)
-                    }
-                };
-
-                let keep_alive = options.as_ref().and_then(|options| options.keep_alive);
-                if let Some((interval, timeout)) = keep_alive {
-                    channel = channel
-                        .keep_alive_while_idle(true)
-                        .http2_keep_alive_interval(interval)
-                        .keep_alive_timeout(timeout);
-                }
-
-                if let Some(timeout) = options.as_ref().and_then(|options| options.timeout) {
-                    channel = channel.timeout(timeout);
-                }
-
+                let channel = Self::build_endpoint(e.as_ref(), &options)?;
                 eps.push(channel);
             }
             eps
@@ -142,15 +74,101 @@ impl Client {
             _ => Channel::balance_list(endpoints.into_iter()),
         };
 
-        let auth_token: Option<Arc<http::HeaderValue>> =
-            if let Some((name, password)) = options.and_then(|options| options.user) {
-                let mut tmp_auth = AuthClient::new(channel.clone(), None);
-                let resp = tmp_auth.authenticate(name, password).await?;
-                Some(Arc::new(resp.token().parse()?))
-            } else {
-                None
-            };
+        let auth_token = Self::auth(channel.clone(), &mut options).await?;
+        Ok(Self::build_client(channel, auth_token))
+    }
 
+    fn build_endpoint(url: &str, options: &Option<ConnectOptions>) -> Result<Endpoint> {
+        let mut endpoint = if url.starts_with(HTTP_PREFIX) {
+            #[cfg(feature = "tls")]
+            if let Some(connect_options) = options {
+                if connect_options.tls.is_some() {
+                    return Err(Error::InvalidArgs(String::from(
+                        "TLS options are only supported with HTTPS URLs",
+                    )));
+                }
+            }
+
+            Channel::builder(url.parse()?)
+        } else if url.starts_with(HTTPS_PREFIX) {
+            #[cfg(not(feature = "tls"))]
+            return Err(Error::InvalidArgs(String::from(
+                "HTTPS URLs are only supported with the feature \"tls\"",
+            )));
+
+            #[cfg(feature = "tls")]
+            {
+                let tls = if let Some(connect_options) = options {
+                    connect_options.tls.clone()
+                } else {
+                    None
+                }
+                .unwrap_or_else(TlsOptions::new);
+
+                Channel::builder(url.parse()?).tls_config(tls)?
+            }
+        } else {
+            #[cfg(feature = "tls")]
+            {
+                let tls = if let Some(connect_options) = options {
+                    connect_options.tls.clone()
+                } else {
+                    None
+                };
+
+                match tls {
+                    Some(tls) => {
+                        let e = HTTPS_PREFIX.to_owned() + url;
+                        Channel::builder(e.parse()?).tls_config(tls)?
+                    }
+                    None => {
+                        let e = HTTP_PREFIX.to_owned() + url;
+                        Channel::builder(e.parse()?)
+                    }
+                }
+            }
+
+            #[cfg(not(feature = "tls"))]
+            {
+                let e = HTTP_PREFIX.to_owned() + url;
+                Channel::builder(e.parse()?)
+            }
+        };
+
+        let keep_alive = options.as_ref().and_then(|options| options.keep_alive);
+        if let Some((interval, timeout)) = keep_alive {
+            endpoint = endpoint
+                .keep_alive_while_idle(true)
+                .http2_keep_alive_interval(interval)
+                .keep_alive_timeout(timeout);
+        }
+
+        if let Some(timeout) = options.as_ref().and_then(|options| options.timeout) {
+            endpoint = endpoint.timeout(timeout);
+        }
+
+        Ok(endpoint)
+    }
+
+    async fn auth(
+        channel: Channel,
+        options: &mut Option<ConnectOptions>,
+    ) -> Result<Option<Arc<http::HeaderValue>>> {
+        let user = match options {
+            None => return Ok(None),
+            Some(opt) => opt.user.take(),
+        };
+
+        if let Some((name, password)) = user {
+            let mut tmp_auth = AuthClient::new(channel.clone(), None);
+            let resp = tmp_auth.authenticate(name, password).await?;
+            Ok(Some(Arc::new(resp.token().parse()?)))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn build_client(channel: Channel, auth_token: Option<Arc<http::HeaderValue>>) -> Self {
         let kv = KvClient::new(channel.clone(), auth_token.clone());
         let watch = WatchClient::new(channel.clone(), auth_token.clone());
         let lease = LeaseClient::new(channel.clone(), auth_token.clone());
@@ -160,7 +178,7 @@ impl Client {
         let maintenance = MaintenanceClient::new(channel.clone(), auth_token.clone());
         let election = ElectionClient::new(channel, auth_token);
 
-        Ok(Self {
+        Self {
             kv,
             watch,
             lease,
@@ -169,7 +187,7 @@ impl Client {
             maintenance,
             cluster,
             election,
-        })
+        }
     }
 
     /// Gets a KV client.
