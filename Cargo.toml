@@ -24,6 +24,7 @@ tokio-stream = "0.1.8"
 tower-service = "0.3.1"
 http = "0.2.6"
 visible =  { version = "0.0.1", optional = true }
+tower = "0.4.12"
 
 [dev-dependencies]
 tokio = { version = "1.17.0", features = ["full"] }

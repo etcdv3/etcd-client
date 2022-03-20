@@ -33,9 +33,14 @@ use crate::rpc::maintenance::{
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 #[cfg(feature = "tls")]
 use crate::TlsOptions;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use tonic::transport::{Channel, Endpoint};
+use tower::discover::Change;
+use tokio::sync::mpsc::Sender as MpscSender;
+
+type Sender = MpscSender<Change<http::uri::Uri, Endpoint>>;
 
 const HTTP_PREFIX: &str = "http://";
 const HTTPS_PREFIX: &str = "https://";
@@ -51,13 +56,15 @@ pub struct Client {
     maintenance: MaintenanceClient,
     cluster: ClusterClient,
     election: ElectionClient,
+    tx: Sender,
+    options: Arc<Option<ConnectOptions>>,
 }
 
 impl Client {
     /// Connect to `etcd` servers from given `endpoints`.
     pub async fn connect<E: AsRef<str>, S: AsRef<[E]>>(
         endpoints: S,
-        mut options: Option<ConnectOptions>,
+        options: Option<ConnectOptions>,
     ) -> Result<Self> {
         let endpoints = {
             let mut eps = Vec::new();
@@ -68,14 +75,22 @@ impl Client {
             eps
         };
 
-        let channel = match endpoints.len() {
-            0 => return Err(Error::InvalidArgs(String::from("empty endpoints"))),
-            1 => endpoints[0].connect_lazy(),
-            _ => Channel::balance_list(endpoints.into_iter()),
-        };
+        if endpoints.is_empty() {
+            return Err(Error::InvalidArgs(String::from("empty endpoints")));
+        }
 
-        let auth_token = Self::auth(channel.clone(), &mut options).await?;
-        Ok(Self::build_client(channel, auth_token))
+        // Always use balance strategy even if there is only one endpoint.
+        let (channel, tx) = Channel::balance_channel(64);
+        for endpoint in endpoints {
+            // The rx inside `channel` won't be closed or dropped here
+            let _ = tx
+                .send(Change::Insert(endpoint.uri().clone(), endpoint))
+                .await
+                .unwrap();
+        }
+
+        let auth_token = Self::auth(channel.clone(), &options).await?;
+        Ok(Self::build_client(channel, tx, auth_token, options))
     }
 
     fn build_endpoint(url: &str, options: &Option<ConnectOptions>) -> Result<Endpoint> {
@@ -152,23 +167,28 @@ impl Client {
 
     async fn auth(
         channel: Channel,
-        options: &mut Option<ConnectOptions>,
+        options: &Option<ConnectOptions>,
     ) -> Result<Option<Arc<http::HeaderValue>>> {
         let user = match options {
             None => return Ok(None),
-            Some(opt) => opt.user.take(),
+            Some(opt) => opt.user.as_ref().take(),
         };
 
         if let Some((name, password)) = user {
             let mut tmp_auth = AuthClient::new(channel.clone(), None);
-            let resp = tmp_auth.authenticate(name, password).await?;
+            let resp = tmp_auth.authenticate(name.clone(), password.clone()).await?;
             Ok(Some(Arc::new(resp.token().parse()?)))
         } else {
             Ok(None)
         }
     }
 
-    fn build_client(channel: Channel, auth_token: Option<Arc<http::HeaderValue>>) -> Self {
+    fn build_client(
+        channel: Channel,
+        tx: Sender,
+        auth_token: Option<Arc<http::HeaderValue>>,
+        options: Option<ConnectOptions>,
+    ) -> Self {
         let kv = KvClient::new(channel.clone(), auth_token.clone());
         let watch = WatchClient::new(channel.clone(), auth_token.clone());
         let lease = LeaseClient::new(channel.clone(), auth_token.clone());
@@ -187,7 +207,52 @@ impl Client {
             maintenance,
             cluster,
             election,
+            tx,
+            options: Arc::new(options),
         }
+    }
+
+    /// Dynamically add a endpoint to the client.
+    ///
+    /// Which can be used to add a new member to the underlying balance cache.
+    /// The typical scenario is that application can use a services discovery
+    /// to discover the member list changes and add/remove them to/from the client.
+    ///
+    /// Note that the [`Client`] doesn't check the authentication before added.
+    /// So the etcd member of the added endpoint REQUIRES to use the same auth
+    /// token as when create the client. Otherwise, the underlying balance
+    /// services will not be able to connect to the new endpoint.
+    pub async fn add_endpoint(&self, endpoint: &str) -> Result<()> {
+        let endpoint = Self::build_endpoint(endpoint, &self.options)?;
+        let tx = &self.tx;
+        tx.send(Change::Insert(endpoint.uri().clone(), endpoint))
+            .await
+            .map_err(|_| {
+                Error::IoError(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        "Failed to add endpoint",
+                ))
+            })?;
+        Ok(())
+    }
+
+    /// Dynamically remove a endpoint in the client.
+    ///
+    /// Note that the `endpoint` str should be the same as it was added.
+    /// And the underlying balance services cache used the hash from the Uri,
+    /// which was parsed from `endpoint` str, to do the equality comparisons.
+    pub async fn remove_endpoint(&self, endpoint: &str) -> Result<()> {
+        let uri = http::Uri::from_str(endpoint)?;
+        let tx = &self.tx;
+        tx.send(Change::Remove(uri))
+            .await
+            .map_err(|_| {
+                Error::IoError(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        "Failed to remove endpoint",
+                ))
+            })?;
+        Ok(())
     }
 
     /// Gets a KV client.
