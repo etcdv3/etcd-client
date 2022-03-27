@@ -140,7 +140,7 @@ pub mod proto {
         PutResponse as PbPutResponse, RangeResponse as PbRangeResponse,
         ResponseHeader as PbResponseHeader, SnapshotResponse as PbSnapshotResponse,
         StatusResponse as PbStatusResponse, TxnResponse as PbTxnResponse,
-        WatchResponse as PbWatchResponse,
+        WatchRequest as PbWatchRequest, WatchResponse as PbWatchResponse,
     };
     pub use crate::rpc::pb::mvccpb::Event as PbEvent;
     pub use crate::rpc::pb::mvccpb::KeyValue as PbKeyValue;

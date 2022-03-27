@@ -68,6 +68,43 @@ impl WatchClient {
 
         Ok((Watcher::new(watch_id, sender), WatchStream::new(stream)))
     }
+
+    /// Establish a new bidirection connection or setup a new watch on an existing
+    /// connection.  
+    pub async fn establish(
+        &mut self,
+        key: impl Into<Vec<u8>>,
+        watch_id: Option<i64>,
+        existing_stream: Option<Sender<WatchRequest>>,
+        options: Option<WatchOptions>,
+    ) -> Result<(Sender<WatchRequest>, Option<WatchStream>)> {
+        let mut options = options.unwrap_or_default().with_key(key);
+        if watch_id.is_some() {
+            options = options.with_watch_id(watch_id.unwrap());
+        }
+        let (sender, receiver) = match existing_stream {
+            Some(sender) => {
+                sender
+                    .send(options.into())
+                    .await
+                    .map_err(|e| Error::WatchError(e.to_string()))?;
+                (sender, None)
+            }
+            None => {
+                let (sender, receiver) = channel::<WatchRequest>(100);
+                sender
+                    .send(options.clone().into())
+                    .await
+                    .map_err(|e| Error::WatchError(e.to_string()))?;
+                let receiver = ReceiverStream::new(receiver);
+
+                let stream = self.inner.watch(receiver).await?.into_inner();
+                (sender, Some(WatchStream::new(stream)))
+            }
+        };
+
+        Ok((sender, receiver))
+    }
 }
 
 /// Options for `Watch` operation.
