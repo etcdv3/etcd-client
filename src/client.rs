@@ -33,14 +33,13 @@ use crate::rpc::maintenance::{
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 #[cfg(feature = "tls")]
 use crate::TlsOptions;
+use http::uri::Uri;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::mpsc::Sender;
 use tonic::transport::{Channel, Endpoint};
 use tower::discover::Change;
-use tokio::sync::mpsc::Sender as MpscSender;
-
-type Sender = MpscSender<Change<http::uri::Uri, Endpoint>>;
 
 const HTTP_PREFIX: &str = "http://";
 const HTTPS_PREFIX: &str = "https://";
@@ -56,8 +55,8 @@ pub struct Client {
     maintenance: MaintenanceClient,
     cluster: ClusterClient,
     election: ElectionClient,
-    tx: Sender,
-    options: Arc<Option<ConnectOptions>>,
+    options: Option<ConnectOptions>,
+    tx: Sender<Change<Uri, Endpoint>>,
 }
 
 impl Client {
@@ -89,7 +88,8 @@ impl Client {
                 .unwrap();
         }
 
-        let auth_token = Self::auth(channel.clone(), &options).await?;
+        let mut options = options;
+        let auth_token = Self::auth(channel.clone(), &mut options).await?;
         Ok(Self::build_client(channel, tx, auth_token, options))
     }
 
@@ -167,16 +167,19 @@ impl Client {
 
     async fn auth(
         channel: Channel,
-        options: &Option<ConnectOptions>,
+        options: &mut Option<ConnectOptions>,
     ) -> Result<Option<Arc<http::HeaderValue>>> {
         let user = match options {
             None => return Ok(None),
-            Some(opt) => opt.user.as_ref().take(),
+            Some(opt) => {
+                // Take away the user, the password should not be stored in client.
+                opt.user.take()
+            }
         };
 
         if let Some((name, password)) = user {
-            let mut tmp_auth = AuthClient::new(channel.clone(), None);
-            let resp = tmp_auth.authenticate(name.clone(), password.clone()).await?;
+            let mut tmp_auth = AuthClient::new(channel, None);
+            let resp = tmp_auth.authenticate(name, password).await?;
             Ok(Some(Arc::new(resp.token().parse()?)))
         } else {
             Ok(None)
@@ -185,7 +188,7 @@ impl Client {
 
     fn build_client(
         channel: Channel,
-        tx: Sender,
+        tx: Sender<Change<Uri, Endpoint>>,
         auth_token: Option<Arc<http::HeaderValue>>,
         options: Option<ConnectOptions>,
     ) -> Self {
@@ -207,8 +210,8 @@ impl Client {
             maintenance,
             cluster,
             election,
+            options,
             tx,
-            options: Arc::new(options),
         }
     }
 
@@ -229,8 +232,8 @@ impl Client {
             .await
             .map_err(|_| {
                 Error::IoError(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        "Failed to add endpoint",
+                    std::io::ErrorKind::Other,
+                    "Failed to add endpoint",
                 ))
             })?;
         Ok(())
@@ -244,14 +247,12 @@ impl Client {
     pub async fn remove_endpoint(&self, endpoint: &str) -> Result<()> {
         let uri = http::Uri::from_str(endpoint)?;
         let tx = &self.tx;
-        tx.send(Change::Remove(uri))
-            .await
-            .map_err(|_| {
-                Error::IoError(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        "Failed to remove endpoint",
-                ))
-            })?;
+        tx.send(Change::Remove(uri)).await.map_err(|_| {
+            Error::IoError(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Failed to remove endpoint",
+            ))
+        })?;
         Ok(())
     }
 
