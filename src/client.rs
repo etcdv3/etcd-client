@@ -225,35 +225,27 @@ impl Client {
     /// So the etcd member of the added endpoint REQUIRES to use the same auth
     /// token as when create the client. Otherwise, the underlying balance
     /// services will not be able to connect to the new endpoint.
-    pub async fn add_endpoint(&self, endpoint: &str) -> Result<()> {
-        let endpoint = Self::build_endpoint(endpoint, &self.options)?;
+    #[inline]
+    pub async fn add_endpoint<E: AsRef<str>>(&self, endpoint: E) -> Result<()> {
+        let endpoint = Self::build_endpoint(endpoint.as_ref(), &self.options)?;
         let tx = &self.tx;
         tx.send(Change::Insert(endpoint.uri().clone(), endpoint))
             .await
-            .map_err(|_| {
-                Error::IoError(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "Failed to add endpoint",
-                ))
-            })?;
-        Ok(())
+            .map_err(|e| Error::EndpointError(format!("failed to add endpoint because of {}", e)))
     }
 
-    /// Dynamically remove a endpoint in the client.
+    /// Dynamically remove a endpoint from the client.
     ///
     /// Note that the `endpoint` str should be the same as it was added.
     /// And the underlying balance services cache used the hash from the Uri,
     /// which was parsed from `endpoint` str, to do the equality comparisons.
-    pub async fn remove_endpoint(&self, endpoint: &str) -> Result<()> {
-        let uri = http::Uri::from_str(endpoint)?;
+    #[inline]
+    pub async fn remove_endpoint<E: AsRef<str>>(&self, endpoint: E) -> Result<()> {
+        let uri = http::Uri::from_str(endpoint.as_ref())?;
         let tx = &self.tx;
-        tx.send(Change::Remove(uri)).await.map_err(|_| {
-            Error::IoError(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Failed to remove endpoint",
-            ))
-        })?;
-        Ok(())
+        tx.send(Change::Remove(uri)).await.map_err(|e| {
+            Error::EndpointError(format!("failed to remove endpoint because of {}", e))
+        })
     }
 
     /// Gets a KV client.
