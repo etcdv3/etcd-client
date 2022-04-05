@@ -37,6 +37,9 @@ pub enum Error {
 
     /// Invalid header value
     InvalidHeaderValue(http::header::InvalidHeaderValue),
+
+    /// Endpoint error
+    EndpointError(String),
 }
 
 impl Display for Error {
@@ -53,6 +56,7 @@ impl Display for Error {
             Error::LeaseKeepAliveError(e) => write!(f, "lease keep alive error: {}", e),
             Error::ElectError(e) => write!(f, "election error: {}", e),
             Error::InvalidHeaderValue(e) => write!(f, "invalid metadata value: {}", e),
+            Error::EndpointError(e) => write!(f, "endpoint error: {}", e),
         }
     }
 }

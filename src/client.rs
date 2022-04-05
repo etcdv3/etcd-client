@@ -33,9 +33,13 @@ use crate::rpc::maintenance::{
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 #[cfg(feature = "tls")]
 use crate::TlsOptions;
+use http::uri::Uri;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::mpsc::Sender;
 use tonic::transport::{Channel, Endpoint};
+use tower::discover::Change;
 
 const HTTP_PREFIX: &str = "http://";
 const HTTPS_PREFIX: &str = "https://";
@@ -51,13 +55,15 @@ pub struct Client {
     maintenance: MaintenanceClient,
     cluster: ClusterClient,
     election: ElectionClient,
+    options: Option<ConnectOptions>,
+    tx: Sender<Change<Uri, Endpoint>>,
 }
 
 impl Client {
     /// Connect to `etcd` servers from given `endpoints`.
     pub async fn connect<E: AsRef<str>, S: AsRef<[E]>>(
         endpoints: S,
-        mut options: Option<ConnectOptions>,
+        options: Option<ConnectOptions>,
     ) -> Result<Self> {
         let endpoints = {
             let mut eps = Vec::new();
@@ -68,14 +74,23 @@ impl Client {
             eps
         };
 
-        let channel = match endpoints.len() {
-            0 => return Err(Error::InvalidArgs(String::from("empty endpoints"))),
-            1 => endpoints[0].connect_lazy(),
-            _ => Channel::balance_list(endpoints.into_iter()),
-        };
+        if endpoints.is_empty() {
+            return Err(Error::InvalidArgs(String::from("empty endpoints")));
+        }
 
+        // Always use balance strategy even if there is only one endpoint.
+        let (channel, tx) = Channel::balance_channel(64);
+        for endpoint in endpoints {
+            // The rx inside `channel` won't be closed or dropped here
+            let _ = tx
+                .send(Change::Insert(endpoint.uri().clone(), endpoint))
+                .await
+                .unwrap();
+        }
+
+        let mut options = options;
         let auth_token = Self::auth(channel.clone(), &mut options).await?;
-        Ok(Self::build_client(channel, auth_token))
+        Ok(Self::build_client(channel, tx, auth_token, options))
     }
 
     fn build_endpoint(url: &str, options: &Option<ConnectOptions>) -> Result<Endpoint> {
@@ -156,11 +171,14 @@ impl Client {
     ) -> Result<Option<Arc<http::HeaderValue>>> {
         let user = match options {
             None => return Ok(None),
-            Some(opt) => opt.user.take(),
+            Some(opt) => {
+                // Take away the user, the password should not be stored in client.
+                opt.user.take()
+            }
         };
 
         if let Some((name, password)) = user {
-            let mut tmp_auth = AuthClient::new(channel.clone(), None);
+            let mut tmp_auth = AuthClient::new(channel, None);
             let resp = tmp_auth.authenticate(name, password).await?;
             Ok(Some(Arc::new(resp.token().parse()?)))
         } else {
@@ -168,7 +186,12 @@ impl Client {
         }
     }
 
-    fn build_client(channel: Channel, auth_token: Option<Arc<http::HeaderValue>>) -> Self {
+    fn build_client(
+        channel: Channel,
+        tx: Sender<Change<Uri, Endpoint>>,
+        auth_token: Option<Arc<http::HeaderValue>>,
+        options: Option<ConnectOptions>,
+    ) -> Self {
         let kv = KvClient::new(channel.clone(), auth_token.clone());
         let watch = WatchClient::new(channel.clone(), auth_token.clone());
         let lease = LeaseClient::new(channel.clone(), auth_token.clone());
@@ -187,7 +210,42 @@ impl Client {
             maintenance,
             cluster,
             election,
+            options,
+            tx,
         }
+    }
+
+    /// Dynamically add an endpoint to the client.
+    ///
+    /// Which can be used to add a new member to the underlying balance cache.
+    /// The typical scenario is that application can use a services discovery
+    /// to discover the member list changes and add/remove them to/from the client.
+    ///
+    /// Note that the [`Client`] doesn't check the authentication before added.
+    /// So the etcd member of the added endpoint REQUIRES to use the same auth
+    /// token as when create the client. Otherwise, the underlying balance
+    /// services will not be able to connect to the new endpoint.
+    #[inline]
+    pub async fn add_endpoint<E: AsRef<str>>(&self, endpoint: E) -> Result<()> {
+        let endpoint = Self::build_endpoint(endpoint.as_ref(), &self.options)?;
+        let tx = &self.tx;
+        tx.send(Change::Insert(endpoint.uri().clone(), endpoint))
+            .await
+            .map_err(|e| Error::EndpointError(format!("failed to add endpoint because of {}", e)))
+    }
+
+    /// Dynamically remove an endpoint from the client.
+    ///
+    /// Note that the `endpoint` str should be the same as it was added.
+    /// And the underlying balance services cache used the hash from the Uri,
+    /// which was parsed from `endpoint` str, to do the equality comparisons.
+    #[inline]
+    pub async fn remove_endpoint<E: AsRef<str>>(&self, endpoint: E) -> Result<()> {
+        let uri = http::Uri::from_str(endpoint.as_ref())?;
+        let tx = &self.tx;
+        tx.send(Change::Remove(uri)).await.map_err(|e| {
+            Error::EndpointError(format!("failed to remove endpoint because of {}", e))
+        })
     }
 
     /// Gets a KV client.
@@ -696,9 +754,11 @@ mod tests {
     use super::*;
     use crate::{Compare, CompareOp, EventType, PermissionType, TxnOp, TxnOpResponse};
 
+    const DEFAULT_TEST_ENDPOINT: &str = "localhost:2379";
+
     /// Get client for testing.
     async fn get_client() -> Result<Client> {
-        Client::connect(["localhost:2379"], None).await
+        Client::connect([DEFAULT_TEST_ENDPOINT], None).await
     }
 
     #[tokio::test]
@@ -1428,6 +1488,39 @@ mod tests {
         let header = resp.header();
         println!("resign header {:?}", header.unwrap());
         assert!(header.is_some());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_remove_and_add_endpoint() -> Result<()> {
+        let mut client = get_client().await?;
+        client.put("endpoint", "add_remove", None).await?;
+
+        // get key
+        {
+            let resp = client.get("endpoint", None).await?;
+            assert_eq!(resp.count(), 1);
+            assert!(!resp.more());
+            assert_eq!(resp.kvs().len(), 1);
+            assert_eq!(resp.kvs()[0].key(), b"endpoint");
+            assert_eq!(resp.kvs()[0].value(), b"add_remove");
+        }
+
+        // remove endpoint
+        client.remove_endpoint(DEFAULT_TEST_ENDPOINT).await?;
+        // `Client::get` will hang before adding the endpoint back
+        client.add_endpoint(DEFAULT_TEST_ENDPOINT).await?;
+
+        // get key after remove and add endpoint
+        {
+            let resp = client.get("endpoint", None).await?;
+            assert_eq!(resp.count(), 1);
+            assert!(!resp.more());
+            assert_eq!(resp.kvs().len(), 1);
+            assert_eq!(resp.kvs()[0].key(), b"endpoint");
+            assert_eq!(resp.kvs()[0].value(), b"add_remove");
+        }
 
         Ok(())
     }
