@@ -215,7 +215,7 @@ impl Client {
         }
     }
 
-    /// Dynamically add a endpoint to the client.
+    /// Dynamically add an endpoint to the client.
     ///
     /// Which can be used to add a new member to the underlying balance cache.
     /// The typical scenario is that application can use a services discovery
@@ -234,7 +234,7 @@ impl Client {
             .map_err(|e| Error::EndpointError(format!("failed to add endpoint because of {}", e)))
     }
 
-    /// Dynamically remove a endpoint from the client.
+    /// Dynamically remove an endpoint from the client.
     ///
     /// Note that the `endpoint` str should be the same as it was added.
     /// And the underlying balance services cache used the hash from the Uri,
