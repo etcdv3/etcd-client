@@ -754,9 +754,11 @@ mod tests {
     use super::*;
     use crate::{Compare, CompareOp, EventType, PermissionType, TxnOp, TxnOpResponse};
 
+    const DEFAULT_TEST_ENDPOINT: &str = "localhost:2379";
+
     /// Get client for testing.
     async fn get_client() -> Result<Client> {
-        Client::connect(["localhost:2379"], None).await
+        Client::connect([DEFAULT_TEST_ENDPOINT], None).await
     }
 
     #[tokio::test]
@@ -1486,6 +1488,39 @@ mod tests {
         let header = resp.header();
         println!("resign header {:?}", header.unwrap());
         assert!(header.is_some());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_remove_and_add_endpoint() -> Result<()> {
+        let mut client = get_client().await?;
+        client.put("endpoint", "add_remove", None).await?;
+
+        // get key
+        {
+            let resp = client.get("endpoint", None).await?;
+            assert_eq!(resp.count(), 1);
+            assert!(!resp.more());
+            assert_eq!(resp.kvs().len(), 1);
+            assert_eq!(resp.kvs()[0].key(), b"endpoint");
+            assert_eq!(resp.kvs()[0].value(), b"add_remove");
+        }
+
+        // remove endpoint
+        client.remove_endpoint(DEFAULT_TEST_ENDPOINT).await?;
+        // `Client::get` will hang before adding the endpoint back
+        client.add_endpoint(DEFAULT_TEST_ENDPOINT).await?;
+
+        // get key after remove and add endpoint
+        {
+            let resp = client.get("endpoint", None).await?;
+            assert_eq!(resp.count(), 1);
+            assert!(!resp.more());
+            assert_eq!(resp.kvs().len(), 1);
+            assert_eq!(resp.kvs()[0].key(), b"endpoint");
+            assert_eq!(resp.kvs()[0].value(), b"add_remove");
+        }
 
         Ok(())
     }
