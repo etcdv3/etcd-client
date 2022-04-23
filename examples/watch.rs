@@ -14,13 +14,15 @@ async fn main() -> Result<(), Error> {
     println!();
 
     client.put("foo", "bar2", None).await?;
+    watcher.request_progress().await?;
     client.delete("foo", None).await?;
 
     while let Some(resp) = stream.message().await? {
-        println!("receive watch response");
+        println!("[{}] receive watch response", resp.watch_id());
+        println!("compact revision: {}", resp.compact_revision());
 
         if resp.canceled() {
-            println!("watch canceled!");
+            println!("watch canceled: {}", resp.cancel_reason());
             break;
         }
 

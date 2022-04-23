@@ -46,27 +46,28 @@ impl WatchClient {
         key: impl Into<Vec<u8>>,
         options: Option<WatchOptions>,
     ) -> Result<(Watcher, WatchStream)> {
-        let (sender, receiver) = channel::<WatchRequest>(100);
-        sender
+        let (request_sender, request_receiver) = channel::<WatchRequest>(100);
+        let request_stream = ReceiverStream::new(request_receiver);
+
+        request_sender
             .send(options.unwrap_or_default().with_key(key).into())
             .await
             .map_err(|e| Error::WatchError(e.to_string()))?;
 
-        let receiver = ReceiverStream::new(receiver);
+        let response_stream = self.inner.watch(request_stream).await?.into_inner();
+        let mut watch_stream = WatchStream::new(response_stream);
 
-        let mut stream = self.inner.watch(receiver).await?.into_inner();
-
-        let watch_id = match stream.message().await? {
+        let watch_id = match watch_stream.message().await? {
             Some(resp) => {
-                assert!(resp.created, "not a create watch response");
-                resp.watch_id
+                assert!(resp.created(), "not a create watch response");
+                resp.watch_id()
             }
             None => {
                 return Err(Error::WatchError("failed to create watch".to_string()));
             }
         };
 
-        Ok((Watcher::new(watch_id, sender), WatchStream::new(stream)))
+        Ok((Watcher::new(watch_id, request_sender), watch_stream))
     }
 }
 
@@ -266,9 +267,8 @@ impl WatchResponse {
     /// The client should record the watch_id and expect to receive events for
     /// the created watcher from the same stream.
     /// All events sent to the created watcher will attach with the same watch_id.
-    #[allow(dead_code)]
     #[inline]
-    const fn created(&self) -> bool {
+    pub const fn created(&self) -> bool {
         self.0.created
     }
 
