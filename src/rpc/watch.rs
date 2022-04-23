@@ -362,11 +362,41 @@ impl Watcher {
         self.watch_id
     }
 
+    /// Watches for events happening or that have happened.
+    #[inline]
+    pub async fn watch(
+        &mut self,
+        watch_id: i64,
+        key: impl Into<Vec<u8>>,
+        options: Option<WatchOptions>,
+    ) -> Result<()> {
+        if watch_id == self.watch_id {
+            return Err(Error::WatchError(format!("watch id {} is already used", watch_id)));
+        }
+
+        self.sender
+            .send(options.unwrap_or_default().with_key(key).with_watch_id(watch_id).into())
+            .await
+            .map_err(|e| Error::WatchError(e.to_string()))
+    }
+
     /// Cancels this watcher.
     #[inline]
     pub async fn cancel(&mut self) -> Result<()> {
         let req = WatchCancelRequest {
             watch_id: self.watch_id,
+        };
+        self.sender
+            .send(req.into())
+            .await
+            .map_err(|e| Error::WatchError(e.to_string()))
+    }
+
+    /// Cancels this watcher.
+    #[inline]
+    pub async fn cancel_by_id(&mut self, watch_id: i64) -> Result<()> {
+        let req = WatchCancelRequest {
+            watch_id,
         };
         self.sender
             .send(req.into())

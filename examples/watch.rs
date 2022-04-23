@@ -1,5 +1,6 @@
 //! Watch example
 
+use std::time::Duration;
 use etcd_client::*;
 
 #[tokio::main]
@@ -9,7 +10,10 @@ async fn main() -> Result<(), Error> {
     client.put("foo", "bar", None).await?;
     println!("put kv: {{foo: bar}}");
 
-    let (mut watcher, mut stream) = client.watch("foo", None).await?;
+    client.put("foo1", "bar1", None).await?;
+    println!("put kv: {{foo1: bar1}}");
+
+    let (mut watcher, mut stream) = client.watch("foo", Some(WatchOptions::new().with_watch_id(0))).await?;
     println!("create watcher {}", watcher.watch_id());
     println!();
 
@@ -17,13 +21,27 @@ async fn main() -> Result<(), Error> {
     watcher.request_progress().await?;
     client.delete("foo", None).await?;
 
+    watcher.watch(1, "foo1", None).await?;
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    client.put("foo1", "bar2", None).await?;
+    client.delete("foo1", None).await?;
+
+    let mut watch_count = 2;
+
     while let Some(resp) = stream.message().await? {
         println!("[{}] receive watch response", resp.watch_id());
         println!("compact revision: {}", resp.compact_revision());
 
+        if resp.created() {
+            println!("watcher created: {}", resp.watch_id());
+        }
+
         if resp.canceled() {
-            println!("watch canceled: {}", resp.cancel_reason());
-            break;
+            watch_count -= 1;
+            println!("watch canceled: {}", resp.watch_id());
+            if watch_count == 0 {
+                break;
+            }
         }
 
         for event in resp.events() {
@@ -33,7 +51,7 @@ async fn main() -> Result<(), Error> {
             }
 
             if EventType::Delete == event.event_type() {
-                watcher.cancel().await?;
+                watcher.cancel_by_id(resp.watch_id()).await?;
             }
         }
 
