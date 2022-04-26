@@ -1,7 +1,7 @@
 //! Watch example
 
-use std::time::Duration;
 use etcd_client::*;
+use std::time::Duration;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -13,7 +13,7 @@ async fn main() -> Result<(), Error> {
     client.put("foo1", "bar1", None).await?;
     println!("put kv: {{foo1: bar1}}");
 
-    let (mut watcher, mut stream) = client.watch("foo", Some(WatchOptions::new().with_watch_id(0))).await?;
+    let (mut watcher, mut stream) = client.watch("foo", None).await?;
     println!("create watcher {}", watcher.watch_id());
     println!();
 
@@ -21,7 +21,7 @@ async fn main() -> Result<(), Error> {
     watcher.request_progress().await?;
     client.delete("foo", None).await?;
 
-    watcher.watch(1, "foo1", None).await?;
+    watcher.watch("foo1", None).await?;
     tokio::time::sleep(Duration::from_secs(1)).await;
     client.put("foo1", "bar2", None).await?;
     client.delete("foo1", None).await?;
