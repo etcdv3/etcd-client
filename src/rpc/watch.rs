@@ -387,7 +387,7 @@ impl Watcher {
             .map_err(|e| Error::WatchError(e.to_string()))
     }
 
-    /// Cancels this watcher.
+    /// Cancels watch by specified `watch_id`.
     #[inline]
     pub async fn cancel_by_id(&mut self, watch_id: i64) -> Result<()> {
         let req = WatchCancelRequest { watch_id };
