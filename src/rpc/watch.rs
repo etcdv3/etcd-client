@@ -362,12 +362,35 @@ impl Watcher {
         self.watch_id
     }
 
+    /// Watches for events happening or that have happened.
+    #[inline]
+    pub async fn watch(
+        &mut self,
+        key: impl Into<Vec<u8>>,
+        options: Option<WatchOptions>,
+    ) -> Result<()> {
+        self.sender
+            .send(options.unwrap_or_default().with_key(key).into())
+            .await
+            .map_err(|e| Error::WatchError(e.to_string()))
+    }
+
     /// Cancels this watcher.
     #[inline]
     pub async fn cancel(&mut self) -> Result<()> {
         let req = WatchCancelRequest {
             watch_id: self.watch_id,
         };
+        self.sender
+            .send(req.into())
+            .await
+            .map_err(|e| Error::WatchError(e.to_string()))
+    }
+
+    /// Cancels watch by specified `watch_id`.
+    #[inline]
+    pub async fn cancel_by_id(&mut self, watch_id: i64) -> Result<()> {
+        let req = WatchCancelRequest { watch_id };
         self.sender
             .send(req.into())
             .await
