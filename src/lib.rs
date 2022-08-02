@@ -18,7 +18,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! etcd-client = "0.9"
+//! etcd-client = "0.10"
 //! tokio = { version = "1.0", features = ["full"] }
 //! ```
 //!
