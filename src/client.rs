@@ -749,7 +749,7 @@ impl ConnectOptions {
     /// NOTE: Some of implementations of gRPC server may send GOAWAY if there are too many pings.
     ///       This would be useful if you meet some error like `too many pings`.
     #[inline]
-    pub fn keep_alive_while_idle(mut self, option: bool) -> Self {
+    pub fn with_keep_alive_while_idle(mut self, option: bool) -> Self {
         self.keep_alive_while_idle = option;
         self
     }
