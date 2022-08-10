@@ -153,7 +153,12 @@ impl Client {
         let keep_alive = options.as_ref().and_then(|options| options.keep_alive);
         if let Some((interval, timeout)) = keep_alive {
             endpoint = endpoint
-                .keep_alive_while_idle(true)
+                .keep_alive_while_idle(
+                    options
+                        .as_ref()
+                        .map(|options| options.keep_alive_while_idle)
+                        .unwrap_or(true),
+                )
                 .http2_keep_alive_interval(interval)
                 .keep_alive_timeout(timeout);
         }
@@ -697,6 +702,7 @@ pub struct ConnectOptions {
     user: Option<(String, String)>,
     /// HTTP2 keep-alive: (keep_alive_interval, keep_alive_timeout)
     keep_alive: Option<(Duration, Duration)>,
+    keep_alive_while_idle: bool,
     /// Apply a timeout to each gRPC request.
     timeout: Option<Duration>,
     #[cfg(feature = "tls")]
@@ -736,12 +742,19 @@ impl ConnectOptions {
         self
     }
 
+    #[inline]
+    pub fn keep_alive_while_idle(mut self, option: bool) -> Self {
+        self.keep_alive_while_idle = option;
+        self
+    }
+
     /// Creates a `ConnectOptions`.
     #[inline]
     pub const fn new() -> Self {
         ConnectOptions {
             user: None,
             keep_alive: None,
+            keep_alive_while_idle: true,
             timeout: None,
             #[cfg(feature = "tls")]
             tls: None,
