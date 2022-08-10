@@ -702,6 +702,7 @@ pub struct ConnectOptions {
     user: Option<(String, String)>,
     /// HTTP2 keep-alive: (keep_alive_interval, keep_alive_timeout)
     keep_alive: Option<(Duration, Duration)>,
+    /// Whether send keep alive pings even there are no active requests.
     keep_alive_while_idle: bool,
     /// Apply a timeout to each gRPC request.
     timeout: Option<Duration>,
@@ -742,6 +743,11 @@ impl ConnectOptions {
         self
     }
 
+    /// Whether send keep alive pings even there are no active requests.
+    /// If disabled, keep-alive pings are only sent while there are open request/responses streams.
+    /// If enabled, pings are also sent when no streams are active.
+    /// NOTE: Some of implementations of gRPC server may send GOAWAY if there are too many pings.
+    ///       This would be useful if you meet some error like `too many pings`.
     #[inline]
     pub fn keep_alive_while_idle(mut self, option: bool) -> Self {
         self.keep_alive_while_idle = option;
