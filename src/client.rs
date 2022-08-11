@@ -82,8 +82,7 @@ impl Client {
         let (channel, tx) = Channel::balance_channel(64);
         for endpoint in endpoints {
             // The rx inside `channel` won't be closed or dropped here
-            let _ = tx
-                .send(Change::Insert(endpoint.uri().clone(), endpoint))
+            tx.send(Change::Insert(endpoint.uri().clone(), endpoint))
                 .await
                 .unwrap();
         }
@@ -150,21 +149,17 @@ impl Client {
             }
         };
 
-        let keep_alive = options.as_ref().and_then(|options| options.keep_alive);
-        if let Some((interval, timeout)) = keep_alive {
-            endpoint = endpoint
-                .keep_alive_while_idle(
-                    options
-                        .as_ref()
-                        .map(|options| options.keep_alive_while_idle)
-                        .unwrap_or(true),
-                )
-                .http2_keep_alive_interval(interval)
-                .keep_alive_timeout(timeout);
-        }
+        if let Some(opts) = options {
+            if let Some((interval, timeout)) = opts.keep_alive {
+                endpoint = endpoint
+                    .keep_alive_while_idle(opts.keep_alive_while_idle)
+                    .http2_keep_alive_interval(interval)
+                    .keep_alive_timeout(timeout);
+            }
 
-        if let Some(timeout) = options.as_ref().and_then(|options| options.timeout) {
-            endpoint = endpoint.timeout(timeout);
+            if let Some(timeout) = opts.timeout {
+                endpoint = endpoint.timeout(timeout);
+            }
         }
 
         Ok(endpoint)
@@ -702,7 +697,7 @@ pub struct ConnectOptions {
     user: Option<(String, String)>,
     /// HTTP2 keep-alive: (keep_alive_interval, keep_alive_timeout)
     keep_alive: Option<(Duration, Duration)>,
-    /// Whether send keep alive pings even there are no active requests.
+    /// Whether send keep alive pings even there are no active streams.
     keep_alive_while_idle: bool,
     /// Apply a timeout to each gRPC request.
     timeout: Option<Duration>,
@@ -744,9 +739,9 @@ impl ConnectOptions {
     }
 
     /// Whether send keep alive pings even there are no active requests.
-    /// If disabled, keep-alive pings are only sent while there are open request/responses streams.
+    /// If disabled, keep-alive pings are only sent while there are opened request/response streams.
     /// If enabled, pings are also sent when no streams are active.
-    /// NOTE: Some of implementations of gRPC server may send GOAWAY if there are too many pings.
+    /// NOTE: Some implementations of gRPC server may send GOAWAY if there are too many pings.
     ///       This would be useful if you meet some error like `too many pings`.
     #[inline]
     pub fn with_keep_alive_while_idle(mut self, option: bool) -> Self {
