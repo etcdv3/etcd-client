@@ -214,7 +214,7 @@ pub struct AlarmResponse(PbAlarmResponse);
 
 /// Alarm member of respond.
 #[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct AlarmMember {
     /// memberID is the ID of the member associated with the raised alarm.
     member_id: u64,
