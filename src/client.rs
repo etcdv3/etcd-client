@@ -160,6 +160,10 @@ impl Client {
             if let Some(timeout) = opts.timeout {
                 endpoint = endpoint.timeout(timeout);
             }
+
+            if let Some(timeout) = opts.connect_timeout {
+                endpoint = endpoint.connect_timeout(timeout);
+            }
         }
 
         Ok(endpoint)
@@ -701,6 +705,8 @@ pub struct ConnectOptions {
     keep_alive_while_idle: bool,
     /// Apply a timeout to each gRPC request.
     timeout: Option<Duration>,
+    /// Apply a timeout to connecting to the endpoint.
+    connect_timeout: Option<Duration>,
     #[cfg(feature = "tls")]
     tls: Option<TlsOptions>,
 }
@@ -738,6 +744,13 @@ impl ConnectOptions {
         self
     }
 
+    /// Apply a timeout to connecting to the endpoint.
+    #[inline]
+    pub fn with_connect_timeout(mut self, timeout: Duration) -> Self {
+        self.connect_timeout = Some(timeout);
+        self
+    }
+
     /// Whether send keep alive pings even there are no active requests.
     /// If disabled, keep-alive pings are only sent while there are opened request/response streams.
     /// If enabled, pings are also sent when no streams are active.
@@ -757,6 +770,7 @@ impl ConnectOptions {
             keep_alive: None,
             keep_alive_while_idle: true,
             timeout: None,
+            connect_timeout: None,
             #[cfg(feature = "tls")]
             tls: None,
         }
