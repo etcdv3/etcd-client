@@ -8,6 +8,5 @@ pub use self::openssl_chan::Channel;
 mod openssl_chan {
     use crate::openssl_tls;
 
-    // FIXME: we cannot reference the impl Trait return value directly...
     pub type Channel = openssl_tls::OpenSslChannel;
 }

@@ -1,15 +1,9 @@
 #![cfg(feature = "tls-openssl")]
 
-use std::{
-    task::{Poll},
-};
+use std::task::Poll;
 
-
-use http::{Request, Response, Uri};
-use hyper::{
-    client::{HttpConnector, ResponseFuture},
-    Body,
-};
+use http::{Request, Uri};
+use hyper::client::HttpConnector;
 use hyper_openssl::HttpsConnector;
 use openssl::{
     pkey::PKey,
@@ -17,19 +11,12 @@ use openssl::{
     x509::X509,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
-use tokio_stream::{wrappers::ReceiverStream};
+use tokio_stream::wrappers::ReceiverStream;
 use tonic::{
     body::BoxBody,
     transport::{Channel, Endpoint},
 };
-use tower::{
-    balance::p2c::Balance,
-    buffer::Buffer,
-    discover::{Change},
-    load::Load, Service,
-};
-
-use crate::{Error};
+use tower::{balance::p2c::Balance, buffer::Buffer, discover::Change, load::Load, Service};
 
 use super::error::Result;
 
@@ -129,11 +116,6 @@ pub fn make_connector(opts: OpenSslClientConfig) -> impl Fn() -> Result<SslConne
     }
 }
 
-pub struct OpenSslClient {
-    client: hyper::Client<HttpsConnector<HttpConnector>, BoxBody>,
-    uri: Uri,
-}
-
 #[derive(Clone)]
 struct Secret(Box<[u8]>);
 
@@ -147,16 +129,9 @@ impl std::fmt::Debug for Secret {
 pub struct OpenSslClientConfig {
     ca_cert: Option<Box<[u8]>>,
     client_cert: Option<ClientIdentity>,
-    /// the uri stores the type & authority for auto-filling in consequent requests.
-    to_uri: String,
 }
 
 impl OpenSslClientConfig {
-    pub fn to_url(mut self, s: &str) -> Self {
-        self.to_uri = s.to_owned();
-        self
-    }
-
     pub fn ca_cert_pem(mut self, s: &[u8]) -> Self {
         self.ca_cert = Some(s.to_vec().into_boxed_slice());
         self
@@ -175,68 +150,4 @@ impl OpenSslClientConfig {
 struct ClientIdentity {
     cert: Box<[u8]>,
     key: Secret,
-}
-
-impl OpenSslClient {
-    pub fn new(opts: OpenSslClientConfig) -> Result<Self> {
-        let uri = opts.to_uri.parse::<Uri>().map_err(|err| {
-            Error::InvalidArgs(format!("url {} cannot be parsed: {}", opts.to_uri, err))
-        })?;
-        if uri.scheme().is_none() || uri.authority().is_none() {
-            return Err(Error::InvalidArgs(format!(
-                "the endpoint uri {} isn't valid: it should be the form <schema>://<authority>",
-                uri
-            )));
-        }
-
-        let mut cb = SslConnector::builder(SslMethod::tls())?;
-        if let Some(ref ca) = opts.ca_cert {
-            let ca = X509::from_pem(ca)?;
-            cb.cert_store_mut().add_cert(ca)?;
-        }
-        if let Some(client_id) = opts.client_cert {
-            let client = X509::from_pem(&client_id.cert)?;
-            let client_key = PKey::private_key_from_pem(&client_id.key.0)?;
-            cb.set_certificate(&client)?;
-            cb.set_private_key(&client_key)?;
-        }
-        // Hint for HTTP/2.
-        cb.set_alpn_protos(b"\x02h2")?;
-        let mut http = HttpConnector::new();
-        http.enforce_http(false);
-        let https = HttpsConnector::with_connector(http, cb)?;
-        let client = hyper::Client::builder().http2_only(true).build(https);
-
-        Ok(Self { client, uri })
-    }
-}
-
-impl Service<Request<BoxBody>> for OpenSslClient {
-    type Response = Response<Body>;
-    type Error = hyper::Error;
-    type Future = ResponseFuture;
-
-    fn poll_ready(
-        &mut self,
-        _cx: &mut std::task::Context<'_>,
-    ) -> Poll<std::result::Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
-    }
-
-    fn call(&mut self, mut req: Request<BoxBody>) -> Self::Future {
-        let new_uri = Uri::builder()
-            .authority(self.uri.authority().unwrap().clone())
-            .scheme(self.uri.scheme().unwrap().clone())
-            .path_and_query(
-                req.uri()
-                    .path_and_query()
-                    .expect("the request url is illegal")
-                    .clone(),
-            )
-            .build()
-            .expect("the uri to build is invalid");
-        *req.uri_mut() = new_uri;
-
-        self.client.call(req)
-    }
 }
