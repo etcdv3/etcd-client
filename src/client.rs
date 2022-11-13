@@ -2,7 +2,7 @@
 
 use crate::channel::Channel;
 use crate::error::{Error, Result};
-use crate::openssl_tls::{self, OpenSslClient, OpenSslClientConfig, OpenSslDiscover};
+use crate::openssl_tls::{self, OpenSslClientConfig};
 use crate::rpc::auth::Permission;
 use crate::rpc::auth::{AuthClient, AuthDisableResponse, AuthEnableResponse};
 use crate::rpc::auth::{
@@ -36,18 +36,18 @@ use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 #[cfg(feature = "tls")]
 use crate::TlsOptions;
 use http::uri::Uri;
-use http::Request;
+
 use hyper::body::Buf;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::Sender;
-use tonic::body::BoxBody;
+
 use tonic::transport::Endpoint;
-use tower::balance::p2c::Balance;
-use tower::buffer::Buffer;
+
+
 use tower::discover::Change;
-use tower::Service;
+
 
 const HTTP_PREFIX: &str = "http://";
 const HTTPS_PREFIX: &str = "https://";

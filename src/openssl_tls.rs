@@ -1,25 +1,23 @@
 #![cfg(feature = "tls-openssl")]
 
 use std::{
-    pin::Pin,
-    task::{ready, Poll},
+    task::{Poll},
 };
 
-use async_stream::try_stream;
+
 use http::{Request, Response, Uri};
 use hyper::{
-    client::{connect::Connection, HttpConnector, ResponseFuture},
+    client::{HttpConnector, ResponseFuture},
     Body,
 };
 use hyper_openssl::HttpsConnector;
 use openssl::{
-    error::ErrorStack,
     pkey::PKey,
     ssl::{SslConnector, SslConnectorBuilder, SslMethod},
     x509::X509,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
-use tokio_stream::{wrappers::ReceiverStream, Stream};
+use tokio_stream::{wrappers::ReceiverStream};
 use tonic::{
     body::BoxBody,
     transport::{Channel, Endpoint},
@@ -27,12 +25,11 @@ use tonic::{
 use tower::{
     balance::p2c::Balance,
     buffer::Buffer,
-    discover::{Change, Discover},
-    load::Load,
-    service_fn, Service,
+    discover::{Change},
+    load::Load, Service,
 };
 
-use crate::{ConnectOptions, Error};
+use crate::{Error};
 
 use super::error::Result;
 
