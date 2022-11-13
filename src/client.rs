@@ -116,10 +116,15 @@ impl Client {
 
             Channel::builder(url.parse()?)
         } else if url.starts_with(HTTPS_PREFIX) {
-            #[cfg(not(feature = "tls"))]
+            #[cfg(not(any(feature = "tls", feature = "tls-openssl")))]
             return Err(Error::InvalidArgs(String::from(
                 "HTTPS URLs are only supported with the feature \"tls\"",
             )));
+
+            #[cfg(feature = "tls-openssl")]
+            {
+                Channel::builder(url.parse()?)
+            }
 
             #[cfg(feature = "tls")]
             {
