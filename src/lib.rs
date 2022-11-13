@@ -58,8 +58,10 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod auth;
+mod channel;
 mod client;
 mod error;
+mod openssl_tls;
 mod rpc;
 
 pub use crate::client::{Client, ConnectOptions};

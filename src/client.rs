@@ -1,6 +1,8 @@
 //! Asynchronous client & synchronous client.
 
+use crate::channel::Channel;
 use crate::error::{Error, Result};
+use crate::openssl_tls::{self, OpenSslClient, OpenSslClientConfig, OpenSslDiscover};
 use crate::rpc::auth::Permission;
 use crate::rpc::auth::{AuthClient, AuthDisableResponse, AuthEnableResponse};
 use crate::rpc::auth::{
@@ -34,12 +36,18 @@ use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 #[cfg(feature = "tls")]
 use crate::TlsOptions;
 use http::uri::Uri;
+use http::Request;
+use hyper::body::Buf;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::Sender;
-use tonic::transport::{Channel, Endpoint};
+use tonic::body::BoxBody;
+use tonic::transport::Endpoint;
+use tower::balance::p2c::Balance;
+use tower::buffer::Buffer;
 use tower::discover::Change;
+use tower::Service;
 
 const HTTP_PREFIX: &str = "http://";
 const HTTPS_PREFIX: &str = "https://";
@@ -79,7 +87,11 @@ impl Client {
         }
 
         // Always use balance strategy even if there is only one endpoint.
+        #[cfg(not(feature = "tls-openssl"))]
         let (channel, tx) = Channel::balance_channel(64);
+        #[cfg(feature = "tls-openssl")]
+        let (channel, tx) =
+            openssl_tls::balanced_channel(options.clone().and_then(|o| o.otls).unwrap_or_default());
         for endpoint in endpoints {
             // The rx inside `channel` won't be closed or dropped here
             let _ = tx
@@ -94,6 +106,7 @@ impl Client {
     }
 
     fn build_endpoint(url: &str, options: &Option<ConnectOptions>) -> Result<Endpoint> {
+        use tonic::transport::Channel;
         let mut endpoint = if url.starts_with(HTTP_PREFIX) {
             #[cfg(feature = "tls")]
             if let Some(connect_options) = options {
@@ -701,6 +714,8 @@ pub struct ConnectOptions {
     timeout: Option<Duration>,
     #[cfg(feature = "tls")]
     tls: Option<TlsOptions>,
+    #[cfg(feature = "tls-openssl")]
+    pub(crate) otls: Option<OpenSslClientConfig>,
 }
 
 impl ConnectOptions {
@@ -719,6 +734,17 @@ impl ConnectOptions {
     #[inline]
     pub fn with_tls(mut self, tls: TlsOptions) -> Self {
         self.tls = Some(tls);
+        self
+    }
+
+    /// Sets TLS options, however using the OpenSSL implementation.
+    ///
+    /// Notes that this function have to work with `HTTPS` URLs.
+    #[cfg_attr(docsrs, doc(cfg(feature = "tls-openssl")))]
+    #[cfg(feature = "tls-openssl")]
+    #[inline]
+    pub fn with_openssl_tls(mut self, otls: OpenSslClientConfig) -> Self {
+        self.otls = Some(otls);
         self
     }
 
@@ -745,6 +771,8 @@ impl ConnectOptions {
             timeout: None,
             #[cfg(feature = "tls")]
             tls: None,
+            #[cfg(feature = "tls-openssl")]
+            otls: None,
         }
     }
 }

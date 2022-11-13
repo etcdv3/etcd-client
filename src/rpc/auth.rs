@@ -3,6 +3,7 @@
 pub use crate::rpc::pb::authpb::permission::Type as PermissionType;
 
 use crate::auth::AuthService;
+use crate::channel::Channel;
 use crate::error::Result;
 use crate::rpc::pb::authpb::{Permission as PbPermission, UserAddOptions as PbUserAddOptions};
 use crate::rpc::pb::etcdserverpb::auth_client::AuthClient as PbAuthClient;
@@ -35,7 +36,6 @@ use crate::rpc::ResponseHeader;
 use crate::rpc::{get_prefix, KeyRange};
 use http::HeaderValue;
 use std::{string::String, sync::Arc};
-use tonic::transport::Channel;
 use tonic::{IntoRequest, Request};
 
 /// Client for Auth operations.

@@ -1,6 +1,7 @@
 //! Etcd Election RPC.
 
 use crate::auth::AuthService;
+use crate::channel::Channel;
 use crate::error::Result;
 use crate::rpc::pb::v3electionpb::election_client::ElectionClient as PbElectionClient;
 use crate::rpc::pb::v3electionpb::{
@@ -14,7 +15,6 @@ use http::HeaderValue;
 use std::task::{Context, Poll};
 use std::{pin::Pin, sync::Arc};
 use tokio_stream::Stream;
-use tonic::transport::Channel;
 use tonic::{IntoRequest, Request, Streaming};
 
 /// Client for Elect operations.
