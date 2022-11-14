@@ -1,6 +1,6 @@
 #![cfg(feature = "tls-openssl")]
 
-use std::task::Poll;
+use std::{sync::Arc, task::Poll};
 
 use http::{Request, Uri};
 use hyper::client::HttpConnector;
@@ -20,6 +20,15 @@ use tower::{balance::p2c::Balance, buffer::Buffer, discover::Change, load::Load,
 
 use super::error::Result;
 
+pub type TonicRequest = Request<BoxBody>;
+pub type Buffered<T> = Buffer<T, TonicRequest>;
+pub type Balanced<T> = Balance<T, TonicRequest>;
+pub type OpenSslChannel = Buffered<Balanced<OpenSslDiscover<Uri>>>;
+pub type OpenSslDiscover<K> = ReceiverStream<Result<Change<K, FairLoadedChannel>>>;
+/// Allow the user manually apply some config.
+/// It should be a shared pure function to keep the config `Clone` and pure.
+pub type ManualConfig = Arc<dyn Fn(&mut SslConnectorBuilder) -> Result<()> + Send + Sync + 'static>;
+
 #[repr(transparent)]
 pub struct FairLoadedChannel(Channel);
 
@@ -31,10 +40,10 @@ impl Load for FairLoadedChannel {
     }
 }
 
-impl Service<http::Request<BoxBody>> for FairLoadedChannel {
-    type Response = <Channel as Service<http::Request<BoxBody>>>::Response;
-    type Error = <Channel as Service<http::Request<BoxBody>>>::Error;
-    type Future = <Channel as Service<http::Request<BoxBody>>>::Future;
+impl Service<TonicRequest> for FairLoadedChannel {
+    type Response = <Channel as Service<TonicRequest>>::Response;
+    type Error = <Channel as Service<TonicRequest>>::Error;
+    type Future = <Channel as Service<TonicRequest>>::Future;
 
     fn poll_ready(
         &mut self,
@@ -48,16 +57,21 @@ impl Service<http::Request<BoxBody>> for FairLoadedChannel {
     }
 }
 
-pub type OpenSslChannel = Buffer<Balance<OpenSslDiscover<Uri>, Request<BoxBody>>, Request<BoxBody>>;
-
 /// Create a balanced channel using the OpenSSL config.
 /// Note that the tls configuration would be ignored.
 pub fn balanced_channel(
     options: OpenSslClientConfig,
 ) -> (OpenSslChannel, Sender<Change<Uri, Endpoint>>) {
-    let make_conn = make_connector(options);
     let (tx, rx) = tokio::sync::mpsc::channel(16);
-    let tls_conn = with_ssl(make_conn, rx);
+    let make_config = Arc::clone(&options.0);
+    let tls_conn = with_ssl(
+        move || {
+            let mut b = SslConnector::builder(SslMethod::tls_client())?;
+            make_config(&mut b)?;
+            Ok(b)
+        },
+        rx,
+    );
     let balance = Balance::new(tls_conn);
     // Note: the buffer should already be configured when creating the internal channels,
     // we wrap this in the buffer is just for making them `Clone`.
@@ -65,8 +79,6 @@ pub fn balanced_channel(
 
     (buffered, tx)
 }
-
-pub type OpenSslDiscover<K> = ReceiverStream<Result<Change<K, FairLoadedChannel>>>;
 
 fn with_ssl<K: Send + 'static>(
     ssl: impl Fn() -> Result<SslConnectorBuilder> + Send + Sync + 'static,
@@ -97,25 +109,6 @@ fn with_ssl<K: Send + 'static>(
     ReceiverStream::new(rx)
 }
 
-pub fn make_connector(opts: OpenSslClientConfig) -> impl Fn() -> Result<SslConnectorBuilder> {
-    move || {
-        let mut cb = SslConnector::builder(SslMethod::tls())?;
-        if let Some(ref ca) = opts.ca_cert {
-            let ca = X509::from_pem(ca)?;
-            cb.cert_store_mut().add_cert(ca)?;
-        }
-        if let Some(ref client_id) = opts.client_cert {
-            let client = X509::from_pem(&client_id.cert)?;
-            let client_key = PKey::private_key_from_pem(&client_id.key.0)?;
-            cb.set_certificate(&client)?;
-            cb.set_private_key(&client_key)?;
-        }
-        // Hint for HTTP/2.
-        cb.set_alpn_protos(b"\x02h2")?;
-        Ok(cb)
-    }
-}
-
 #[derive(Clone)]
 struct Secret(Box<[u8]>);
 
@@ -125,29 +118,54 @@ impl std::fmt::Debug for Secret {
     }
 }
 
-#[derive(Default, Clone, Debug)]
-pub struct OpenSslClientConfig {
-    ca_cert: Option<Box<[u8]>>,
-    client_cert: Option<ClientIdentity>,
+#[derive(Clone)]
+pub struct OpenSslClientConfig(ManualConfig);
+
+impl Default for OpenSslClientConfig {
+    fn default() -> Self {
+        Self(Arc::new(|_| Ok(())))
+    }
+}
+
+impl std::fmt::Debug for OpenSslClientConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("OpenSslClientConfig")
+            .field(&"callbacks")
+            .finish()
+    }
 }
 
 impl OpenSslClientConfig {
-    pub fn ca_cert_pem(mut self, s: &[u8]) -> Self {
-        self.ca_cert = Some(s.to_vec().into_boxed_slice());
-        self
-    }
-
-    pub fn client_cert_pem_and_key(mut self, cert_pem: &[u8], key_pem: &[u8]) -> Self {
-        self.client_cert = Some(ClientIdentity {
-            cert: cert_pem.to_vec().into_boxed_slice(),
-            key: Secret(key_pem.to_vec().into_boxed_slice()),
+    pub fn manually(
+        mut self,
+        f: impl Fn(&mut SslConnectorBuilder) -> Result<()> + Send + Sync + 'static,
+    ) -> Self {
+        let inner = self.0;
+        self.0 = Arc::new(move |cb| {
+            inner(cb)?;
+            f(cb)
         });
         self
     }
-}
 
-#[derive(Clone, Debug)]
-struct ClientIdentity {
-    cert: Box<[u8]>,
-    key: Secret,
+    pub fn ca_cert_pem(self, s: &[u8]) -> Self {
+        let s = s.to_vec();
+        self.manually(move |cb| {
+            let ca = X509::from_pem(&s)?;
+            cb.cert_store_mut().add_cert(ca)?;
+            Ok(())
+        })
+    }
+
+    pub fn client_cert_pem_and_key(self, cert_pem: &[u8], key_pem: &[u8]) -> Self {
+        let cert_pem = cert_pem.to_vec();
+        let key_pem = key_pem.to_vec();
+        self.manually(move |cb| {
+            let client = X509::from_pem(&cert_pem)?;
+            let client_key = PKey::private_key_from_pem(&key_pem)?;
+            cb.set_certificate(&client)?;
+            cb.set_private_key(&client_key)?;
+            Ok(())
+        })
+    }
 }
