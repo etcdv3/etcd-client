@@ -92,8 +92,7 @@ impl Client {
             openssl_tls::balanced_channel(options.clone().and_then(|o| o.otls).unwrap_or_default());
         for endpoint in endpoints {
             // The rx inside `channel` won't be closed or dropped here
-            let _ = tx
-                .send(Change::Insert(endpoint.uri().clone(), endpoint))
+            tx.send(Change::Insert(endpoint.uri().clone(), endpoint))
                 .await
                 .unwrap();
         }
@@ -167,16 +166,21 @@ impl Client {
             }
         };
 
-        let keep_alive = options.as_ref().and_then(|options| options.keep_alive);
-        if let Some((interval, timeout)) = keep_alive {
-            endpoint = endpoint
-                .keep_alive_while_idle(true)
-                .http2_keep_alive_interval(interval)
-                .keep_alive_timeout(timeout);
-        }
+        if let Some(opts) = options {
+            if let Some((interval, timeout)) = opts.keep_alive {
+                endpoint = endpoint
+                    .keep_alive_while_idle(opts.keep_alive_while_idle)
+                    .http2_keep_alive_interval(interval)
+                    .keep_alive_timeout(timeout);
+            }
 
-        if let Some(timeout) = options.as_ref().and_then(|options| options.timeout) {
-            endpoint = endpoint.timeout(timeout);
+            if let Some(timeout) = opts.timeout {
+                endpoint = endpoint.timeout(timeout);
+            }
+
+            if let Some(timeout) = opts.connect_timeout {
+                endpoint = endpoint.connect_timeout(timeout);
+            }
         }
 
         Ok(endpoint)
@@ -714,8 +718,12 @@ pub struct ConnectOptions {
     user: Option<(String, String)>,
     /// HTTP2 keep-alive: (keep_alive_interval, keep_alive_timeout)
     keep_alive: Option<(Duration, Duration)>,
+    /// Whether send keep alive pings even there are no active streams.
+    keep_alive_while_idle: bool,
     /// Apply a timeout to each gRPC request.
     timeout: Option<Duration>,
+    /// Apply a timeout to connecting to the endpoint.
+    connect_timeout: Option<Duration>,
     #[cfg(feature = "tls")]
     tls: Option<TlsOptions>,
     #[cfg(feature = "tls-openssl")]
@@ -768,13 +776,33 @@ impl ConnectOptions {
         self
     }
 
+    /// Apply a timeout to connecting to the endpoint.
+    #[inline]
+    pub fn with_connect_timeout(mut self, timeout: Duration) -> Self {
+        self.connect_timeout = Some(timeout);
+        self
+    }
+
+    /// Whether send keep alive pings even there are no active requests.
+    /// If disabled, keep-alive pings are only sent while there are opened request/response streams.
+    /// If enabled, pings are also sent when no streams are active.
+    /// NOTE: Some implementations of gRPC server may send GOAWAY if there are too many pings.
+    ///       This would be useful if you meet some error like `too many pings`.
+    #[inline]
+    pub fn with_keep_alive_while_idle(mut self, enabled: bool) -> Self {
+        self.keep_alive_while_idle = enabled;
+        self
+    }
+
     /// Creates a `ConnectOptions`.
     #[inline]
     pub const fn new() -> Self {
         ConnectOptions {
             user: None,
             keep_alive: None,
+            keep_alive_while_idle: true,
             timeout: None,
+            connect_timeout: None,
             #[cfg(feature = "tls")]
             tls: None,
             #[cfg(feature = "tls-openssl")]
