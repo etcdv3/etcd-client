@@ -20,19 +20,33 @@ use tower::{balance::p2c::Balance, buffer::Buffer, discover::Change, load::Load,
 
 use super::error::Result;
 
+// Below are some type alias for make clearer types.
 pub type TonicRequest = Request<BoxBody>;
 pub type Buffered<T> = Buffer<T, TonicRequest>;
 pub type Balanced<T> = Balance<T, TonicRequest>;
 pub type OpenSslChannel = Buffered<Balanced<OpenSslDiscover<Uri>>>;
-pub type OpenSslDiscover<K> = ReceiverStream<Result<Change<K, FairLoadedChannel>>>;
+/// OpenSslDiscover is the backend for balanced channel based on OpenSSL transports.
+/// Because `Channel::balance` doesn't allow us to provide custom connector, we must implement ourselves' balancer...
+pub type OpenSslDiscover<K> = ReceiverStream<Result<Change<K, FairLoaded<Channel>>>>;
 /// Allow the user manually apply some config.
-/// It should be a shared pure function to keep the config `Clone` and pure.
-pub type ManualConfig = Arc<dyn Fn(&mut SslConnectorBuilder) -> Result<()> + Send + Sync + 'static>;
+/// It is a shared pure function so we can keep the config type `Clone`.
+pub type SslBuilderMutator =
+    Arc<dyn Fn(&mut SslConnectorBuilder) -> Result<()> + Send + Sync + 'static>;
 
+#[cfg(feature = "tls")]
+compile_error!(concat!(
+    "**You should only enable one of `tls` and `tls-openssl`.** Reason: ",
+    "For now, `tls-openssl` would take over the transport layer (sockets) to implement TLS based connection. ",
+    "As a result, once using with `tonic`'s internal TLS implementation (which based on `rustls`), ", 
+    "we may create TLS tunnels over TLS tunnels or directly fail because of some sorts of misconfiguration.")
+);
+
+/// `FairLoaded` is a simple wrapper over channels that provides nothing about work load.
+/// (Which would lead to a complete "fair" scheduling?)
 #[repr(transparent)]
-pub struct FairLoadedChannel(Channel);
+pub struct FairLoaded<S>(S);
 
-impl Load for FairLoadedChannel {
+impl<S> Load for FairLoaded<S> {
     type Metric = usize;
 
     fn load(&self) -> Self::Metric {
@@ -40,10 +54,10 @@ impl Load for FairLoadedChannel {
     }
 }
 
-impl Service<TonicRequest> for FairLoadedChannel {
-    type Response = <Channel as Service<TonicRequest>>::Response;
-    type Error = <Channel as Service<TonicRequest>>::Error;
-    type Future = <Channel as Service<TonicRequest>>::Future;
+impl<R, S: Service<R>> Service<R> for FairLoaded<S> {
+    type Response = S::Response;
+    type Error = S::Error;
+    type Future = S::Future;
 
     fn poll_ready(
         &mut self,
@@ -52,19 +66,18 @@ impl Service<TonicRequest> for FairLoadedChannel {
         self.0.poll_ready(cx)
     }
 
-    fn call(&mut self, req: http::Request<BoxBody>) -> Self::Future {
+    fn call(&mut self, req: R) -> Self::Future {
         self.0.call(req)
     }
 }
 
 /// Create a balanced channel using the OpenSSL config.
-/// Note that the tls configuration would be ignored.
 pub fn balanced_channel(
     options: OpenSslClientConfig,
 ) -> (OpenSslChannel, Sender<Change<Uri, Endpoint>>) {
     let (tx, rx) = tokio::sync::mpsc::channel(16);
     let make_config = Arc::clone(&options.0);
-    let tls_conn = with_ssl(
+    let tls_conn = create_openssl_discover(
         move || {
             let mut b = SslConnector::builder(SslMethod::tls_client())?;
             make_config(&mut b)?;
@@ -80,8 +93,19 @@ pub fn balanced_channel(
     (buffered, tx)
 }
 
-fn with_ssl<K: Send + 'static>(
-    ssl: impl Fn() -> Result<SslConnectorBuilder> + Send + Sync + 'static,
+/// Connect to an endpoint with OpenSSL TLS implementation.
+/// Because this would fully take over the transport layer by a security channel,
+/// you should NOT enable `tonic/ssl` feature (or tonic may try to create SSL session over the security transport...).
+async fn connect_with_openssl(e: &Endpoint, builder: SslConnectorBuilder) -> Result<Channel> {
+    let mut http = HttpConnector::new();
+    http.enforce_http(false);
+    let https = HttpsConnector::with_connector(http, builder)?;
+    let channel = e.connect_with_connector(https).await?;
+    Ok(channel)
+}
+
+fn create_openssl_discover<K: Send + 'static>(
+    make_builder: impl Fn() -> Result<SslConnectorBuilder> + Send + Sync + 'static,
     mut incoming: Receiver<Change<K, Endpoint>>,
 ) -> OpenSslDiscover<K> {
     let (tx, rx) = tokio::sync::mpsc::channel(16);
@@ -90,11 +114,9 @@ fn with_ssl<K: Send + 'static>(
             let r = async {
                 match x {
                     Change::Insert(name, e) => {
-                        let mut http = HttpConnector::new();
-                        http.enforce_http(false);
-                        let https = HttpsConnector::with_connector(http, ssl()?)?;
-                        let channel = e.connect_with_connector(https).await?;
-                        Ok(Change::Insert(name, FairLoadedChannel(channel)))
+                        let builder = make_builder()?;
+                        let chan = connect_with_openssl(&e, builder).await?;
+                        Ok(Change::Insert(name, FairLoaded(chan)))
                     }
                     Change::Remove(name) => Ok(Change::Remove(name)),
                 }
@@ -109,17 +131,11 @@ fn with_ssl<K: Send + 'static>(
     ReceiverStream::new(rx)
 }
 
+/// The configuration type for a openssl connection.
+/// For best flexibility, we are making it a callback over `SslConnectorBuilder`.
+/// Which allows users to fine-tweaking the detail of the SSL connection.
 #[derive(Clone)]
-struct Secret(Box<[u8]>);
-
-impl std::fmt::Debug for Secret {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("Secret").finish()
-    }
-}
-
-#[derive(Clone)]
-pub struct OpenSslClientConfig(ManualConfig);
+pub struct OpenSslClientConfig(SslBuilderMutator);
 
 impl Default for OpenSslClientConfig {
     fn default() -> Self {
@@ -136,6 +152,7 @@ impl std::fmt::Debug for OpenSslClientConfig {
 }
 
 impl OpenSslClientConfig {
+    /// Manually modify the SslConnectorBuilder by a pure function.
     pub fn manually(
         mut self,
         f: impl Fn(&mut SslConnectorBuilder) -> Result<()> + Send + Sync + 'static,
@@ -148,7 +165,12 @@ impl OpenSslClientConfig {
         self
     }
 
+    /// Add a CA into the cert storage via the binary of the PEM file of CA cert.
+    /// If the argument is empty, do nothing.
     pub fn ca_cert_pem(self, s: &[u8]) -> Self {
+        if s.is_empty() {
+            return self;
+        }
         let s = s.to_vec();
         self.manually(move |cb| {
             let ca = X509::from_pem(&s)?;
@@ -157,7 +179,12 @@ impl OpenSslClientConfig {
         })
     }
 
+    /// Add a client cert for the request.
+    /// If any of the argument is empty, do nothing.
     pub fn client_cert_pem_and_key(self, cert_pem: &[u8], key_pem: &[u8]) -> Self {
+        if cert_pem.is_empty() || key_pem.is_empty() {
+            return self;
+        }
         let cert_pem = cert_pem.to_vec();
         let key_pem = key_pem.to_vec();
         self.manually(move |cb| {

@@ -2,6 +2,7 @@
 
 use crate::channel::Channel;
 use crate::error::{Error, Result};
+#[cfg(feature = "tls-openssl")]
 use crate::openssl_tls::{self, OpenSslClientConfig};
 use crate::rpc::auth::Permission;
 use crate::rpc::auth::{AuthClient, AuthDisableResponse, AuthEnableResponse};
@@ -103,6 +104,7 @@ impl Client {
     }
 
     fn build_endpoint(url: &str, options: &Option<ConnectOptions>) -> Result<Endpoint> {
+        #[cfg(feature = "tls-openssl")]
         use tonic::transport::Channel;
         let mut endpoint = if url.starts_with(HTTP_PREFIX) {
             #[cfg(feature = "tls")]
@@ -121,7 +123,7 @@ impl Client {
                 "HTTPS URLs are only supported with the feature \"tls\"",
             )));
 
-            #[cfg(feature = "tls-openssl")]
+            #[cfg(all(feature = "tls-openssl", not(feature = "tls")))]
             {
                 Channel::builder(url.parse()?)
             }
@@ -741,7 +743,9 @@ impl ConnectOptions {
 
     /// Sets TLS options, however using the OpenSSL implementation.
     ///
-    /// Notes that this function have to work with `HTTPS` URLs.
+    /// Note that this function have to work with `HTTPS` URLs.
+    ///
+    /// FIXME: Perhaps we can unify the essential TLS config terms by something like `TlsBuilder`?
     #[cfg_attr(docsrs, doc(cfg(feature = "tls-openssl")))]
     #[cfg(feature = "tls-openssl")]
     #[inline]

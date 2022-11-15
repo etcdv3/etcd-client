@@ -66,6 +66,7 @@ mod rpc;
 
 pub use crate::client::{Client, ConnectOptions};
 pub use crate::error::Error;
+#[cfg(feature = "tls-openssl")]
 pub use crate::openssl_tls::OpenSslClientConfig;
 pub use crate::rpc::auth::{
     AuthClient, AuthDisableResponse, AuthEnableResponse, Permission, PermissionType,
