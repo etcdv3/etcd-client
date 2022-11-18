@@ -162,7 +162,7 @@ impl Client {
 
             #[cfg(all(feature = "tls-openssl", not(feature = "tls")))]
             {
-                let pfx = if options.and_then(|o| o.otls).is_some() {
+                let pfx = if options.as_ref().and_then(|o| o.otls.as_ref()).is_some() {
                     HTTPS_PREFIX
                 } else {
                     HTTP_PREFIX
