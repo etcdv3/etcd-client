@@ -139,7 +139,9 @@ pub struct OpenSslClientConfig(SslBuilderMutator);
 
 impl Default for OpenSslClientConfig {
     fn default() -> Self {
-        Self(Arc::new(|_| Ok(())))
+        Self(Arc::new(|conn| {
+            conn.set_alpn_protos(b"\x02h2").map_err(Into::into)
+        }))
     }
 }
 
