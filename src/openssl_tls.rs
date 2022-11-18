@@ -140,6 +140,10 @@ pub struct OpenSslClientConfig(SslBuilderMutator);
 impl Default for OpenSslClientConfig {
     fn default() -> Self {
         Self(Arc::new(|conn| {
+            // It seems gRPC doesn't supports upgrade to HTTP/2,
+            // if we haven't specified the protocol by ALPN, it would return a `GONE`.
+            // "h2" is the ALPN name for HTTP/2, see:
+            // https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids
             conn.set_alpn_protos(b"\x02h2").map_err(Into::into)
         }))
     }
