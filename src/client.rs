@@ -160,7 +160,18 @@ impl Client {
                 }
             }
 
-            #[cfg(not(feature = "tls"))]
+            #[cfg(all(feature = "tls-openssl", not(feature = "tls")))]
+            {
+                let pfx = if options.and_then(|o| o.otls).is_some() {
+                    HTTPS_PREFIX
+                } else {
+                    HTTP_PREFIX
+                };
+                let e = pfx.to_owned() + url;
+                Channel::builder(e.parse()?)
+            }
+
+            #[cfg(all(not(feature = "tls"), not(feature = "tls-openssl")))]
             {
                 let e = HTTP_PREFIX.to_owned() + url;
                 Channel::builder(e.parse()?)
