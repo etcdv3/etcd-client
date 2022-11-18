@@ -25,6 +25,7 @@ pub type TonicRequest = Request<BoxBody>;
 pub type Buffered<T> = Buffer<T, TonicRequest>;
 pub type Balanced<T> = Balance<T, TonicRequest>;
 pub type OpenSslChannel = Buffered<Balanced<OpenSslDiscover<Uri>>>;
+pub type OpenSslConnector = HttpsConnector<HttpConnector>;
 /// OpenSslDiscover is the backend for balanced channel based on OpenSSL transports.
 /// Because `Channel::balance` doesn't allow us to provide custom connector, we must implement ourselves' balancer...
 pub type OpenSslDiscover<K> = ReceiverStream<Result<Change<K, FairLoaded<Channel>>>>;
@@ -74,38 +75,33 @@ impl<R, S: Service<R>> Service<R> for FairLoaded<S> {
 /// Create a balanced channel using the OpenSSL config.
 pub fn balanced_channel(
     options: OpenSslClientConfig,
-) -> (OpenSslChannel, Sender<Change<Uri, Endpoint>>) {
+) -> Result<(OpenSslChannel, Sender<Change<Uri, Endpoint>>)> {
     let (tx, rx) = tokio::sync::mpsc::channel(16);
     let make_config = Arc::clone(&options.0);
-    let tls_conn = create_openssl_discover(
-        move || {
-            let mut b = SslConnector::builder(SslMethod::tls_client())?;
-            make_config(&mut b)?;
-            Ok(b)
-        },
-        rx,
-    );
+    let mut b = SslConnector::builder(SslMethod::tls_client())?;
+    make_config(&mut b)?;
+    let tls_conn = create_openssl_discover(create_openssl_connector(b)?, rx);
     let balance = Balance::new(tls_conn);
     // Note: the buffer should already be configured when creating the internal channels,
     // we wrap this in the buffer is just for making them `Clone`.
     let buffered = Buffer::new(balance, 1024);
 
-    (buffered, tx)
+    Ok((buffered, tx))
 }
 
-/// Connect to an endpoint with OpenSSL TLS implementation.
-/// Because this would fully take over the transport layer by a security channel,
-/// you should NOT enable `tonic/ssl` feature (or tonic may try to create SSL session over the security transport...).
-async fn connect_with_openssl(e: &Endpoint, builder: SslConnectorBuilder) -> Result<Channel> {
+/// Create a connector which dials TLS connections by openssl.
+fn create_openssl_connector(builder: SslConnectorBuilder) -> Result<OpenSslConnector> {
     let mut http = HttpConnector::new();
     http.enforce_http(false);
     let https = HttpsConnector::with_connector(http, builder)?;
-    let channel = e.connect_with_connector(https).await?;
-    Ok(channel)
+    Ok(https)
 }
 
+/// Create a discover which mapping Endpoints into SSL connections.
+/// Because this would fully take over the transport layer by a security channel,
+/// you should NOT enable `tonic/ssl` feature (or tonic may try to create SSL session over the security transport...).
 fn create_openssl_discover<K: Send + 'static>(
-    make_builder: impl Fn() -> Result<SslConnectorBuilder> + Send + Sync + 'static,
+    builder: OpenSslConnector,
     mut incoming: Receiver<Change<K, Endpoint>>,
 ) -> OpenSslDiscover<K> {
     let (tx, rx) = tokio::sync::mpsc::channel(16);
@@ -114,8 +110,7 @@ fn create_openssl_discover<K: Send + 'static>(
             let r = async {
                 match x {
                     Change::Insert(name, e) => {
-                        let builder = make_builder()?;
-                        let chan = connect_with_openssl(&e, builder).await?;
+                        let chan = e.connect_with_connector(builder.clone()).await?;
                         Ok(Change::Insert(name, FairLoaded(chan)))
                     }
                     Change::Remove(name) => Ok(Change::Remove(name)),

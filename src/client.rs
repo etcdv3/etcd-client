@@ -88,8 +88,9 @@ impl Client {
         #[cfg(not(feature = "tls-openssl"))]
         let (channel, tx) = Channel::balance_channel(64);
         #[cfg(feature = "tls-openssl")]
-        let (channel, tx) =
-            openssl_tls::balanced_channel(options.clone().and_then(|o| o.otls).unwrap_or_default());
+        let (channel, tx) = openssl_tls::balanced_channel(
+            options.clone().and_then(|o| o.otls).unwrap_or_default(),
+        )?;
         for endpoint in endpoints {
             // The rx inside `channel` won't be closed or dropped here
             tx.send(Change::Insert(endpoint.uri().clone(), endpoint))
