@@ -1,6 +1,6 @@
 #![cfg(feature = "tls-openssl")]
 
-use std::{task::Poll};
+use std::task::Poll;
 
 use http::{Request, Uri};
 use hyper::client::HttpConnector;
@@ -17,7 +17,13 @@ use tonic::{
     body::BoxBody,
     transport::{Channel, Endpoint},
 };
-use tower::{balance::p2c::Balance, buffer::Buffer, discover::Change, load::Load, Service};
+use tower::{
+    balance::p2c::Balance,
+    buffer::Buffer,
+    discover::Change,
+    load::{Constant, Load},
+    Service,
+};
 
 use super::error::Result;
 
@@ -55,19 +61,6 @@ compile_error!(concat!(
     "As a result, once using with `tonic`'s internal TLS implementation (which based on `rustls`), ", 
     "we may create TLS tunnels over TLS tunnels or directly fail because of some sorts of misconfiguration.")
 );
-
-/// `FairLoaded` is a simple wrapper over channels that provides nothing about work load.
-/// (Which would lead to a complete "fair" scheduling?)
-#[repr(transparent)]
-pub struct FairLoaded<S>(S);
-
-impl<S> Load for FairLoaded<S> {
-    type Metric = usize;
-
-    fn load(&self) -> Self::Metric {
-        0
-    }
-}
 
 impl<R, S: Service<R>> Service<R> for FairLoaded<S> {
     type Response = S::Response;
@@ -122,7 +115,7 @@ fn create_openssl_discover<K: Send + 'static>(
                 match x {
                     Change::Insert(name, e) => {
                         let chan = e.connect_with_connector(connector.clone().0).await?;
-                        Ok(Change::Insert(name, FairLoaded(chan)))
+                        Ok(Change::Insert(name, Constant::new(chan, 0)))
                     }
                     Change::Remove(name) => Ok(Change::Remove(name)),
                 }
@@ -168,10 +161,7 @@ impl std::fmt::Debug for OpenSslClientConfig {
 
 impl OpenSslClientConfig {
     /// Manually modify the SslConnectorBuilder by a pure function.
-    pub fn manually(
-        self,
-        f: impl FnOnce(&mut SslConnectorBuilder) -> OpenSslResult<()>,
-    ) -> Self {
+    pub fn manually(self, f: impl FnOnce(&mut SslConnectorBuilder) -> OpenSslResult<()>) -> Self {
         Self(self.0.and_then(|mut b| {
             f(&mut b)?;
             Ok(b)

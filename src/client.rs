@@ -98,7 +98,8 @@ impl Client {
         )?;
         for endpoint in endpoints {
             // The rx inside `channel` won't be closed or dropped here
-            tx.send(Change::Insert(endpoint.uri().clone(), endpoint))
+            let _ = tx
+                .send(Change::Insert(endpoint.uri().clone(), endpoint))
                 .await
                 .unwrap();
         }
@@ -744,7 +745,7 @@ pub struct ConnectOptions {
     #[cfg(feature = "tls")]
     tls: Option<TlsOptions>,
     #[cfg(feature = "tls-openssl")]
-    pub(crate) otls: Option<OpenSslResult<OpenSslConnector>>,
+    otls: Option<OpenSslResult<OpenSslConnector>>,
 }
 
 impl ConnectOptions {
