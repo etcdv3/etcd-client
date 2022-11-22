@@ -1,7 +1,5 @@
 #![cfg(feature = "tls-openssl")]
 
-use std::task::Poll;
-
 use http::{Request, Uri};
 use hyper::client::HttpConnector;
 use hyper_openssl::HttpsConnector;
@@ -17,13 +15,7 @@ use tonic::{
     body::BoxBody,
     transport::{Channel, Endpoint},
 };
-use tower::{
-    balance::p2c::Balance,
-    buffer::Buffer,
-    discover::Change,
-    load::{Constant, Load},
-    Service,
-};
+use tower::{balance::p2c::Balance, buffer::Buffer, discover::Change, load::Constant};
 
 use super::error::Result;
 
@@ -36,7 +28,7 @@ pub type Balanced<T> = Balance<T, TonicRequest>;
 pub type OpenSslChannel = Buffered<Balanced<OpenSslDiscover<Uri>>>;
 /// OpenSslDiscover is the backend for balanced channel based on OpenSSL transports.
 /// Because `Channel::balance` doesn't allow us to provide custom connector, we must implement ourselves' balancer...
-pub type OpenSslDiscover<K> = ReceiverStream<Result<Change<K, FairLoaded<Channel>>>>;
+pub type OpenSslDiscover<K> = ReceiverStream<Result<Change<K, Constant<Channel, i32>>>>;
 
 #[derive(Clone)]
 pub struct OpenSslConnector(HttpsConnector<HttpConnector>);
@@ -61,23 +53,6 @@ compile_error!(concat!(
     "As a result, once using with `tonic`'s internal TLS implementation (which based on `rustls`), ", 
     "we may create TLS tunnels over TLS tunnels or directly fail because of some sorts of misconfiguration.")
 );
-
-impl<R, S: Service<R>> Service<R> for FairLoaded<S> {
-    type Response = S::Response;
-    type Error = S::Error;
-    type Future = S::Future;
-
-    fn poll_ready(
-        &mut self,
-        cx: &mut std::task::Context<'_>,
-    ) -> Poll<std::result::Result<(), Self::Error>> {
-        self.0.poll_ready(cx)
-    }
-
-    fn call(&mut self, req: R) -> Self::Future {
-        self.0.call(req)
-    }
-}
 
 /// Create a balanced channel using the OpenSSL config.
 pub fn balanced_channel(
