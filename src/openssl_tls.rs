@@ -6,8 +6,9 @@ use http::{Request, Uri};
 use hyper::client::HttpConnector;
 use hyper_openssl::HttpsConnector;
 use openssl::{
+    error::ErrorStack,
     pkey::PKey,
-    ssl::{SslConnector, SslConnectorBuilder, SslMethod},
+    ssl::{SslConnector, SslMethod},
     x509::X509,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -20,19 +21,32 @@ use tower::{balance::p2c::Balance, buffer::Buffer, discover::Change, load::Load,
 
 use super::error::Result;
 
+pub type SslConnectorBuilder = openssl::ssl::SslConnectorBuilder;
+pub type OpenSslResult<T> = std::result::Result<T, ErrorStack>;
 // Below are some type alias for make clearer types.
 pub type TonicRequest = Request<BoxBody>;
 pub type Buffered<T> = Buffer<T, TonicRequest>;
 pub type Balanced<T> = Balance<T, TonicRequest>;
 pub type OpenSslChannel = Buffered<Balanced<OpenSslDiscover<Uri>>>;
-pub type OpenSslConnector = HttpsConnector<HttpConnector>;
 /// OpenSslDiscover is the backend for balanced channel based on OpenSSL transports.
 /// Because `Channel::balance` doesn't allow us to provide custom connector, we must implement ourselves' balancer...
 pub type OpenSslDiscover<K> = ReceiverStream<Result<Change<K, FairLoaded<Channel>>>>;
-/// Allow the user manually apply some config.
-/// It is a shared pure function so we can keep the config type `Clone`.
-pub type SslBuilderMutator =
-    Arc<dyn Fn(&mut SslConnectorBuilder) -> Result<()> + Send + Sync + 'static>;
+
+#[derive(Clone)]
+pub struct OpenSslConnector(HttpsConnector<HttpConnector>);
+
+impl std::fmt::Debug for OpenSslConnector {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("OpenSslConnector").finish()
+    }
+}
+
+impl OpenSslConnector {
+    pub fn create_default() -> OpenSslResult<Self> {
+        let conf = OpenSslClientConfig::default();
+        conf.build()
+    }
+}
 
 #[cfg(feature = "tls")]
 compile_error!(concat!(
@@ -74,13 +88,10 @@ impl<R, S: Service<R>> Service<R> for FairLoaded<S> {
 
 /// Create a balanced channel using the OpenSSL config.
 pub fn balanced_channel(
-    options: OpenSslClientConfig,
+    connector: OpenSslConnector,
 ) -> Result<(OpenSslChannel, Sender<Change<Uri, Endpoint>>)> {
     let (tx, rx) = tokio::sync::mpsc::channel(16);
-    let make_config = Arc::clone(&options.0);
-    let mut b = SslConnector::builder(SslMethod::tls_client())?;
-    make_config(&mut b)?;
-    let tls_conn = create_openssl_discover(create_openssl_connector(b)?, rx);
+    let tls_conn = create_openssl_discover(connector, rx);
     let balance = Balance::new(tls_conn);
     // Note: the buffer should already be configured when creating the internal channels,
     // we wrap this in the buffer is just for making them `Clone`.
@@ -90,18 +101,18 @@ pub fn balanced_channel(
 }
 
 /// Create a connector which dials TLS connections by openssl.
-fn create_openssl_connector(builder: SslConnectorBuilder) -> Result<OpenSslConnector> {
+fn create_openssl_connector(builder: SslConnectorBuilder) -> OpenSslResult<OpenSslConnector> {
     let mut http = HttpConnector::new();
     http.enforce_http(false);
     let https = HttpsConnector::with_connector(http, builder)?;
-    Ok(https)
+    Ok(OpenSslConnector(https))
 }
 
 /// Create a discover which mapping Endpoints into SSL connections.
 /// Because this would fully take over the transport layer by a security channel,
 /// you should NOT enable `tonic/ssl` feature (or tonic may try to create SSL session over the security transport...).
 fn create_openssl_discover<K: Send + 'static>(
-    builder: OpenSslConnector,
+    connector: OpenSslConnector,
     mut incoming: Receiver<Change<K, Endpoint>>,
 ) -> OpenSslDiscover<K> {
     let (tx, rx) = tokio::sync::mpsc::channel(16);
@@ -110,7 +121,7 @@ fn create_openssl_discover<K: Send + 'static>(
             let r = async {
                 match x {
                     Change::Insert(name, e) => {
-                        let chan = e.connect_with_connector(builder.clone()).await?;
+                        let chan = e.connect_with_connector(connector.clone().0).await?;
                         Ok(Change::Insert(name, FairLoaded(chan)))
                     }
                     Change::Remove(name) => Ok(Change::Remove(name)),
@@ -129,18 +140,21 @@ fn create_openssl_discover<K: Send + 'static>(
 /// The configuration type for a openssl connection.
 /// For best flexibility, we are making it a callback over `SslConnectorBuilder`.
 /// Which allows users to fine-tweaking the detail of the SSL connection.
-#[derive(Clone)]
-pub struct OpenSslClientConfig(SslBuilderMutator);
+/// This isn't `Clone` due to the implementation.
+pub struct OpenSslClientConfig(OpenSslResult<SslConnectorBuilder>);
 
 impl Default for OpenSslClientConfig {
     fn default() -> Self {
-        Self(Arc::new(|conn| {
+        let get_builder = || {
+            let mut b = SslConnector::builder(SslMethod::tls_client())?;
             // It seems gRPC doesn't support upgrade to HTTP/2,
             // if we haven't specified the protocol by ALPN, it would return a `GONE`.
             // "h2" is the ALPN name for HTTP/2, see:
             // https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids
-            conn.set_alpn_protos(b"\x02h2").map_err(Into::into)
-        }))
+            b.set_alpn_protos(b"\x02h2")?;
+            OpenSslResult::Ok(b)
+        };
+        Self(get_builder())
     }
 }
 
@@ -156,14 +170,12 @@ impl OpenSslClientConfig {
     /// Manually modify the SslConnectorBuilder by a pure function.
     pub fn manually(
         mut self,
-        f: impl Fn(&mut SslConnectorBuilder) -> Result<()> + Send + Sync + 'static,
+        f: impl FnOnce(&mut SslConnectorBuilder) -> OpenSslResult<()>,
     ) -> Self {
-        let inner = self.0;
-        self.0 = Arc::new(move |cb| {
-            inner(cb)?;
-            f(cb)
-        });
-        self
+        Self(self.0.and_then(|mut b| {
+            f(&mut b)?;
+            Ok(b)
+        }))
     }
 
     /// Add a CA into the cert storage via the binary of the PEM file of CA cert.
@@ -172,7 +184,6 @@ impl OpenSslClientConfig {
         if s.is_empty() {
             return self;
         }
-        let s = s.to_vec();
         self.manually(move |cb| {
             let ca = X509::from_pem(&s)?;
             cb.cert_store_mut().add_cert(ca)?;
@@ -186,14 +197,16 @@ impl OpenSslClientConfig {
         if cert_pem.is_empty() || key_pem.is_empty() {
             return self;
         }
-        let cert_pem = cert_pem.to_vec();
-        let key_pem = key_pem.to_vec();
-        self.manually(move |cb| {
+        self.manually(|cb| {
             let client = X509::from_pem(&cert_pem)?;
             let client_key = PKey::private_key_from_pem(&key_pem)?;
             cb.set_certificate(&client)?;
             cb.set_private_key(&client_key)?;
             Ok(())
         })
+    }
+
+    pub(crate) fn build(self) -> OpenSslResult<OpenSslConnector> {
+        self.0.and_then(|x| create_openssl_connector(x))
     }
 }

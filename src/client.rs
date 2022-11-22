@@ -3,7 +3,7 @@
 use crate::channel::Channel;
 use crate::error::{Error, Result};
 #[cfg(feature = "tls-openssl")]
-use crate::openssl_tls::{self, OpenSslClientConfig};
+use crate::openssl_tls::{self, OpenSslClientConfig, OpenSslConnector};
 use crate::rpc::auth::Permission;
 use crate::rpc::auth::{AuthClient, AuthDisableResponse, AuthEnableResponse};
 use crate::rpc::auth::{
@@ -34,6 +34,8 @@ use crate::rpc::maintenance::{
     HashResponse, MaintenanceClient, MoveLeaderResponse, SnapshotStreaming, StatusResponse,
 };
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
+#[cfg(feature = "tls-openssl")]
+use crate::OpenSslResult;
 #[cfg(feature = "tls")]
 use crate::TlsOptions;
 use http::uri::Uri;
@@ -89,7 +91,10 @@ impl Client {
         let (channel, tx) = Channel::balance_channel(64);
         #[cfg(feature = "tls-openssl")]
         let (channel, tx) = openssl_tls::balanced_channel(
-            options.clone().and_then(|o| o.otls).unwrap_or_default(),
+            options
+                .clone()
+                .and_then(|o| o.otls)
+                .unwrap_or_else(OpenSslConnector::create_default)?,
         )?;
         for endpoint in endpoints {
             // The rx inside `channel` won't be closed or dropped here
@@ -739,7 +744,7 @@ pub struct ConnectOptions {
     #[cfg(feature = "tls")]
     tls: Option<TlsOptions>,
     #[cfg(feature = "tls-openssl")]
-    pub(crate) otls: Option<OpenSslClientConfig>,
+    pub(crate) otls: Option<OpenSslResult<OpenSslConnector>>,
 }
 
 impl ConnectOptions {
@@ -762,15 +767,15 @@ impl ConnectOptions {
     }
 
     /// Sets TLS options, however using the OpenSSL implementation.
-    ///
-    /// Note that this function have to work with `HTTPS` URLs.
-    ///
-    /// FIXME: Perhaps we can unify the essential TLS config terms by something like `TlsBuilder`?
     #[cfg_attr(docsrs, doc(cfg(feature = "tls-openssl")))]
     #[cfg(feature = "tls-openssl")]
     #[inline]
     pub fn with_openssl_tls(mut self, otls: OpenSslClientConfig) -> Self {
-        self.otls = Some(otls);
+        // NOTE1: Perhaps we can unify the essential TLS config terms by something like `TlsBuilder`?
+        //
+        // NOTE2: we delay the checking at connection step to keep consistency with tonic, however would
+        // things be better if we validate the config at here?
+        self.otls = Some(otls.build());
         self
     }
 
