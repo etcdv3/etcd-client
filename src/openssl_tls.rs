@@ -1,6 +1,6 @@
 #![cfg(feature = "tls-openssl")]
 
-use std::{sync::Arc, task::Poll};
+use std::{task::Poll};
 
 use http::{Request, Uri};
 use hyper::client::HttpConnector;
@@ -169,7 +169,7 @@ impl std::fmt::Debug for OpenSslClientConfig {
 impl OpenSslClientConfig {
     /// Manually modify the SslConnectorBuilder by a pure function.
     pub fn manually(
-        mut self,
+        self,
         f: impl FnOnce(&mut SslConnectorBuilder) -> OpenSslResult<()>,
     ) -> Self {
         Self(self.0.and_then(|mut b| {
