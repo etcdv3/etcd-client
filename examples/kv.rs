@@ -39,7 +39,7 @@ async fn main() -> Result<(), Error> {
     // put kv
     let resp = client.put(alice.key(), alice.value(), None).await?;
     println!("put kv: {:?}", alice);
-    let revison = resp.header().unwrap().revision();
+    let revision = resp.header().unwrap().revision();
     client.put(bob.key(), bob.value(), None).await?;
     println!("put kv: {:?}", bob);
     client.put(chris.key(), chris.value(), None).await?;
@@ -109,9 +109,9 @@ async fn main() -> Result<(), Error> {
 
     // compact
     client
-        .compact(revison, Some(CompactionOptions::new().with_physical()))
+        .compact(revision, Some(CompactionOptions::new().with_physical()))
         .await?;
-    println!("Compact to revision {}.", revison);
+    println!("Compact to revision {}.", revision);
 
     Ok(())
 }
