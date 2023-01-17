@@ -635,7 +635,7 @@ impl CompactionResponse {
     }
 }
 
-/// Transaction comparision.
+/// Transaction comparison.
 #[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct Compare(PbCompare);

@@ -69,12 +69,12 @@ message CampaignRequest {
 
 message CampaignResponse {
   etcdserverpb.ResponseHeader header = 1;
-  // leader describes the resources used for holding leadereship of the election.
+  // leader describes the resources used for holding leadership of the election.
   LeaderKey leader = 2;
 }
 
 message LeaderKey {
-  // name is the election identifier that correponds to the leadership key.
+  // name is the election identifier that corresponds to the leadership key.
   bytes name = 1;
   // key is an opaque key representing the ownership of the election. If the key
   // is deleted, then leadership is lost.
