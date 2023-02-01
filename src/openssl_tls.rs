@@ -132,14 +132,10 @@ where
 }
 
 impl<S> Load for FailBackOff<S> {
-    type Metric = usize;
+    type Metric = bool;
 
     fn load(&self) -> Self::Metric {
-        if self.handle.failed() {
-            0
-        } else {
-            1
-        }
+        self.handle.failed()
     }
 }
 
