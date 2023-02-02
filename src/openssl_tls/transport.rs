@@ -1,13 +1,8 @@
 #![cfg(feature = "tls-openssl")]
 
-use std::{
-    future::Future,
-    pin::Pin,
-    sync::{Arc, Mutex},
-    task::ready,
-    time::{Duration, Instant},
-};
+use std::time::Duration;
 
+use super::backoff::{BackOffStatus, BackOffWhenFail};
 use http::{Request, Uri};
 use hyper::client::HttpConnector;
 use hyper_openssl::HttpsConnector;
@@ -23,9 +18,9 @@ use tonic::{
     body::BoxBody,
     transport::{Channel, Endpoint},
 };
-use tower::{balance::p2c::Balance, buffer::Buffer, discover::Change, load::Load, Service};
+use tower::{balance::p2c::Balance, buffer::Buffer, discover::Change};
 
-use super::error::Result;
+use crate::error::Result;
 
 pub type SslConnectorBuilder = openssl::ssl::SslConnectorBuilder;
 pub type OpenSslResult<T> = std::result::Result<T, ErrorStack>;
@@ -36,108 +31,7 @@ pub type Balanced<T> = Balance<T, TonicRequest>;
 pub type OpenSslChannel = Buffered<Balanced<OpenSslDiscover<Uri>>>;
 /// OpenSslDiscover is the backend for balanced channel based on OpenSSL transports.
 /// Because `Channel::balance` doesn't allow us to provide custom connector, we must implement ourselves' balancer...
-pub type OpenSslDiscover<K> = ReceiverStream<Result<Change<K, FailBackOff<Channel>>>>;
-
-pub struct FailBackOff<S> {
-    inner: S,
-    handle: BackOffHandle,
-}
-
-impl<S> FailBackOff<S> {
-    fn new(inner: S, back_off: Duration) -> Self {
-        Self {
-            inner,
-            handle: BackOffHandle {
-                backoff_time: back_off,
-                last_failure: Arc::default(),
-            },
-        }
-    }
-}
-
-#[derive(Clone)]
-struct BackOffHandle {
-    backoff_time: Duration,
-    last_failure: Arc<Mutex<Option<Instant>>>,
-}
-
-impl BackOffHandle {
-    fn fail(&self) {
-        let mut failure = Mutex::lock(&self.last_failure).unwrap();
-        *failure = Some(Instant::now());
-    }
-
-    fn failed(&self) -> bool {
-        let mut failure = self.last_failure.lock().unwrap();
-        if let Some(lf) = failure.as_mut() {
-            if Instant::now().saturating_duration_since(*lf) > self.backoff_time {
-                *failure = None;
-            }
-        }
-
-        failure.is_some()
-    }
-}
-
-pub struct TraceFailFuture<F> {
-    inner: F,
-    handle: BackOffHandle,
-}
-
-impl<F, T, E> Future for TraceFailFuture<F>
-where
-    F: Future<Output = std::result::Result<T, E>>,
-{
-    type Output = <F as Future>::Output;
-
-    fn poll(
-        self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Self::Output> {
-        // Safety: trivial projection.
-        let (inner, handle) = unsafe {
-            let this = self.get_unchecked_mut();
-            (Pin::new_unchecked(&mut this.inner), &this.handle)
-        };
-
-        let result = ready!(Future::poll(inner, cx));
-        if result.is_err() {
-            handle.fail();
-        }
-        result.into()
-    }
-}
-
-impl<Req, S> Service<Req> for FailBackOff<S>
-where
-    S: Service<Req>,
-{
-    type Response = <S as Service<Req>>::Response;
-    type Error = <S as Service<Req>>::Error;
-    type Future = TraceFailFuture<<S as Service<Req>>::Future>;
-
-    fn poll_ready(
-        &mut self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<std::result::Result<(), Self::Error>> {
-        self.inner.poll_ready(cx)
-    }
-
-    fn call(&mut self, req: Req) -> Self::Future {
-        TraceFailFuture {
-            inner: self.inner.call(req),
-            handle: self.handle.clone(),
-        }
-    }
-}
-
-impl<S> Load for FailBackOff<S> {
-    type Metric = bool;
-
-    fn load(&self) -> Self::Metric {
-        self.handle.failed()
-    }
-}
+pub type OpenSslDiscover<K> = ReceiverStream<Result<Change<K, BackOffWhenFail<Channel>>>>;
 
 #[derive(Clone)]
 pub struct OpenSslConnector(HttpsConnector<HttpConnector>);
@@ -201,7 +95,13 @@ fn create_openssl_discover<K: Send + 'static>(
                         let chan = e.connect_with_connector(connector.clone().0).await?;
                         Ok(Change::Insert(
                             name,
-                            FailBackOff::new(chan, Duration::from_secs(30)),
+                            BackOffWhenFail::new(
+                                chan,
+                                BackOffStatus::new(
+                                    /*initial*/ Duration::from_secs(1),
+                                    /*max*/ Duration::from_secs(256),
+                                ),
+                            ),
                         ))
                     }
                     Change::Remove(name) => Ok(Change::Remove(name)),
