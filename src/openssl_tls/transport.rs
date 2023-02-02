@@ -92,7 +92,7 @@ fn create_openssl_discover<K: Send + 'static>(
             let r = async {
                 match x {
                     Change::Insert(name, e) => {
-                        let chan = e.connect_with_connector(connector.clone().0).await?;
+                        let chan = e.connect_with_connector_lazy(connector.clone().0);
                         Ok(Change::Insert(
                             name,
                             BackOffWhenFail::new(
