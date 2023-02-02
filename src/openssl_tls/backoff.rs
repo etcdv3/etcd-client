@@ -37,8 +37,9 @@ pub struct BackOffStatus {
     initial_backoff_dur: Duration,
     max_backoff_dur: Duration,
 
-    next_backoff_dur: Duration,
-    last_failure: Option<Instant>,
+    pub(super) next_backoff_dur: Duration,
+    pub(super) last_failure: Option<Instant>,
+    pub(super) current_backoff_dur: Duration,
 }
 
 impl BackOffStatus {
@@ -48,6 +49,7 @@ impl BackOffStatus {
             max_backoff_dur: max,
 
             next_backoff_dur: initial,
+            current_backoff_dur: initial,
             last_failure: None,
         }
     }
@@ -59,6 +61,7 @@ impl BackOffStatus {
         // because when a service temporary totally unusable, there might be a flood of failure,
         // which may make the back off duration too long, even longer than the time it may take to recover.
         if !self.failed() {
+            self.current_backoff_dur = self.next_backoff_dur;
             self.next_backoff_dur = Ord::min(self.next_backoff_dur * 2, self.max_backoff_dur);
         }
         self.last_failure = Some(Instant::now());
@@ -67,11 +70,12 @@ impl BackOffStatus {
     fn success(&mut self) {
         self.last_failure = None;
         self.next_backoff_dur = self.initial_backoff_dur;
+        self.current_backoff_dur = self.initial_backoff_dur;
     }
 
     fn failed(&mut self) -> bool {
         if let Some(lf) = self.last_failure {
-            if Instant::now().saturating_duration_since(lf) > self.next_backoff_dur {
+            if Instant::now().saturating_duration_since(lf) > self.current_backoff_dur {
                 self.last_failure = None;
             }
         }
@@ -154,5 +158,50 @@ impl<S> Load for BackOffWhenFail<S> {
 
     fn load(&self) -> Self::Metric {
         self.handle.failed()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::time::Duration;
+
+    use super::BackOffStatus;
+
+    #[test]
+    fn test_back_off() {
+        let mut state = BackOffStatus::new(Duration::from_secs(1), Duration::from_secs(4));
+        let assert_state = |state: &mut BackOffStatus, failed, curr, next, desc| {
+            assert_eq!(state.failed(), failed, "{}: success status not match", desc);
+            assert_eq!(
+                state.current_backoff_dur,
+                Duration::from_secs(curr),
+                "{}: current_backoff_dur not match",
+                desc
+            );
+            assert_eq!(
+                state.next_backoff_dur,
+                Duration::from_secs(next),
+                "{}: next_backoff_dur not match",
+                desc
+            );
+        };
+        assert!(!state.failed());
+        state.fail();
+        assert_state(&mut state, true, 1, 2, "first failure");
+        state.fail();
+        assert_state(&mut state, true, 1, 2, "failed when fail");
+        state.last_failure = None;
+        state.fail();
+        assert_state(&mut state, true, 2, 4, "failed after backoff");
+        state.last_failure = None;
+        state.fail();
+        assert_state(&mut state, true, 4, 4, "failed and exceed backoff max");
+
+        state.success();
+        assert_state(&mut state, false, 1, 1, "success");
+        state.fail();
+        assert_state(&mut state, true, 1, 2, "failure again");
+        state.success();
+        assert_state(&mut state, false, 1, 1, "success after failure");
     }
 }
