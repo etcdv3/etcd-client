@@ -1,5 +1,8 @@
 #![cfg(feature = "tls-openssl")]
 
+use std::time::Duration;
+
+use super::backoff::{BackOffStatus, BackOffWhenFail};
 use http::{Request, Uri};
 use hyper::client::HttpConnector;
 use hyper_openssl::HttpsConnector;
@@ -15,9 +18,9 @@ use tonic::{
     body::BoxBody,
     transport::{Channel, Endpoint},
 };
-use tower::{balance::p2c::Balance, buffer::Buffer, discover::Change, load::Constant};
+use tower::{balance::p2c::Balance, buffer::Buffer, discover::Change};
 
-use super::error::Result;
+use crate::error::Result;
 
 pub type SslConnectorBuilder = openssl::ssl::SslConnectorBuilder;
 pub type OpenSslResult<T> = std::result::Result<T, ErrorStack>;
@@ -28,7 +31,7 @@ pub type Balanced<T> = Balance<T, TonicRequest>;
 pub type OpenSslChannel = Buffered<Balanced<OpenSslDiscover<Uri>>>;
 /// OpenSslDiscover is the backend for balanced channel based on OpenSSL transports.
 /// Because `Channel::balance` doesn't allow us to provide custom connector, we must implement ourselves' balancer...
-pub type OpenSslDiscover<K> = ReceiverStream<Result<Change<K, Constant<Channel, i32>>>>;
+pub type OpenSslDiscover<K> = ReceiverStream<Result<Change<K, BackOffWhenFail<Channel>>>>;
 
 #[derive(Clone)]
 pub struct OpenSslConnector(HttpsConnector<HttpConnector>);
@@ -89,8 +92,17 @@ fn create_openssl_discover<K: Send + 'static>(
             let r = async {
                 match x {
                     Change::Insert(name, e) => {
-                        let chan = e.connect_with_connector(connector.clone().0).await?;
-                        Ok(Change::Insert(name, Constant::new(chan, 0)))
+                        let chan = e.connect_with_connector_lazy(connector.clone().0);
+                        Ok(Change::Insert(
+                            name,
+                            BackOffWhenFail::new(
+                                chan,
+                                BackOffStatus::new(
+                                    /*initial*/ Duration::from_secs(1),
+                                    /*max*/ Duration::from_secs(256),
+                                ),
+                            ),
+                        ))
                     }
                     Change::Remove(name) => Ok(Change::Remove(name)),
                 }
