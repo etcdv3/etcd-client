@@ -85,7 +85,7 @@ impl BackOffStatus {
 
 impl BackOffHandle {
     fn fail(&self) {
-        let mut status = Mutex::lock(&self.inner).unwrap();
+        let mut status = self.inner.lock().unwrap();
         status.fail()
     }
 
