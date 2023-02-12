@@ -166,7 +166,7 @@ impl OpenSslClientConfig {
             return self;
         }
         self.manually(move |cb| {
-            let ca = X509::from_pem(&s)?;
+            let ca = X509::from_pem(s)?;
             cb.cert_store_mut().add_cert(ca)?;
             Ok(())
         })
@@ -193,8 +193,8 @@ impl OpenSslClientConfig {
             return self;
         }
         self.manually(|cb| {
-            let client = X509::from_pem(&cert_pem)?;
-            let client_key = PKey::private_key_from_pem(&key_pem)?;
+            let client = X509::from_pem(cert_pem)?;
+            let client_key = PKey::private_key_from_pem(key_pem)?;
             cb.set_certificate(&client)?;
             cb.set_private_key(&client_key)?;
             Ok(())
@@ -202,6 +202,6 @@ impl OpenSslClientConfig {
     }
 
     pub(crate) fn build(self) -> OpenSslResult<OpenSslConnector> {
-        self.0.and_then(|x| create_openssl_connector(x))
+        self.0.and_then(create_openssl_connector)
     }
 }
