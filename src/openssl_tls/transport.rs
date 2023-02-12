@@ -155,6 +155,12 @@ impl OpenSslClientConfig {
 
     /// Add a CA into the cert storage via the binary of the PEM file of CA cert.
     /// If the argument is empty, do nothing.
+    /// Please also note unlike the gRPC implementation of Google, this doesn't allow
+    /// partial chain of certificates by default.
+    /// If you want to provide a non-root CA here, please manually allow partial chain here.
+    /// ```no_run
+    /// manually(|c| c.cert_store_mut().set_flags(X509VerifyFlags::PARTIAL_CHAIN))
+    /// ```
     pub fn ca_cert_pem(self, s: &[u8]) -> Self {
         if s.is_empty() {
             return self;
@@ -168,6 +174,20 @@ impl OpenSslClientConfig {
 
     /// Add a client cert for the request.
     /// If any of the argument is empty, do nothing.
+    /// Also note this would only **load the first certificate** in the PEM file.
+    /// If you need to load a client certificate bundle (a client cert + some mid CA certs)
+    /// you may need to add those certificates manually. (Which is the default behavior
+    /// of Google's gRPC implementation.)
+    /// ```no_run
+    /// manually(|c| {
+    ///     let mut client_certs = X509::stack_from_pem(&cert_pem)?;
+    ///     if client_certs.len() > 1 {
+    ///         for i in client_certs.drain(1..) {
+    ///             c.add_extra_chain_cert(i)?;
+    ///         }
+    ///     }
+    /// })
+    /// ```
     pub fn client_cert_pem_and_key(self, cert_pem: &[u8], key_pem: &[u8]) -> Self {
         if cert_pem.is_empty() || key_pem.is_empty() {
             return self;
