@@ -98,8 +98,7 @@ impl Client {
         )?;
         for endpoint in endpoints {
             // The rx inside `channel` won't be closed or dropped here
-            let _ = tx
-                .send(Change::Insert(endpoint.uri().clone(), endpoint))
+            tx.send(Change::Insert(endpoint.uri().clone(), endpoint))
                 .await
                 .unwrap();
         }
