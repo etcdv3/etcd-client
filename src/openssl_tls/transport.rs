@@ -1,5 +1,3 @@
-#![cfg(feature = "tls-openssl")]
-
 use std::time::Duration;
 
 use super::backoff::{BackOffStatus, BackOffWhenFail};

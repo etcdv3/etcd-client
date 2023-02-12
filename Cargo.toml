@@ -13,7 +13,7 @@ keywords = ["etcd", "v3", "api", "client", "async"]
 
 [features]
 tls = ["tonic/tls"]
-tls-openssl = ["openssl", "dep:hyper-openssl", "dep:hyper"]
+tls-openssl = ["openssl", "hyper-openssl", "hyper"]
 tls-openssl-vendored = ["tls-openssl", "openssl/vendored"]
 tls-roots = ["tls", "tonic/tls-roots"]
 pub-response-field = ["visible"]

@@ -66,8 +66,6 @@ mod rpc;
 
 pub use crate::client::{Client, ConnectOptions};
 pub use crate::error::Error;
-#[cfg(feature = "tls-openssl")]
-pub use crate::openssl_tls::OpenSslClientConfig;
 pub use crate::rpc::auth::{
     AuthClient, AuthDisableResponse, AuthEnableResponse, Permission, PermissionType,
     RoleAddResponse, RoleDeleteResponse, RoleGetResponse, RoleGrantPermissionResponse,
@@ -111,7 +109,7 @@ pub use tonic::transport::{Certificate, ClientTlsConfig as TlsOptions, Identity}
 
 #[cfg(feature = "tls-openssl")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tls-openssl")))]
-pub use crate::openssl_tls::{OpenSslResult, SslConnectorBuilder};
+pub use crate::openssl_tls::{OpenSslClientConfig, OpenSslResult, SslConnectorBuilder};
 
 /// Exposes internal protobuf representations used to create regular public response types.
 #[cfg(feature = "pub-response-field")]
