@@ -1,6 +1,9 @@
 //! Asynchronous client & synchronous client.
 
+use crate::channel::Channel;
 use crate::error::{Error, Result};
+#[cfg(feature = "tls-openssl")]
+use crate::openssl_tls::{self, OpenSslClientConfig, OpenSslConnector};
 use crate::rpc::auth::Permission;
 use crate::rpc::auth::{AuthClient, AuthDisableResponse, AuthEnableResponse};
 use crate::rpc::auth::{
@@ -31,14 +34,19 @@ use crate::rpc::maintenance::{
     HashResponse, MaintenanceClient, MoveLeaderResponse, SnapshotStreaming, StatusResponse,
 };
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
+#[cfg(feature = "tls-openssl")]
+use crate::OpenSslResult;
 #[cfg(feature = "tls")]
 use crate::TlsOptions;
 use http::uri::Uri;
+
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::Sender;
-use tonic::transport::{Channel, Endpoint};
+
+use tonic::transport::Endpoint;
+
 use tower::discover::Change;
 
 const HTTP_PREFIX: &str = "http://";
@@ -79,7 +87,15 @@ impl Client {
         }
 
         // Always use balance strategy even if there is only one endpoint.
+        #[cfg(not(feature = "tls-openssl"))]
         let (channel, tx) = Channel::balance_channel(64);
+        #[cfg(feature = "tls-openssl")]
+        let (channel, tx) = openssl_tls::balanced_channel(
+            options
+                .clone()
+                .and_then(|o| o.otls)
+                .unwrap_or_else(OpenSslConnector::create_default)?,
+        )?;
         for endpoint in endpoints {
             // The rx inside `channel` won't be closed or dropped here
             tx.send(Change::Insert(endpoint.uri().clone(), endpoint))
@@ -93,6 +109,8 @@ impl Client {
     }
 
     fn build_endpoint(url: &str, options: &Option<ConnectOptions>) -> Result<Endpoint> {
+        #[cfg(feature = "tls-openssl")]
+        use tonic::transport::Channel;
         let mut endpoint = if url.starts_with(HTTP_PREFIX) {
             #[cfg(feature = "tls")]
             if let Some(connect_options) = options {
@@ -105,10 +123,15 @@ impl Client {
 
             Channel::builder(url.parse()?)
         } else if url.starts_with(HTTPS_PREFIX) {
-            #[cfg(not(feature = "tls"))]
+            #[cfg(not(any(feature = "tls", feature = "tls-openssl")))]
             return Err(Error::InvalidArgs(String::from(
                 "HTTPS URLs are only supported with the feature \"tls\"",
             )));
+
+            #[cfg(all(feature = "tls-openssl", not(feature = "tls")))]
+            {
+                Channel::builder(url.parse()?)
+            }
 
             #[cfg(feature = "tls")]
             {
@@ -142,7 +165,18 @@ impl Client {
                 }
             }
 
-            #[cfg(not(feature = "tls"))]
+            #[cfg(all(feature = "tls-openssl", not(feature = "tls")))]
+            {
+                let pfx = if options.as_ref().and_then(|o| o.otls.as_ref()).is_some() {
+                    HTTPS_PREFIX
+                } else {
+                    HTTP_PREFIX
+                };
+                let e = pfx.to_owned() + url;
+                Channel::builder(e.parse()?)
+            }
+
+            #[cfg(all(not(feature = "tls"), not(feature = "tls-openssl")))]
             {
                 let e = HTTP_PREFIX.to_owned() + url;
                 Channel::builder(e.parse()?)
@@ -709,6 +743,8 @@ pub struct ConnectOptions {
     connect_timeout: Option<Duration>,
     #[cfg(feature = "tls")]
     tls: Option<TlsOptions>,
+    #[cfg(feature = "tls-openssl")]
+    otls: Option<OpenSslResult<OpenSslConnector>>,
 }
 
 impl ConnectOptions {
@@ -727,6 +763,19 @@ impl ConnectOptions {
     #[inline]
     pub fn with_tls(mut self, tls: TlsOptions) -> Self {
         self.tls = Some(tls);
+        self
+    }
+
+    /// Sets TLS options, however using the OpenSSL implementation.
+    #[cfg_attr(docsrs, doc(cfg(feature = "tls-openssl")))]
+    #[cfg(feature = "tls-openssl")]
+    #[inline]
+    pub fn with_openssl_tls(mut self, otls: OpenSslClientConfig) -> Self {
+        // NOTE1: Perhaps we can unify the essential TLS config terms by something like `TlsBuilder`?
+        //
+        // NOTE2: we delay the checking at connection step to keep consistency with tonic, however would
+        // things be better if we validate the config at here?
+        self.otls = Some(otls.build());
         self
     }
 
@@ -773,6 +822,8 @@ impl ConnectOptions {
             connect_timeout: None,
             #[cfg(feature = "tls")]
             tls: None,
+            #[cfg(feature = "tls-openssl")]
+            otls: None,
         }
     }
 }

@@ -1,6 +1,7 @@
 //! Etcd Lease RPC.
 
 use crate::auth::AuthService;
+use crate::channel::Channel;
 use crate::error::Result;
 use crate::rpc::pb::etcdserverpb::lease_client::LeaseClient as PbLeaseClient;
 use crate::rpc::pb::etcdserverpb::{
@@ -21,7 +22,6 @@ use std::task::{Context, Poll};
 use tokio::sync::mpsc::{channel, Sender};
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_stream::Stream;
-use tonic::transport::Channel;
 use tonic::{IntoRequest, Request, Streaming};
 
 /// Client for lease operations.

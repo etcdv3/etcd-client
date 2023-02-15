@@ -40,6 +40,10 @@ pub enum Error {
 
     /// Endpoint error
     EndpointError(String),
+
+    /// OpenSSL errors.
+    #[cfg(feature = "tls-openssl")]
+    OpenSsl(openssl::error::ErrorStack),
 }
 
 impl Display for Error {
@@ -57,6 +61,8 @@ impl Display for Error {
             Error::ElectError(e) => write!(f, "election error: {}", e),
             Error::InvalidHeaderValue(e) => write!(f, "invalid metadata value: {}", e),
             Error::EndpointError(e) => write!(f, "endpoint error: {}", e),
+            #[cfg(feature = "tls-openssl")]
+            Error::OpenSsl(e) => write!(f, "open ssl error: {}", e),
         }
     }
 }
@@ -102,5 +108,13 @@ impl From<http::header::InvalidHeaderValue> for Error {
     #[inline]
     fn from(e: http::header::InvalidHeaderValue) -> Self {
         Error::InvalidHeaderValue(e)
+    }
+}
+
+#[cfg(feature = "tls-openssl")]
+impl From<openssl::error::ErrorStack> for Error {
+    #[inline]
+    fn from(e: openssl::error::ErrorStack) -> Self {
+        Self::OpenSsl(e)
     }
 }

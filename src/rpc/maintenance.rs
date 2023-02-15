@@ -5,6 +5,7 @@ pub use crate::rpc::pb::etcdserverpb::AlarmType;
 
 use super::pb::etcdserverpb;
 use crate::auth::AuthService;
+use crate::channel::Channel;
 use crate::error::Result;
 use crate::rpc::pb::etcdserverpb::{
     AlarmRequest as PbAlarmRequest, AlarmResponse as PbAlarmResponse,
@@ -21,7 +22,6 @@ use etcdserverpb::AlarmMember as PbAlarmMember;
 use http::HeaderValue;
 use std::sync::Arc;
 use tonic::codec::Streaming as PbStreaming;
-use tonic::transport::Channel;
 use tonic::{IntoRequest, Request};
 
 /// Client for maintenance operations.

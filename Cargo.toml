@@ -13,6 +13,8 @@ keywords = ["etcd", "v3", "api", "client", "async"]
 
 [features]
 tls = ["tonic/tls"]
+tls-openssl = ["openssl", "hyper-openssl", "hyper"]
+tls-openssl-vendored = ["tls-openssl", "openssl/vendored"]
 tls-roots = ["tls", "tonic/tls-roots"]
 pub-response-field = ["visible"]
 
@@ -25,6 +27,9 @@ tower-service = "0.3.2"
 http = "0.2.8"
 visible =  { version = "0.0.1", optional = true }
 tower = "0.4.13"
+openssl = { version = "0.10", optional = true }
+hyper = { version = "0.14", features = ["h2", "client"], optional = true }
+hyper-openssl = { version = "0.9", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1.20.1", features = ["full"] }

@@ -58,8 +58,10 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod auth;
+mod channel;
 mod client;
 mod error;
+mod openssl_tls;
 mod rpc;
 
 pub use crate::client::{Client, ConnectOptions};
@@ -104,6 +106,10 @@ pub use crate::rpc::{KeyValue, ResponseHeader};
 #[cfg(feature = "tls")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tls")))]
 pub use tonic::transport::{Certificate, ClientTlsConfig as TlsOptions, Identity};
+
+#[cfg(feature = "tls-openssl")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tls-openssl")))]
+pub use crate::openssl_tls::{OpenSslClientConfig, OpenSslResult, SslConnectorBuilder};
 
 /// Exposes internal protobuf representations used to create regular public response types.
 #[cfg(feature = "pub-response-field")]

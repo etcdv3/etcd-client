@@ -4,6 +4,7 @@ pub use crate::rpc::pb::etcdserverpb::compare::CompareResult as CompareOp;
 pub use crate::rpc::pb::etcdserverpb::range_request::{SortOrder, SortTarget};
 
 use crate::auth::AuthService;
+use crate::channel::Channel;
 use crate::error::Result;
 use crate::rpc::pb::etcdserverpb::compare::{CompareTarget, TargetUnion};
 use crate::rpc::pb::etcdserverpb::kv_client::KvClient as PbKvClient;
@@ -20,7 +21,6 @@ use crate::rpc::pb::etcdserverpb::{
 use crate::rpc::{get_prefix, KeyRange, KeyValue, ResponseHeader};
 use http::HeaderValue;
 use std::sync::Arc;
-use tonic::transport::Channel;
 use tonic::{IntoRequest, Request};
 
 /// Client for KV operations.

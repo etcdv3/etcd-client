@@ -3,6 +3,7 @@
 pub use crate::rpc::pb::mvccpb::event::EventType;
 
 use crate::auth::AuthService;
+use crate::channel::Channel;
 use crate::error::{Error, Result};
 use crate::rpc::pb::etcdserverpb::watch_client::WatchClient as PbWatchClient;
 use crate::rpc::pb::etcdserverpb::watch_request::RequestUnion as WatchRequestUnion;
@@ -18,7 +19,6 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use tokio::sync::mpsc::{channel, Sender};
 use tokio_stream::{wrappers::ReceiverStream, Stream};
-use tonic::transport::Channel;
 use tonic::Streaming;
 
 /// Client for watch operations.
