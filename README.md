@@ -1,7 +1,7 @@
 # etcd-client
 
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Minimum rustc version](https://img.shields.io/badge/rustc-1.45+-lightgray.svg)](https://github.com/etcdv3/etcd-client#rust-version-requirements)
+[![Minimum rustc version](https://img.shields.io/badge/rustc-1.56+-lightgray.svg)](https://github.com/etcdv3/etcd-client#rust-version-requirements)
 [![Crate](https://img.shields.io/crates/v/etcd-client.svg)](https://crates.io/crates/etcd-client)
 [![API](https://docs.rs/etcd-client/badge.svg)](https://docs.rs/etcd-client)
 
@@ -74,7 +74,7 @@ Notes that we use a fixed `etcd` server URI (localhost:2379) to connect to etcd 
 
 ## Rust version requirements
 
-The minimum supported version is 1.45. The current `etcd-client` version is not guaranteed to build on Rust versions earlier than the minimum supported version.
+The minimum supported version is 1.56. The current `etcd-client` version is not guaranteed to build on Rust versions earlier than the minimum supported version.
 
 ## License
 
