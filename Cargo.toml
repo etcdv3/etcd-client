@@ -38,5 +38,5 @@ tokio = { version = "1.20.1", features = ["full"] }
 tonic-build = { version = "0.8.0", default-features = false, features = ["prost"] }
 
 [package.metadata.docs.rs]
-all-features = true
+features = ["tls", "tls-roots"]
 rustdoc-args = ["--cfg", "docsrs"]
