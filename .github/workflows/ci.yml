@@ -26,7 +26,8 @@ jobs:
         run: cargo clippy
       - name: test etcd client unit
         run: cargo test
-      - run: cd examples && cargo run --example auth_role
+      - name: run examples
+        run: cd examples && cargo run --example auth_role
       - run: cd examples && cargo run --example auth_user
       - run: cd examples && cargo run --example cluster
       - run: cd examples && cargo run --example election

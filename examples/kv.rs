@@ -32,7 +32,7 @@ impl KV {
 async fn main() -> Result<(), Error> {
     let mut client = Client::connect(["localhost:2379"], None).await?;
 
-    let alice = KV::new("Alice", "15");
+    let alice = KV::new("Alice", "150");
     let bob = KV::new("Bob", "20");
     let chris = KV::new("Chris", "16");
 
