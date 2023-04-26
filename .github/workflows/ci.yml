@@ -1,14 +1,9 @@
 name: Etcd Client Test
 run-name: ${{ github.actor }} is testing out etcd client
 on:
-  push:
-    branches: ["master"]
-  pull_request:
-    branches: ["master"]
-    paths:
-      - 'src/**'
-      - 'examples/**'
-      - 'proto/**'
+  pull_request_target:
+    branches:
+      - master
 
 jobs:
   regression-test:
