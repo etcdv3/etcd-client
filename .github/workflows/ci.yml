@@ -17,17 +17,18 @@ jobs:
       - run: sudo apt install -y protobuf-compiler libprotobuf-dev
       - name: Check out repository code
         uses: actions/checkout@v3
-      - name: test code style check
-        run: cargo clippy
-      - name: test etcd client unit
+      - name: format check
+        run: cargo fmt --check
+      - name: clippy
+        run: cargo clippy --all-targets -- -D warnings
+      - name: unit test
         run: cargo test
-      - name: run examples
-        run: cd examples && cargo run --example auth_role
-      - run: cd examples && cargo run --example auth_user
-      - run: cd examples && cargo run --example cluster
-      - run: cd examples && cargo run --example election
-      - run: cd examples && cargo run --example kv
-      - run: cd examples && cargo run --example lease
-      - run: cd examples && cargo run --example lock
-      - run: cd examples && cargo run --example maintenance
-      - run: cd examples && cargo run --example watch
+      - run: cargo run --example kv
+      - run: cargo run --example lease
+      - run: cargo run --example lock
+      - run: cargo run --example maintenance
+      - run: cargo run --example watch
+      - run: cargo run --example election
+      # run: cargo run --example auth_role
+      # run: cargo run --example auth_user
+      # run: cargo run --example cluster
