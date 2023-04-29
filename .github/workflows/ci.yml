@@ -3,6 +3,8 @@ run-name: ${{ github.actor }} is testing out etcd client
 on:
   pull_request_target:
     branches: ['**']
+  push:
+    branches: ['**']
 
 jobs:
   regression-test:
