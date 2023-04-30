@@ -1,7 +1,7 @@
 # etcd-client
 
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Minimum rustc version](https://img.shields.io/badge/rustc-1.56+-lightgray.svg)](https://github.com/etcdv3/etcd-client#rust-version-requirements)
+[![Minimum rustc version](https://img.shields.io/badge/rustc-1.60+-lightgray.svg)](https://github.com/etcdv3/etcd-client#rust-version-requirements)
 [![Crate](https://img.shields.io/crates/v/etcd-client.svg)](https://crates.io/crates/etcd-client)
 [![API](https://docs.rs/etcd-client/badge.svg)](https://docs.rs/etcd-client)
 
