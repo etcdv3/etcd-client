@@ -26,7 +26,7 @@ tokio-stream = "0.1.14"
 tower-service = "0.3.2"
 http = "0.2.9"
 visible =  { version = "0.0.1", optional = true }
-tower = "0.4.13"
+tower = { version = "0.4.13", default-features = false }
 openssl = { version = "0.10", optional = true }
 hyper = { version = "0.14.26", features = ["h2", "client"], optional = true }
 hyper-openssl = { version = "0.9", optional = true }
