@@ -587,18 +587,6 @@ pub struct Permission {
     with_from_key: bool,
 }
 
-impl From<i32> for PermissionType {
-    #[inline]
-    fn from(perm_type: i32) -> Self {
-        match perm_type {
-            0 => PermissionType::Read,
-            1 => PermissionType::Write,
-            2 => PermissionType::Readwrite,
-            _ => unreachable!(),
-        }
-    }
-}
-
 impl Permission {
     /// Creates a permission with operation type and key
     #[inline]
