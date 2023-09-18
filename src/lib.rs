@@ -67,11 +67,12 @@ mod rpc;
 pub use crate::client::{Client, ConnectOptions};
 pub use crate::error::Error;
 pub use crate::rpc::auth::{
-    AuthClient, AuthDisableResponse, AuthEnableResponse, Permission, PermissionType,
-    RoleAddResponse, RoleDeleteResponse, RoleGetResponse, RoleGrantPermissionResponse,
-    RoleListResponse, RoleRevokePermissionOptions, RoleRevokePermissionResponse, UserAddOptions,
-    UserAddResponse, UserChangePasswordResponse, UserDeleteResponse, UserGetResponse,
-    UserGrantRoleResponse, UserListResponse, UserRevokeRoleResponse,
+    AuthClient, AuthDisableResponse, AuthEnableResponse, AuthenticateResponse, Permission,
+    PermissionType, RoleAddResponse, RoleDeleteResponse, RoleGetResponse,
+    RoleGrantPermissionResponse, RoleListResponse, RoleRevokePermissionOptions,
+    RoleRevokePermissionResponse, UserAddOptions, UserAddResponse, UserChangePasswordResponse,
+    UserDeleteResponse, UserGetResponse, UserGrantRoleResponse, UserListResponse,
+    UserRevokeRoleResponse,
 };
 pub use crate::rpc::cluster::{
     ClusterClient, Member, MemberAddOptions, MemberAddResponse, MemberListResponse,
