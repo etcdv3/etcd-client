@@ -15,7 +15,7 @@ use crate::rpc::pb::mvccpb::Event as PbEvent;
 use crate::rpc::{KeyRange, KeyValue, ResponseHeader};
 use http::HeaderValue;
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 use tokio::sync::mpsc::{channel, Sender};
 use tokio_stream::{wrappers::ReceiverStream, Stream};
@@ -31,7 +31,7 @@ pub struct WatchClient {
 impl WatchClient {
     /// Creates a watch client.
     #[inline]
-    pub(crate) fn new(channel: Channel, auth_token: Option<Arc<HeaderValue>>) -> Self {
+    pub(crate) fn new(channel: Channel, auth_token: Arc<Mutex<Option<HeaderValue>>>) -> Self {
         let inner = PbWatchClient::new(AuthService::new(channel, auth_token));
         Self { inner }
     }

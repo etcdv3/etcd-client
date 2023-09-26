@@ -12,6 +12,7 @@ use crate::rpc::pb::v3electionpb::{
 };
 use crate::rpc::{KeyValue, ResponseHeader};
 use http::HeaderValue;
+use std::sync::Mutex;
 use std::task::{Context, Poll};
 use std::{pin::Pin, sync::Arc};
 use tokio_stream::Stream;
@@ -479,7 +480,7 @@ impl From<&PbLeaderKey> for &LeaderKey {
 impl ElectionClient {
     /// Creates a election
     #[inline]
-    pub(crate) fn new(channel: Channel, auth_token: Option<Arc<HeaderValue>>) -> Self {
+    pub(crate) fn new(channel: Channel, auth_token: Arc<Mutex<Option<HeaderValue>>>) -> Self {
         let inner = PbElectionClient::new(AuthService::new(channel, auth_token));
         Self { inner }
     }

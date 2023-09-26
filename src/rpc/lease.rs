@@ -17,7 +17,7 @@ use crate::rpc::ResponseHeader;
 use crate::Error;
 use http::HeaderValue;
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 use tokio::sync::mpsc::{channel, Sender};
 use tokio_stream::wrappers::ReceiverStream;
@@ -34,7 +34,7 @@ pub struct LeaseClient {
 impl LeaseClient {
     /// Creates a `LeaseClient`.
     #[inline]
-    pub(crate) fn new(channel: Channel, auth_token: Option<Arc<HeaderValue>>) -> Self {
+    pub(crate) fn new(channel: Channel, auth_token: Arc<Mutex<Option<HeaderValue>>>) -> Self {
         let inner = PbLeaseClient::new(AuthService::new(channel, auth_token));
         Self { inner }
     }
