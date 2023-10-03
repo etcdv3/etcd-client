@@ -34,6 +34,7 @@ use crate::rpc::maintenance::{
     HashResponse, MaintenanceClient, MoveLeaderResponse, SnapshotStreaming, StatusResponse,
 };
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
+use crate::AuthHandle;
 #[cfg(feature = "tls-openssl")]
 use crate::OpenSslResult;
 #[cfg(feature = "tls")]
@@ -65,7 +66,7 @@ pub struct Client {
     cluster: ClusterClient,
     election: ElectionClient,
     options: Option<ConnectOptions>,
-    auth_token: Arc<Mutex<Option<HeaderValue>>>,
+    auth_handle: AuthHandle,
     tx: Sender<Change<Uri, Endpoint>>,
 }
 
@@ -111,18 +112,6 @@ impl Client {
         Self::auth(channel.clone(), &mut options, &auth_token).await?;
 
         Ok(Self::build_client(channel, tx, auth_token, options))
-    }
-
-    /// Update the authentication token in place without creating a new client.
-    pub async fn update_auth(&self, name: String, password: String) -> Result<()> {
-        let resp = self.auth_client().authenticate(name, password).await?;
-
-        self.auth_token
-            .lock()
-            .unwrap()
-            .replace(resp.token().parse()?);
-
-        Ok(())
     }
 
     fn build_endpoint(url: &str, options: &Option<ConnectOptions>) -> Result<Endpoint> {
@@ -257,6 +246,8 @@ impl Client {
         let maintenance = MaintenanceClient::new(channel.clone(), auth_token.clone());
         let election = ElectionClient::new(channel, auth_token.clone());
 
+        let auth_handle = AuthHandle::new(auth_token, auth.clone());
+
         Self {
             kv,
             watch,
@@ -267,7 +258,7 @@ impl Client {
             cluster,
             election,
             options,
-            auth_token,
+            auth_handle,
             tx,
         }
     }
@@ -351,6 +342,12 @@ impl Client {
     #[inline]
     pub fn election_client(&self) -> ElectionClient {
         self.election.clone()
+    }
+
+    /// Gets a auth handle.
+    #[inline]
+    pub fn auth_handle(&self) -> AuthHandle {
+        self.auth_handle.clone()
     }
 
     /// Put the given key into the key-value store.
@@ -744,6 +741,18 @@ impl Client {
     #[inline]
     pub async fn resign(&mut self, option: Option<ResignOptions>) -> Result<ResignResponse> {
         self.election.resign(option).await
+    }
+
+    /// Updates client authentication.
+    #[inline]
+    pub async fn update_auth(&mut self, name: String, password: String) -> Result<()> {
+        self.auth_handle.update_auth(name, password).await
+    }
+
+    /// Removes client authentication.
+    #[inline]
+    pub fn remove_auth(&mut self) {
+        self.auth_handle.remove_auth();
     }
 }
 
