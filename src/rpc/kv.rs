@@ -568,6 +568,12 @@ impl DeleteResponse {
     pub fn prev_kvs(&self) -> &[KeyValue] {
         unsafe { &*(self.0.prev_kvs.as_slice() as *const _ as *const [KeyValue]) }
     }
+
+    /// If `prev_kv` is set in the request, take the previous key-value pairs, leaving an empty vector in its place.
+    #[inline]
+    pub fn take_prev_kvs(&mut self) -> Vec<KeyValue> {
+        self.0.prev_kvs.drain(..).map(KeyValue::new).collect()
+    }
 }
 
 /// Options for `Compact` operation.
