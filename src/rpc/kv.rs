@@ -38,6 +38,22 @@ impl KvClient {
         Self { inner }
     }
 
+    /// Limits the maximum size of a decoded message.
+    ///
+    /// Default: `4MB`
+    pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+        self.inner = self.inner.max_decoding_message_size(limit);
+        self
+    }
+
+    /// Limits the maximum size of an encoded message.
+    ///
+    /// Default: `usize::MAX`
+    pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+        self.inner = self.inner.max_encoding_message_size(limit);
+        self
+    }
+
     /// Puts the given key into the key-value store.
     /// A put request increments the revision of the key-value store
     /// and generates one event in the event history.
