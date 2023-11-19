@@ -572,7 +572,7 @@ impl DeleteResponse {
     /// If `prev_kvs` is set in the request, take the previous key-value pairs, leaving an empty vector in its place.
     #[inline]
     pub fn take_prev_kvs(&mut self) -> Vec<KeyValue> {
-        self.0.prev_kvs.drain(..).map(KeyValue::new).collect()
+        unsafe { std::mem::transmute(std::mem::take(&mut self.0.prev_kvs)) }
     }
 }
 
