@@ -584,6 +584,12 @@ impl DeleteResponse {
     pub fn prev_kvs(&self) -> &[KeyValue] {
         unsafe { &*(self.0.prev_kvs.as_slice() as *const _ as *const [KeyValue]) }
     }
+
+    /// If `prev_kvs` is set in the request, take the previous key-value pairs, leaving an empty vector in its place.
+    #[inline]
+    pub fn take_prev_kvs(&mut self) -> Vec<KeyValue> {
+        unsafe { std::mem::transmute(std::mem::take(&mut self.0.prev_kvs)) }
+    }
 }
 
 /// Options for `Compact` operation.
