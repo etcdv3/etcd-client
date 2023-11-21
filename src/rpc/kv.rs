@@ -453,6 +453,12 @@ impl GetResponse {
         unsafe { &*(self.0.kvs.as_slice() as *const _ as *const [KeyValue]) }
     }
 
+    /// If `kvs` is set in the request, take the key-value pairs, leaving an empty vector in its place.
+    #[inline]
+    pub fn take_kvs(&mut self) -> Vec<KeyValue> {
+        unsafe { std::mem::transmute(std::mem::take(&mut self.0.kvs)) }
+    }
+
     /// Indicates if there are more keys to return in the requested range.
     #[inline]
     pub const fn more(&self) -> bool {
