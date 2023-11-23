@@ -1,3 +1,5 @@
+mod lease;
+
 fn prefix_with(pfx: &[u8], key: &mut Vec<u8>) {
     // HACK - this is effectively: key = pfx.append(key)
     let _ = key.splice(..0, pfx.to_vec()).collect::<Vec<_>>();
