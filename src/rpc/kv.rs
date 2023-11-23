@@ -550,6 +550,13 @@ impl DeleteOptions {
         self.req.prev_kv = true;
         self
     }
+
+    pub(crate) fn take_mut_range<F>(&mut self, f: F)
+    where
+        F: FnOnce(Vec<u8>) -> Vec<u8>,
+    {
+        take_mut(&mut self.key_range.range_end, f);
+    }
 }
 
 impl From<DeleteOptions> for PbDeleteRequest {

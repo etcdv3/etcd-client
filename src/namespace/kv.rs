@@ -48,10 +48,16 @@ impl KvClientPrefix {
     pub async fn delete(
         &mut self,
         key: impl Into<Vec<u8>>,
-        options: Option<DeleteOptions>,
+        mut options: Option<DeleteOptions>,
     ) -> Result<DeleteResponse> {
         let (key, _) = prefix_internal(&self.pfx, key.into(), vec![]);
-        // TODO (@tisonkun) prefix range_end in options
+        options = options.map(|mut opts| {
+            opts.take_mut_range(|end| {
+                let (_, end) = prefix_internal(&self.pfx, vec![], end);
+                end
+            });
+            opts
+        });
         let mut resp = self.kv.delete(key, options).await?;
         resp.take_mut_inner(|resp| self.strip_prefix_delete_response(resp));
         Ok(resp)
