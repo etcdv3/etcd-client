@@ -611,6 +611,13 @@ impl DeleteResponse {
     pub fn take_prev_kvs(&mut self) -> Vec<KeyValue> {
         unsafe { std::mem::transmute(std::mem::take(&mut self.0.prev_kvs)) }
     }
+
+    pub(crate) fn take_mut_inner<F>(&mut self, f: F)
+    where
+        F: FnOnce(PbDeleteResponse) -> PbDeleteResponse,
+    {
+        take_mut(&mut self.0, f);
+    }
 }
 
 /// Options for `Compact` operation.
