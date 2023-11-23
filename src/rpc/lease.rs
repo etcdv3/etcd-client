@@ -14,7 +14,7 @@ use crate::rpc::pb::etcdserverpb::{
     LeaseTimeToLiveResponse as PbLeaseTimeToLiveResponse,
 };
 use crate::rpc::ResponseHeader;
-use crate::Error;
+use crate::{take_mut, Error};
 use http::HeaderValue;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -435,7 +435,7 @@ impl LeaseTimeToLiveResponse {
     where
         F: FnOnce(Vec<Vec<u8>>) -> Vec<Vec<u8>>,
     {
-        crate::take_mut(&mut self.0.keys, f);
+        take_mut(&mut self.0.keys, f);
     }
 }
 
