@@ -32,7 +32,7 @@ fn prefix_internal(pfx: &[u8], mut key: Vec<u8>, mut end: Vec<u8>) -> (Vec<u8>, 
             new_end = vec![0];
         }
         end = new_end;
-    } else if end.len() >= 1 {
+    } else if !end.is_empty() {
         prefix_with(pfx, &mut end);
     }
 
