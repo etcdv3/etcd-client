@@ -168,6 +168,7 @@ where
 {
     use std::ptr;
 
+    // SAFETY: all usages are within this crate and never panic
     unsafe {
         let old_t = ptr::read(mut_ref);
         let new_t = closure(old_t);
