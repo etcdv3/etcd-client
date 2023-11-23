@@ -19,6 +19,7 @@ use crate::rpc::pb::etcdserverpb::{
     RequestOp as PbTxnRequestOp, TxnRequest as PbTxnRequest, TxnResponse as PbTxnResponse,
 };
 use crate::rpc::{get_prefix, KeyRange, KeyValue, ResponseHeader};
+use crate::take_mut;
 use http::HeaderValue;
 use std::sync::Arc;
 use tonic::{IntoRequest, Request};
@@ -239,6 +240,13 @@ impl PutResponse {
     #[inline]
     pub fn take_prev_key(&mut self) -> Option<KeyValue> {
         self.0.prev_kv.take().map(KeyValue::new)
+    }
+
+    pub(crate) fn take_mut_inner<F>(&mut self, f: F)
+    where
+        F: FnOnce(PbPutResponse) -> PbPutResponse,
+    {
+        take_mut(&mut self.0, f);
     }
 }
 
@@ -469,6 +477,13 @@ impl GetResponse {
     #[inline]
     pub const fn count(&self) -> i64 {
         self.0.count
+    }
+
+    pub(crate) fn take_mut_inner<F>(&mut self, f: F)
+    where
+        F: FnOnce(PbRangeResponse) -> PbRangeResponse,
+    {
+        take_mut(&mut self.0, f);
     }
 }
 

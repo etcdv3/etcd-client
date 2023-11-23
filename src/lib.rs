@@ -67,6 +67,7 @@ mod rpc;
 
 pub use crate::client::{Client, ConnectOptions};
 pub use crate::error::Error;
+pub use crate::namespace::{KvClientPrefix, LeaseClientPrefix};
 pub use crate::rpc::auth::{
     AuthClient, AuthDisableResponse, AuthEnableResponse, AuthenticateResponse, Permission,
     PermissionType, RoleAddResponse, RoleDeleteResponse, RoleGetResponse,

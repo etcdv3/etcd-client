@@ -1,10 +1,6 @@
 //! Etcd RPC interfaces.
 
-#[cfg(feature = "pub-response-field")]
 pub(crate) mod pb;
-
-#[cfg(not(feature = "pub-response-field"))]
-mod pb;
 
 pub mod auth;
 pub mod cluster;
