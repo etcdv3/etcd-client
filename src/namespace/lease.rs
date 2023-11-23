@@ -22,14 +22,12 @@ impl LeaseClientPrefix {
         resp.take_mut_keys(|keys| {
             keys.into_iter()
                 .filter_map(|mut key| {
-                    if key.len() < self.pfx.len() {
-                        // too short
-                        None
-                    } else if !key.starts_with(&self.pfx) {
-                        // doesn't match prefix
-                        None
-                    } else {
+                    if key.len() >= self.pfx.len() && key.starts_with(&self.pfx) {
                         Some(key.split_off(self.pfx.len()))
+                    } else {
+                        // 1. too short
+                        // 2. doesn't match prefix
+                        None
                     }
                 })
                 .collect()
