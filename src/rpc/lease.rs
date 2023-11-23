@@ -429,6 +429,14 @@ impl LeaseTimeToLiveResponse {
     pub fn keys(&self) -> &[Vec<u8>] {
         &self.0.keys
     }
+
+    #[inline]
+    pub(crate) fn take_mut_keys<F>(&mut self, f: F)
+    where
+        F: FnOnce(Vec<Vec<u8>>) -> Vec<Vec<u8>>,
+    {
+        crate::take_mut(&mut self.0.keys, f);
+    }
 }
 
 /// Response for `Leases` operation.

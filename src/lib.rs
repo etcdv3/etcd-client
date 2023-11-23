@@ -161,3 +161,16 @@ pub mod proto {
         LockResponse as PbLockResponse, UnlockResponse as PbUnlockResponse,
     };
 }
+
+fn take_mut<T, F>(mut_ref: &mut T, closure: F)
+where
+    F: FnOnce(T) -> T,
+{
+    use std::ptr;
+
+    unsafe {
+        let old_t = ptr::read(mut_ref);
+        let new_t = closure(old_t);
+        ptr::write(mut_ref, new_t);
+    }
+}
