@@ -1,4 +1,8 @@
+mod kv;
 mod lease;
+
+pub use kv::KvClientPrefix;
+pub use lease::LeaseClientPrefix;
 
 fn prefix_with(pfx: &[u8], key: &mut Vec<u8>) {
     // HACK - this is effectively: key = pfx.append(key)
