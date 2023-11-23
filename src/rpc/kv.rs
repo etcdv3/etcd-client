@@ -894,6 +894,13 @@ impl Txn {
             .collect();
         self
     }
+
+    pub(crate) fn take_mut_inner<F>(&mut self, f: F)
+    where
+        F: FnOnce(PbTxnRequest) -> PbTxnRequest,
+    {
+        take_mut(&mut self.req, f);
+    }
 }
 
 impl From<Txn> for PbTxnRequest {
@@ -972,5 +979,12 @@ impl TxnResponse {
                 }
             })
             .collect()
+    }
+
+    pub(crate) fn take_mut_inner<F>(&mut self, f: F)
+    where
+        F: FnOnce(PbTxnResponse) -> PbTxnResponse,
+    {
+        take_mut(&mut self.0, f);
     }
 }
