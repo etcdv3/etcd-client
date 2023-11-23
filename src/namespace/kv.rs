@@ -37,9 +37,16 @@ impl KvClientPrefix {
     pub async fn get(
         &mut self,
         key: impl Into<Vec<u8>>,
-        options: Option<GetOptions>,
+        mut options: Option<GetOptions>,
     ) -> Result<GetResponse> {
         let (key, _) = prefix_internal(&self.pfx, key.into(), vec![]);
+        options = options.map(|mut opts| {
+            opts.take_mut_range(|end| {
+                let (_, end) = prefix_internal(&self.pfx, vec![], end);
+                end
+            });
+            opts
+        });
         let mut resp = self.kv.get(key, options).await?;
         resp.take_mut_inner(|resp| self.strip_prefix_range_response(resp));
         Ok(resp)
