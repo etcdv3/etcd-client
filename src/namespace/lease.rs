@@ -1,4 +1,5 @@
 use crate::error::Result;
+use crate::namespace::strip_prefix;
 use crate::{LeaseClient, LeaseTimeToLiveOptions, LeaseTimeToLiveResponse};
 
 pub struct LeaseClientPrefix {
@@ -23,7 +24,8 @@ impl LeaseClientPrefix {
             keys.into_iter()
                 .filter_map(|mut key| {
                     if key.starts_with(&self.pfx) {
-                        Some(key.split_off(self.pfx.len()))
+                        strip_prefix(&self.pfx, &mut key);
+                        Some(key)
                     } else {
                         None
                     }
