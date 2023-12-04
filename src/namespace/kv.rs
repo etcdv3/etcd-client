@@ -1,5 +1,5 @@
 use crate::error::Result;
-use crate::namespace::prefix_internal;
+use crate::namespace::{prefix_internal, strip_prefix};
 use crate::rpc::pb::etcdserverpb::request_op::Request;
 use crate::rpc::pb::etcdserverpb::response_op::Response;
 pub use crate::rpc::pb::etcdserverpb::{
@@ -162,6 +162,7 @@ impl KvClientPrefix {
             "{key:?} does not start with {:?}",
             self.pfx
         );
-        key.split_off(self.pfx.len())
+        strip_prefix(&self.pfx, &mut key);
+        key
     }
 }
