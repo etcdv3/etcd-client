@@ -4,9 +4,39 @@ mod lease;
 pub use kv::KvClientPrefix;
 pub use lease::LeaseClientPrefix;
 
+fn strip_prefix(pfx: &[u8], key: &mut Vec<u8>) {
+    if pfx.is_empty() {
+        return;
+    }
+
+    if !key.starts_with(pfx) {
+        return;
+    }
+
+    let pfx_len = pfx.len();
+    let key_len = key.len();
+    let new_len = key_len - pfx_len;
+    unsafe {
+        let ptr = key.as_mut_ptr();
+        std::ptr::copy(ptr.add(pfx_len), ptr, new_len);
+        key.set_len(new_len);
+    }
+}
+
 fn prefix_with(pfx: &[u8], key: &mut Vec<u8>) {
-    // HACK - this is effectively: key = pfx.append(key)
-    let _ = key.splice(..0, pfx.to_vec()).collect::<Vec<_>>();
+    if pfx.is_empty() {
+        return;
+    }
+
+    let pfx_len = pfx.len();
+    let key_len = key.len();
+    key.reserve(pfx_len);
+    unsafe {
+        let ptr = key.as_mut_ptr();
+        std::ptr::copy(ptr, ptr.add(pfx_len), key_len);
+        std::ptr::copy_nonoverlapping(pfx.as_ptr(), ptr, pfx_len);
+        key.set_len(key_len + pfx_len);
+    }
 }
 
 fn prefix_internal(pfx: &[u8], mut key: Vec<u8>, mut end: Vec<u8>) -> (Vec<u8>, Vec<u8>) {
