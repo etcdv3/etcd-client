@@ -1,5 +1,5 @@
 use crate::error::Result;
-use crate::namespace::{prefix_internal, strip_prefix};
+use crate::namespace::{prefix_internal, VecExt};
 use crate::rpc::pb::etcdserverpb::request_op::Request;
 use crate::rpc::pb::etcdserverpb::response_op::Response;
 pub use crate::rpc::pb::etcdserverpb::{
@@ -7,6 +7,7 @@ pub use crate::rpc::pb::etcdserverpb::{
     RangeResponse as PbRangeResponse, TxnRequest as PbTxnRequest, TxnResponse as PbTxnResponse,
 };
 use crate::rpc::pb::etcdserverpb::{RequestOp, ResponseOp};
+use crate::rpc::KeyValue;
 use crate::{
     take_mut, DeleteOptions, DeleteResponse, GetOptions, GetResponse, KvClient, PutOptions,
     PutResponse, Txn, TxnResponse,
@@ -22,15 +23,22 @@ impl KvClientPrefix {
         Self { pfx, kv }
     }
 
+    #[inline]
+    fn prefixed_key(&self, key: impl Into<Vec<u8>>) -> Vec<u8> {
+        let mut key = key.into();
+        key.prefix_with(&self.pfx);
+        key
+    }
+
     pub async fn put(
         &mut self,
         key: impl Into<Vec<u8>>,
         value: impl Into<Vec<u8>>,
         options: Option<PutOptions>,
     ) -> Result<PutResponse> {
-        let (key, _) = prefix_internal(&self.pfx, key.into(), vec![]);
+        let key = self.prefixed_key(key);
         let mut resp = self.kv.put(key, value, options).await?;
-        resp.take_mut_inner(|resp| self.strip_prefix_put_response(resp));
+        resp.strip_prev_key_prefix(&self.pfx);
         Ok(resp)
     }
 
@@ -39,16 +47,13 @@ impl KvClientPrefix {
         key: impl Into<Vec<u8>>,
         mut options: Option<GetOptions>,
     ) -> Result<GetResponse> {
-        let (key, _) = prefix_internal(&self.pfx, key.into(), vec![]);
+        let key = self.prefixed_key(key);
         options = options.map(|mut opts| {
-            opts.take_mut_range(|end| {
-                let (_, end) = prefix_internal(&self.pfx, vec![], end);
-                end
-            });
+            opts.key_range_end_mut().prefix_range_end_with(&self.pfx);
             opts
         });
         let mut resp = self.kv.get(key, options).await?;
-        resp.take_mut_inner(|resp| self.strip_prefix_range_response(resp));
+        resp.strip_kvs_prefix(&self.pfx);
         Ok(resp)
     }
 
@@ -57,16 +62,13 @@ impl KvClientPrefix {
         key: impl Into<Vec<u8>>,
         mut options: Option<DeleteOptions>,
     ) -> Result<DeleteResponse> {
-        let (key, _) = prefix_internal(&self.pfx, key.into(), vec![]);
+        let key = self.prefixed_key(key);
         options = options.map(|mut opts| {
-            opts.take_mut_range(|end| {
-                let (_, end) = prefix_internal(&self.pfx, vec![], end);
-                end
-            });
+            opts.key_range_end_mut().prefix_range_end_with(&self.pfx);
             opts
         });
         let mut resp = self.kv.delete(key, options).await?;
-        resp.take_mut_inner(|resp| self.strip_prefix_delete_response(resp));
+        resp.strip_prev_kvs_prefix(&self.pfx);
         Ok(resp)
     }
 
@@ -162,7 +164,41 @@ impl KvClientPrefix {
             "{key:?} does not start with {:?}",
             self.pfx
         );
-        strip_prefix(&self.pfx, &mut key);
+        key.strip_prefix(&self.pfx);
         key
+    }
+}
+
+impl KeyValue {
+    #[inline]
+    fn strip_key_prefix(&mut self, prefix: &[u8]) {
+        self.key_mut().strip_prefix(prefix);
+    }
+}
+
+impl PutResponse {
+    #[inline]
+    fn strip_prev_key_prefix(&mut self, prefix: &[u8]) {
+        self.prev_key_mut().map(|kv| {
+            kv.strip_key_prefix(prefix);
+        });
+    }
+}
+
+impl GetResponse {
+    #[inline]
+    fn strip_kvs_prefix(&mut self, prefix: &[u8]) {
+        for kv in self.kvs_mut().iter_mut() {
+            kv.strip_key_prefix(prefix);
+        }
+    }
+}
+
+impl DeleteResponse {
+    #[inline]
+    fn strip_prev_kvs_prefix(&mut self, prefix: &[u8]) {
+        for kv in self.prev_kvs_mut().iter_mut() {
+            kv.strip_key_prefix(prefix);
+        }
     }
 }

@@ -82,6 +82,11 @@ impl KeyValue {
         &self.0.key
     }
 
+    #[inline]
+    pub(crate) fn key_mut(&mut self) -> &mut Vec<u8> {
+        &mut self.0.key
+    }
+
     /// The key in string. An empty key is not allowed.
     #[inline]
     pub fn key_str(&self) -> Result<&str> {
@@ -160,6 +165,13 @@ impl From<&PbKeyValue> for &KeyValue {
     #[inline]
     fn from(src: &PbKeyValue) -> Self {
         unsafe { &*(src as *const _ as *const KeyValue) }
+    }
+}
+
+impl From<&mut PbKeyValue> for &mut KeyValue {
+    #[inline]
+    fn from(src: &mut PbKeyValue) -> Self {
+        unsafe { &mut *(src as *mut _ as *mut KeyValue) }
     }
 }
 

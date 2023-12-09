@@ -4,68 +4,79 @@ mod lease;
 pub use kv::KvClientPrefix;
 pub use lease::LeaseClientPrefix;
 
-fn strip_prefix(pfx: &[u8], key: &mut Vec<u8>) {
-    if pfx.is_empty() {
-        return;
-    }
-
-    if !key.starts_with(pfx) {
-        return;
-    }
-
-    let pfx_len = pfx.len();
-    let key_len = key.len();
-    let new_len = key_len - pfx_len;
-    unsafe {
-        let ptr = key.as_mut_ptr();
-        std::ptr::copy(ptr.add(pfx_len), ptr, new_len);
-        key.set_len(new_len);
-    }
+trait VecExt {
+    fn strip_prefix(&mut self, prefix: &[u8]);
+    fn prefix_with(&mut self, prefix: &[u8]);
+    fn prefix_range_end_with(&mut self, prefix: &[u8]);
 }
 
-fn prefix_with(pfx: &[u8], key: &mut Vec<u8>) {
-    if pfx.is_empty() {
-        return;
+impl VecExt for Vec<u8> {
+    fn strip_prefix(&mut self, prefix: &[u8]) {
+        if prefix.is_empty() {
+            return;
+        }
+
+        if !self.starts_with(prefix) {
+            return;
+        }
+
+        let pfx_len = prefix.len();
+        let key_len = self.len();
+        let new_len = key_len - pfx_len;
+        unsafe {
+            let ptr = self.as_mut_ptr();
+            std::ptr::copy(ptr.add(pfx_len), ptr, new_len);
+            self.set_len(new_len);
+        }
     }
 
-    let pfx_len = pfx.len();
-    let key_len = key.len();
-    key.reserve(pfx_len);
-    unsafe {
-        let ptr = key.as_mut_ptr();
-        std::ptr::copy(ptr, ptr.add(pfx_len), key_len);
-        std::ptr::copy_nonoverlapping(pfx.as_ptr(), ptr, pfx_len);
-        key.set_len(key_len + pfx_len);
+    fn prefix_with(&mut self, prefix: &[u8]) {
+        if prefix.is_empty() {
+            return;
+        }
+
+        let pfx_len = prefix.len();
+        let key_len = self.len();
+        self.reserve(pfx_len);
+        unsafe {
+            let ptr = self.as_mut_ptr();
+            std::ptr::copy(ptr, ptr.add(pfx_len), key_len);
+            std::ptr::copy_nonoverlapping(prefix.as_ptr(), ptr, pfx_len);
+            self.set_len(key_len + pfx_len);
+        }
+    }
+
+    fn prefix_range_end_with(&mut self, prefix: &[u8]) {
+        if prefix.is_empty() {
+            return;
+        }
+
+        if self.len() == 1 && self[0] == 0 {
+            // the edge of the keyspace
+            self.clear();
+            self.extend_from_slice(prefix);
+            let mut ok = false;
+            for i in (0..self.len()).rev() {
+                self[i] = self[i].wrapping_add(1);
+                if self[i] != 0 {
+                    ok = true;
+                    break;
+                }
+            }
+            if !ok {
+                // 0xff..ff => 0x00
+                self.clear();
+                self.push(0);
+            }
+        } else if !self.is_empty() {
+            self.prefix_with(prefix);
+        }
     }
 }
 
 fn prefix_internal(pfx: &[u8], mut key: Vec<u8>, mut end: Vec<u8>) -> (Vec<u8>, Vec<u8>) {
-    if pfx.is_empty() {
-        return (key, end);
-    }
-
-    prefix_with(pfx, &mut key);
-
-    if end.len() == 1 && end[0] == 0 {
-        // the edge of the keyspace
-        let mut new_end = pfx.to_vec();
-        let mut ok = false;
-        for i in (0..new_end.len()).rev() {
-            new_end[i] = new_end[i].wrapping_add(1);
-            if new_end[i] != 0 {
-                ok = true;
-                break;
-            }
-        }
-        if !ok {
-            // 0xff..ff => 0x00
-            new_end = vec![0];
-        }
-        end = new_end;
-    } else if !end.is_empty() {
-        prefix_with(pfx, &mut end);
-    }
-
+    key.prefix_with(pfx);
+    end.prefix_range_end_with(pfx);
     (key, end)
 }
 

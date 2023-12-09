@@ -242,11 +242,10 @@ impl PutResponse {
         self.0.prev_kv.take().map(KeyValue::new)
     }
 
-    pub(crate) fn take_mut_inner<F>(&mut self, f: F)
-    where
-        F: FnOnce(PbPutResponse) -> PbPutResponse,
-    {
-        take_mut(&mut self.0, f);
+    /// If prev_kv is set in the request, the previous key-value pair will be returned.
+    #[inline]
+    pub fn prev_key_mut(&mut self) -> Option<&mut KeyValue> {
+        self.0.prev_kv.as_mut().map(From::from)
     }
 }
 
@@ -411,11 +410,9 @@ impl GetOptions {
         self
     }
 
-    pub(crate) fn take_mut_range<F>(&mut self, f: F)
-    where
-        F: FnOnce(Vec<u8>) -> Vec<u8>,
-    {
-        take_mut(&mut self.key_range.range_end, f);
+    #[inline]
+    pub(crate) fn key_range_end_mut(&mut self) -> &mut Vec<u8> {
+        &mut self.key_range.range_end
     }
 }
 
@@ -474,6 +471,13 @@ impl GetResponse {
         unsafe { std::mem::transmute(std::mem::take(&mut self.0.kvs)) }
     }
 
+    /// The list of key-value pairs matched by the `Get` request.
+    /// kvs is empty when count is requested.
+    #[inline]
+    pub fn kvs_mut(&mut self) -> &mut Vec<KeyValue> {
+        unsafe { std::mem::transmute(&mut self.0.kvs) }
+    }
+
     /// Indicates if there are more keys to return in the requested range.
     #[inline]
     pub const fn more(&self) -> bool {
@@ -484,13 +488,6 @@ impl GetResponse {
     #[inline]
     pub const fn count(&self) -> i64 {
         self.0.count
-    }
-
-    pub(crate) fn take_mut_inner<F>(&mut self, f: F)
-    where
-        F: FnOnce(PbRangeResponse) -> PbRangeResponse,
-    {
-        take_mut(&mut self.0, f);
     }
 }
 
@@ -558,11 +555,9 @@ impl DeleteOptions {
         self
     }
 
-    pub(crate) fn take_mut_range<F>(&mut self, f: F)
-    where
-        F: FnOnce(Vec<u8>) -> Vec<u8>,
-    {
-        take_mut(&mut self.key_range.range_end, f);
+    #[inline]
+    pub(crate) fn key_range_end_mut(&mut self) -> &mut Vec<u8> {
+        &mut self.key_range.range_end
     }
 }
 
@@ -626,11 +621,10 @@ impl DeleteResponse {
         unsafe { std::mem::transmute(std::mem::take(&mut self.0.prev_kvs)) }
     }
 
-    pub(crate) fn take_mut_inner<F>(&mut self, f: F)
-    where
-        F: FnOnce(PbDeleteResponse) -> PbDeleteResponse,
-    {
-        take_mut(&mut self.0, f);
+    /// If `prev_kv` is set in the request, the previous key-value pairs will be returned.
+    #[inline]
+    pub fn prev_kvs_mut(&mut self) -> &mut Vec<KeyValue> {
+        unsafe { std::mem::transmute(&mut self.0.prev_kvs) }
     }
 }
 

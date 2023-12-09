@@ -14,7 +14,7 @@ use crate::rpc::pb::etcdserverpb::{
     LeaseTimeToLiveResponse as PbLeaseTimeToLiveResponse,
 };
 use crate::rpc::ResponseHeader;
-use crate::{take_mut, Error};
+use crate::Error;
 use http::HeaderValue;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -430,12 +430,10 @@ impl LeaseTimeToLiveResponse {
         &self.0.keys
     }
 
+    /// Keys is the list of keys attached to this lease.
     #[inline]
-    pub(crate) fn take_mut_keys<F>(&mut self, f: F)
-    where
-        F: FnOnce(Vec<Vec<u8>>) -> Vec<Vec<u8>>,
-    {
-        take_mut(&mut self.0.keys, f);
+    pub fn keys_mut(&mut self) -> &mut [Vec<u8>] {
+        &mut self.0.keys
     }
 }
 
