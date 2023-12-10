@@ -14,6 +14,7 @@ use crate::rpc::pb::etcdserverpb::{
     LeaseTimeToLiveResponse as PbLeaseTimeToLiveResponse,
 };
 use crate::rpc::ResponseHeader;
+use crate::vec::VecExt;
 use crate::Error;
 use http::HeaderValue;
 use std::pin::Pin;
@@ -430,10 +431,11 @@ impl LeaseTimeToLiveResponse {
         &self.0.keys
     }
 
-    /// Keys is the list of keys attached to this lease.
     #[inline]
-    pub fn keys_mut(&mut self) -> &mut [Vec<u8>] {
-        &mut self.0.keys
+    pub(crate) fn strip_keys_prefix(&mut self, prefix: &[u8]) {
+        self.0.keys.iter_mut().for_each(|key| {
+            key.strip_key_prefix(prefix);
+        });
     }
 }
 

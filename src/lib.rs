@@ -64,6 +64,7 @@ mod error;
 mod namespace;
 mod openssl_tls;
 mod rpc;
+mod vec;
 
 pub use crate::client::{Client, ConnectOptions};
 pub use crate::error::Error;
@@ -161,18 +162,4 @@ pub mod proto {
     pub use crate::rpc::pb::v3lockpb::{
         LockResponse as PbLockResponse, UnlockResponse as PbUnlockResponse,
     };
-}
-
-fn take_mut<T, F>(mut_ref: &mut T, closure: F)
-where
-    F: FnOnce(T) -> T,
-{
-    use std::ptr;
-
-    // SAFETY: all usages are within this crate and never panic
-    unsafe {
-        let old_t = ptr::read(mut_ref);
-        let new_t = closure(old_t);
-        ptr::write(mut_ref, new_t);
-    }
 }

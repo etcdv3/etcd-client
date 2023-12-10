@@ -1,5 +1,4 @@
 use crate::error::Result;
-use crate::namespace::VecExt;
 use crate::{LeaseClient, LeaseTimeToLiveOptions, LeaseTimeToLiveResponse};
 
 pub struct LeaseClientPrefix {
@@ -20,9 +19,7 @@ impl LeaseClientPrefix {
         options: Option<LeaseTimeToLiveOptions>,
     ) -> Result<LeaseTimeToLiveResponse> {
         let mut resp = self.lease.time_to_live(id, options).await?;
-        resp.keys_mut().iter_mut().for_each(|key| {
-            key.strip_prefix(&self.pfx);
-        });
+        resp.strip_keys_prefix(&self.pfx);
         Ok(resp)
     }
 }

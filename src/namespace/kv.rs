@@ -1,16 +1,8 @@
 use crate::error::Result;
-use crate::namespace::{prefix_internal, VecExt};
-use crate::rpc::pb::etcdserverpb::request_op::Request;
-use crate::rpc::pb::etcdserverpb::response_op::Response;
-pub use crate::rpc::pb::etcdserverpb::{
-    Compare as PbCompare, DeleteRangeResponse as PbDeleteResponse, PutResponse as PbPutResponse,
-    RangeResponse as PbRangeResponse, TxnRequest as PbTxnRequest, TxnResponse as PbTxnResponse,
-};
-use crate::rpc::pb::etcdserverpb::{RequestOp, ResponseOp};
-use crate::rpc::KeyValue;
+use crate::vec::VecExt;
 use crate::{
-    take_mut, DeleteOptions, DeleteResponse, GetOptions, GetResponse, KvClient, PutOptions,
-    PutResponse, Txn, TxnResponse,
+    DeleteOptions, DeleteResponse, GetOptions, GetResponse, KvClient, PutOptions, PutResponse, Txn,
+    TxnResponse,
 };
 
 pub struct KvClientPrefix {
@@ -73,132 +65,9 @@ impl KvClientPrefix {
     }
 
     pub async fn txn(&mut self, mut txn: Txn) -> Result<TxnResponse> {
-        txn.take_mut_inner(|req| self.prefix_txn_request(req));
+        txn.prefix_with(&self.pfx);
         let mut resp = self.kv.txn(txn).await?;
-        resp.take_mut_inner(|resp| self.strip_prefix_txn_response(resp));
+        resp.strip_key_prefix(&self.pfx);
         Ok(resp)
-    }
-
-    fn prefix_txn_request(&self, mut req: PbTxnRequest) -> PbTxnRequest {
-        let prefix_cmp = |mut cmp: PbCompare| {
-            (cmp.key, cmp.range_end) = prefix_internal(&self.pfx, cmp.key, cmp.range_end);
-            cmp
-        };
-        let prefix_op = |mut op: RequestOp| {
-            op.request = op.request.map(|req| match req {
-                Request::RequestRange(mut req) => {
-                    (req.key, req.range_end) = prefix_internal(&self.pfx, req.key, req.range_end);
-                    Request::RequestRange(req)
-                }
-                Request::RequestPut(mut req) => {
-                    (req.key, _) = prefix_internal(&self.pfx, req.key, vec![]);
-                    Request::RequestPut(req)
-                }
-                Request::RequestDeleteRange(mut req) => {
-                    (req.key, req.range_end) = prefix_internal(&self.pfx, req.key, req.range_end);
-                    Request::RequestDeleteRange(req)
-                }
-                Request::RequestTxn(req) => Request::RequestTxn(self.prefix_txn_request(req)),
-            });
-            op
-        };
-        req.compare = req.compare.drain(..).map(prefix_cmp).collect();
-        req.success = req.success.drain(..).map(prefix_op).collect();
-        req.failure = req.failure.drain(..).map(prefix_op).collect();
-        req
-    }
-
-    fn strip_prefix_txn_response(&self, mut resp: PbTxnResponse) -> PbTxnResponse {
-        let strip_prefix_op = |mut op: ResponseOp| {
-            op.response = op.response.map(|res| match res {
-                Response::ResponseRange(r) => {
-                    Response::ResponseRange(self.strip_prefix_range_response(r))
-                }
-                Response::ResponsePut(r) => {
-                    Response::ResponsePut(self.strip_prefix_put_response(r))
-                }
-                Response::ResponseDeleteRange(r) => {
-                    Response::ResponseDeleteRange(self.strip_prefix_delete_response(r))
-                }
-                Response::ResponseTxn(r) => {
-                    Response::ResponseTxn(self.strip_prefix_txn_response(r))
-                }
-            });
-            op
-        };
-        resp.responses = resp.responses.drain(..).map(strip_prefix_op).collect();
-        resp
-    }
-
-    fn strip_prefix_put_response(&self, mut resp: PbPutResponse) -> PbPutResponse {
-        resp.prev_kv = resp.prev_kv.take().map(|mut kv| {
-            kv.key = self.strip_prefix_key(kv.key);
-            kv
-        });
-        resp
-    }
-
-    fn strip_prefix_range_response(&self, mut resp: PbRangeResponse) -> PbRangeResponse {
-        for kv in resp.kvs.iter_mut() {
-            take_mut(kv, |mut kv| {
-                kv.key = self.strip_prefix_key(kv.key);
-                kv
-            });
-        }
-        resp
-    }
-
-    fn strip_prefix_delete_response(&self, mut resp: PbDeleteResponse) -> PbDeleteResponse {
-        for kv in resp.prev_kvs.iter_mut() {
-            take_mut(kv, |mut kv| {
-                kv.key = self.strip_prefix_key(kv.key);
-                kv
-            });
-        }
-        resp
-    }
-
-    fn strip_prefix_key(&self, mut key: Vec<u8>) -> Vec<u8> {
-        debug_assert!(
-            key.starts_with(&self.pfx),
-            "{key:?} does not start with {:?}",
-            self.pfx
-        );
-        key.strip_prefix(&self.pfx);
-        key
-    }
-}
-
-impl KeyValue {
-    #[inline]
-    fn strip_key_prefix(&mut self, prefix: &[u8]) {
-        self.key_mut().strip_prefix(prefix);
-    }
-}
-
-impl PutResponse {
-    #[inline]
-    fn strip_prev_key_prefix(&mut self, prefix: &[u8]) {
-        self.prev_key_mut().map(|kv| {
-            kv.strip_key_prefix(prefix);
-        });
-    }
-}
-
-impl GetResponse {
-    #[inline]
-    fn strip_kvs_prefix(&mut self, prefix: &[u8]) {
-        for kv in self.kvs_mut().iter_mut() {
-            kv.strip_key_prefix(prefix);
-        }
-    }
-}
-
-impl DeleteResponse {
-    #[inline]
-    fn strip_prev_kvs_prefix(&mut self, prefix: &[u8]) {
-        for kv in self.prev_kvs_mut().iter_mut() {
-            kv.strip_key_prefix(prefix);
-        }
     }
 }
