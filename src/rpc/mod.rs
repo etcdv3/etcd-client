@@ -1,6 +1,10 @@
 //! Etcd RPC interfaces.
 
+#[cfg(feature = "pub-response-field")]
 pub(crate) mod pb;
+
+#[cfg(not(feature = "pub-response-field"))]
+mod pb;
 
 pub mod auth;
 pub mod cluster;
@@ -80,11 +84,6 @@ impl KeyValue {
     #[inline]
     pub fn key(&self) -> &[u8] {
         &self.0.key
-    }
-
-    #[inline]
-    pub(crate) fn key_mut(&mut self) -> &mut Vec<u8> {
-        &mut self.0.key
     }
 
     /// The key in string. An empty key is not allowed.
