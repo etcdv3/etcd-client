@@ -69,34 +69,31 @@ impl VecExt for Vec<u8> {
     }
 }
 
-fn prefix_internal(pfx: &[u8], mut key: Vec<u8>, mut end: Vec<u8>) -> (Vec<u8>, Vec<u8>) {
-    key.prefix_with(pfx);
-    end.prefix_range_end_with(pfx);
-    (key, end)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_prefix_internal() {
-        fn run_test_case(pfx: &[u8], key: &[u8], end: &[u8], w_key: &[u8], w_end: &[u8]) {
-            let (key, end) = prefix_internal(pfx, key.to_vec(), end.to_vec());
+    fn test_prefix_with() {
+        fn assert_prefix_with(pfx: &[u8], key: &[u8], end: &[u8], w_key: &[u8], w_end: &[u8]) {
+            let mut key = key.to_vec();
+            let mut end = end.to_vec();
+            key.prefix_with(pfx);
+            end.prefix_range_end_with(pfx);
             assert_eq!(key, w_key);
             assert_eq!(end, w_end);
         }
 
         // single key
-        run_test_case(b"pfx/", b"a", b"", b"pfx/a", b"");
+        assert_prefix_with(b"pfx/", b"a", b"", b"pfx/a", b"");
 
         // range
-        run_test_case(b"pfx/", b"abc", b"def", b"pfx/abc", b"pfx/def");
+        assert_prefix_with(b"pfx/", b"abc", b"def", b"pfx/abc", b"pfx/def");
 
         // one-sided range (HACK - b'/' + 1 = b'0')
-        run_test_case(b"pfx/", b"abc", b"\0", b"pfx/abc", b"pfx0");
+        assert_prefix_with(b"pfx/", b"abc", b"\0", b"pfx/abc", b"pfx0");
 
         // one-sided range, end of keyspace
-        run_test_case(b"\xFF\xFF", b"abc", b"\0", b"\xff\xffabc", b"\0");
+        assert_prefix_with(b"\xFF\xFF", b"abc", b"\0", b"\xff\xffabc", b"\0");
     }
 }
