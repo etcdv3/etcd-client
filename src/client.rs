@@ -198,6 +198,10 @@ impl Client {
             if let Some(timeout) = opts.connect_timeout {
                 endpoint = endpoint.connect_timeout(timeout);
             }
+
+            if let Some(tcp_keepalive) = opts.tcp_keepalive {
+                endpoint = endpoint.tcp_keepalive(Some(tcp_keepalive));
+            }
         }
 
         Ok(endpoint)
@@ -741,6 +745,8 @@ pub struct ConnectOptions {
     timeout: Option<Duration>,
     /// Apply a timeout to connecting to the endpoint.
     connect_timeout: Option<Duration>,
+    /// TCP keepalive.
+    tcp_keepalive: Option<Duration>,
     #[cfg(feature = "tls")]
     tls: Option<TlsOptions>,
     #[cfg(feature = "tls-openssl")]
@@ -800,6 +806,13 @@ impl ConnectOptions {
         self
     }
 
+    /// Enable TCP keepalive.
+    #[inline]
+    pub fn with_tcp_keepalive(mut self, tcp_keepalive: Duration) -> Self {
+        self.tcp_keepalive = Some(tcp_keepalive);
+        self
+    }
+
     /// Whether send keep alive pings even there are no active requests.
     /// If disabled, keep-alive pings are only sent while there are opened request/response streams.
     /// If enabled, pings are also sent when no streams are active.
@@ -820,6 +833,7 @@ impl ConnectOptions {
             keep_alive_while_idle: true,
             timeout: None,
             connect_timeout: None,
+            tcp_keepalive: None,
             #[cfg(feature = "tls")]
             tls: None,
             #[cfg(feature = "tls-openssl")]
