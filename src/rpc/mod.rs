@@ -167,6 +167,13 @@ impl From<&PbKeyValue> for &KeyValue {
     }
 }
 
+impl From<&mut PbKeyValue> for &mut KeyValue {
+    #[inline]
+    fn from(src: &mut PbKeyValue) -> Self {
+        unsafe { &mut *(src as *mut _ as *mut KeyValue) }
+    }
+}
+
 /// Get prefix end key of `key`.
 #[inline]
 fn get_prefix(key: &[u8]) -> Vec<u8> {

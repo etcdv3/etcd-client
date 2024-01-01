@@ -19,6 +19,7 @@ use crate::rpc::pb::etcdserverpb::{
     RequestOp as PbTxnRequestOp, TxnRequest as PbTxnRequest, TxnResponse as PbTxnResponse,
 };
 use crate::rpc::{get_prefix, KeyRange, KeyValue, ResponseHeader};
+use crate::vec::VecExt;
 use http::HeaderValue;
 use std::sync::Arc;
 use tonic::{IntoRequest, Request};
@@ -240,6 +241,13 @@ impl PutResponse {
     pub fn take_prev_key(&mut self) -> Option<KeyValue> {
         self.0.prev_kv.take().map(KeyValue::new)
     }
+
+    #[inline]
+    pub(crate) fn strip_prev_key_prefix(&mut self, prefix: &[u8]) {
+        if let Some(kv) = self.0.prev_kv.as_mut() {
+            kv.key.strip_key_prefix(prefix);
+        }
+    }
 }
 
 /// Options for `Get` operation.
@@ -402,6 +410,11 @@ impl GetOptions {
         self.req.max_create_revision = revision;
         self
     }
+
+    #[inline]
+    pub(crate) fn key_range_end_mut(&mut self) -> &mut Vec<u8> {
+        &mut self.key_range.range_end
+    }
 }
 
 impl From<GetOptions> for PbRangeRequest {
@@ -457,6 +470,13 @@ impl GetResponse {
     #[inline]
     pub fn take_kvs(&mut self) -> Vec<KeyValue> {
         unsafe { std::mem::transmute(std::mem::take(&mut self.0.kvs)) }
+    }
+
+    #[inline]
+    pub(crate) fn strip_kvs_prefix(&mut self, prefix: &[u8]) {
+        for kv in self.0.kvs.iter_mut() {
+            kv.key.strip_key_prefix(prefix);
+        }
     }
 
     /// Indicates if there are more keys to return in the requested range.
@@ -535,6 +555,11 @@ impl DeleteOptions {
         self.req.prev_kv = true;
         self
     }
+
+    #[inline]
+    pub(crate) fn key_range_end_mut(&mut self) -> &mut Vec<u8> {
+        &mut self.key_range.range_end
+    }
 }
 
 impl From<DeleteOptions> for PbDeleteRequest {
@@ -595,6 +620,13 @@ impl DeleteResponse {
     #[inline]
     pub fn take_prev_kvs(&mut self) -> Vec<KeyValue> {
         unsafe { std::mem::transmute(std::mem::take(&mut self.0.prev_kvs)) }
+    }
+
+    #[inline]
+    pub(crate) fn strip_prev_kvs_prefix(&mut self, prefix: &[u8]) {
+        for kv in self.0.prev_kvs.iter_mut() {
+            kv.key.strip_key_prefix(prefix);
+        }
     }
 }
 
@@ -872,6 +904,43 @@ impl Txn {
             .collect();
         self
     }
+
+    #[inline]
+    pub(crate) fn prefix_with(&mut self, prefix: &[u8]) {
+        self.req.prefix_with(prefix);
+    }
+}
+
+impl PbTxnRequest {
+    fn prefix_with(&mut self, prefix: &[u8]) {
+        let prefix_op = |op: &mut PbTxnRequestOp| {
+            if let Some(request) = &mut op.request {
+                match request {
+                    PbTxnOp::RequestRange(req) => {
+                        req.key.prefix_with(prefix);
+                        req.range_end.prefix_range_end_with(prefix);
+                    }
+                    PbTxnOp::RequestPut(req) => {
+                        req.key.prefix_with(prefix);
+                    }
+                    PbTxnOp::RequestDeleteRange(req) => {
+                        req.key.prefix_with(prefix);
+                        req.range_end.prefix_range_end_with(prefix);
+                    }
+                    PbTxnOp::RequestTxn(req) => {
+                        req.prefix_with(prefix);
+                    }
+                }
+            }
+        };
+
+        self.compare.iter_mut().for_each(|cmp| {
+            cmp.key.prefix_with(prefix);
+            cmp.range_end.prefix_range_end_with(prefix);
+        });
+        self.success.iter_mut().for_each(prefix_op);
+        self.failure.iter_mut().for_each(prefix_op);
+    }
 }
 
 impl From<Txn> for PbTxnRequest {
@@ -950,5 +1019,39 @@ impl TxnResponse {
                 }
             })
             .collect()
+    }
+
+    #[inline]
+    pub(crate) fn strip_key_prefix(&mut self, prefix: &[u8]) {
+        self.0.strip_key_prefix(prefix);
+    }
+}
+
+impl PbTxnResponse {
+    fn strip_key_prefix(&mut self, prefix: &[u8]) {
+        self.responses.iter_mut().for_each(|op| {
+            if let Some(resp) = &mut op.response {
+                match resp {
+                    PbTxnOpResponse::ResponseRange(r) => {
+                        for kv in r.kvs.iter_mut() {
+                            kv.key.strip_key_prefix(prefix);
+                        }
+                    }
+                    PbTxnOpResponse::ResponsePut(r) => {
+                        if let Some(kv) = r.prev_kv.as_mut() {
+                            kv.key.strip_key_prefix(prefix);
+                        }
+                    }
+                    PbTxnOpResponse::ResponseDeleteRange(r) => {
+                        for kv in r.prev_kvs.iter_mut() {
+                            kv.key.strip_key_prefix(prefix);
+                        }
+                    }
+                    PbTxnOpResponse::ResponseTxn(r) => {
+                        r.strip_key_prefix(prefix);
+                    }
+                }
+            }
+        });
     }
 }
