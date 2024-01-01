@@ -1,6 +1,6 @@
 [package]
 name = "etcd-client"
-version = "0.12.3"
+version = "0.12.4"
 authors = ["The etcd-client Authors <davidli2010@foxmail.com>"]
 edition = "2021"
 readme = "README.md"
