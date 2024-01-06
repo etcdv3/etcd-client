@@ -34,14 +34,16 @@ use crate::rpc::maintenance::{
     HashResponse, MaintenanceClient, MoveLeaderResponse, SnapshotStreaming, StatusResponse,
 };
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
+use crate::AuthHandle;
 #[cfg(feature = "tls-openssl")]
 use crate::OpenSslResult;
 #[cfg(feature = "tls")]
 use crate::TlsOptions;
 use http::uri::Uri;
+use http::HeaderValue;
 
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::mpsc::Sender;
 
@@ -64,6 +66,7 @@ pub struct Client {
     cluster: ClusterClient,
     election: ElectionClient,
     options: Option<ConnectOptions>,
+    auth_handle: AuthHandle,
     tx: Sender<Change<Uri, Endpoint>>,
 }
 
@@ -104,7 +107,10 @@ impl Client {
         }
 
         let mut options = options;
-        let auth_token = Self::auth(channel.clone(), &mut options).await?;
+
+        let auth_token = Arc::new(Mutex::new(None));
+        Self::auth(channel.clone(), &mut options, &auth_token).await?;
+
         Ok(Self::build_client(channel, tx, auth_token, options))
     }
 
@@ -210,9 +216,10 @@ impl Client {
     async fn auth(
         channel: Channel,
         options: &mut Option<ConnectOptions>,
-    ) -> Result<Option<Arc<http::HeaderValue>>> {
+        auth_token: &Arc<Mutex<Option<HeaderValue>>>,
+    ) -> Result<()> {
         let user = match options {
-            None => return Ok(None),
+            None => return Ok(()),
             Some(opt) => {
                 // Take away the user, the password should not be stored in client.
                 opt.user.take()
@@ -220,18 +227,18 @@ impl Client {
         };
 
         if let Some((name, password)) = user {
-            let mut tmp_auth = AuthClient::new(channel, None);
+            let mut tmp_auth = AuthClient::new(channel, auth_token.clone());
             let resp = tmp_auth.authenticate(name, password).await?;
-            Ok(Some(Arc::new(resp.token().parse()?)))
-        } else {
-            Ok(None)
+            auth_token.lock().unwrap().replace(resp.token().parse()?);
         }
+
+        Ok(())
     }
 
     fn build_client(
         channel: Channel,
         tx: Sender<Change<Uri, Endpoint>>,
-        auth_token: Option<Arc<http::HeaderValue>>,
+        auth_token: Arc<Mutex<Option<HeaderValue>>>,
         options: Option<ConnectOptions>,
     ) -> Self {
         let kv = KvClient::new(channel.clone(), auth_token.clone());
@@ -241,7 +248,9 @@ impl Client {
         let auth = AuthClient::new(channel.clone(), auth_token.clone());
         let cluster = ClusterClient::new(channel.clone(), auth_token.clone());
         let maintenance = MaintenanceClient::new(channel.clone(), auth_token.clone());
-        let election = ElectionClient::new(channel, auth_token);
+        let election = ElectionClient::new(channel, auth_token.clone());
+
+        let auth_handle = AuthHandle::new(auth_token, auth.clone());
 
         Self {
             kv,
@@ -253,6 +262,7 @@ impl Client {
             cluster,
             election,
             options,
+            auth_handle,
             tx,
         }
     }
@@ -336,6 +346,12 @@ impl Client {
     #[inline]
     pub fn election_client(&self) -> ElectionClient {
         self.election.clone()
+    }
+
+    /// Gets a auth handle.
+    #[inline]
+    pub fn auth_handle(&self) -> AuthHandle {
+        self.auth_handle.clone()
     }
 
     /// Put the given key into the key-value store.
@@ -729,6 +745,18 @@ impl Client {
     #[inline]
     pub async fn resign(&mut self, option: Option<ResignOptions>) -> Result<ResignResponse> {
         self.election.resign(option).await
+    }
+
+    /// Updates client authentication.
+    #[inline]
+    pub async fn update_auth(&mut self, name: String, password: String) -> Result<()> {
+        self.auth_handle.update_auth(name, password).await
+    }
+
+    /// Removes client authentication.
+    #[inline]
+    pub fn remove_auth(&mut self) {
+        self.auth_handle.remove_auth();
     }
 }
 

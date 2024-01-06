@@ -35,6 +35,7 @@ use crate::rpc::pb::etcdserverpb::{
 use crate::rpc::ResponseHeader;
 use crate::rpc::{get_prefix, KeyRange};
 use http::HeaderValue;
+use std::sync::Mutex;
 use std::{string::String, sync::Arc};
 use tonic::{IntoRequest, Request};
 
@@ -48,7 +49,7 @@ pub struct AuthClient {
 impl AuthClient {
     /// Creates an auth client.
     #[inline]
-    pub(crate) fn new(channel: Channel, auth_token: Option<Arc<HeaderValue>>) -> Self {
+    pub(crate) fn new(channel: Channel, auth_token: Arc<Mutex<Option<HeaderValue>>>) -> Self {
         let inner = PbAuthClient::new(AuthService::new(channel, auth_token));
         Self { inner }
     }
