@@ -19,7 +19,7 @@ tls-roots = ["tls", "tonic/tls-roots"]
 pub-response-field = ["visible"]
 
 [dependencies]
-tonic = "0.10.0"
+tonic = "0.11.0"
 prost = "0.12.0"
 tokio = "1.32.0"
 tokio-stream = "0.1.14"
