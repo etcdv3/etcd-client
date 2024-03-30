@@ -4,19 +4,19 @@ use crate::error::Error;
 use crate::AuthClient;
 
 use http::{header::AUTHORIZATION, HeaderValue, Request};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 use std::task::{Context, Poll};
 use tower_service::Service;
 
 #[derive(Debug, Clone)]
 pub struct AuthService<S> {
     inner: S,
-    token: Arc<Mutex<Option<HeaderValue>>>,
+    token: Arc<RwLock<Option<HeaderValue>>>,
 }
 
 impl<S> AuthService<S> {
     #[inline]
-    pub fn new(inner: S, token: Arc<Mutex<Option<HeaderValue>>>) -> Self {
+    pub fn new(inner: S, token: Arc<RwLock<Option<HeaderValue>>>) -> Self {
         Self { inner, token }
     }
 }
@@ -36,7 +36,7 @@ where
 
     #[inline]
     fn call(&mut self, mut request: Request<Body>) -> Self::Future {
-        if let Some(token) = self.token.lock().unwrap().as_ref() {
+        if let Some(token) = self.token.read().unwrap().as_ref() {
             request.headers_mut().insert(AUTHORIZATION, token.clone());
         }
 
@@ -46,13 +46,13 @@ where
 
 #[derive(Clone)]
 pub struct AuthHandle {
-    token: Arc<Mutex<Option<HeaderValue>>>,
+    token: Arc<RwLock<Option<HeaderValue>>>,
     cli: AuthClient,
 }
 
 impl AuthHandle {
     #[inline]
-    pub(crate) fn new(token: Arc<Mutex<Option<HeaderValue>>>, cli: AuthClient) -> Self {
+    pub(crate) fn new(token: Arc<RwLock<Option<HeaderValue>>>, cli: AuthClient) -> Self {
         Self { token, cli }
     }
 
@@ -60,13 +60,13 @@ impl AuthHandle {
     pub async fn update_auth(&mut self, name: String, password: String) -> Result<(), Error> {
         let resp = self.cli.authenticate(name, password).await?;
 
-        self.token.lock().unwrap().replace(resp.token().parse()?);
+        self.token.write().unwrap().replace(resp.token().parse()?);
 
         Ok(())
     }
 
     /// Removes client authentication.
     pub fn remove_auth(&mut self) {
-        self.token.lock().unwrap().take();
+        self.token.write().unwrap().take();
     }
 }

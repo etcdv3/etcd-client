@@ -43,7 +43,7 @@ use http::uri::Uri;
 use http::HeaderValue;
 
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tokio::sync::mpsc::Sender;
 
@@ -108,7 +108,7 @@ impl Client {
 
         let mut options = options;
 
-        let auth_token = Arc::new(Mutex::new(None));
+        let auth_token = Arc::new(RwLock::new(None));
         Self::auth(channel.clone(), &mut options, &auth_token).await?;
 
         Ok(Self::build_client(channel, tx, auth_token, options))
@@ -212,7 +212,7 @@ impl Client {
     async fn auth(
         channel: Channel,
         options: &mut Option<ConnectOptions>,
-        auth_token: &Arc<Mutex<Option<HeaderValue>>>,
+        auth_token: &Arc<RwLock<Option<HeaderValue>>>,
     ) -> Result<()> {
         let user = match options {
             None => return Ok(()),
@@ -225,7 +225,7 @@ impl Client {
         if let Some((name, password)) = user {
             let mut tmp_auth = AuthClient::new(channel, auth_token.clone());
             let resp = tmp_auth.authenticate(name, password).await?;
-            auth_token.lock().unwrap().replace(resp.token().parse()?);
+            auth_token.write().unwrap().replace(resp.token().parse()?);
         }
 
         Ok(())
@@ -234,7 +234,7 @@ impl Client {
     fn build_client(
         channel: Channel,
         tx: Sender<Change<Uri, Endpoint>>,
-        auth_token: Arc<Mutex<Option<HeaderValue>>>,
+        auth_token: Arc<RwLock<Option<HeaderValue>>>,
         options: Option<ConnectOptions>,
     ) -> Self {
         let kv = KvClient::new(channel.clone(), auth_token.clone());
