@@ -36,6 +36,14 @@ impl WatchClient {
         Self { inner }
     }
 
+    /// Limits the maximum size of a decoded message.
+    ///
+    /// Default: `4MB`
+    pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+        self.inner = self.inner.max_decoding_message_size(limit);
+        self
+    }
+
     /// Watches for events happening or that have happened. Both input and output
     /// are streams; the input stream is for creating and canceling watchers and the output
     /// stream sends events. One watch RPC can watch on multiple key ranges, streaming events

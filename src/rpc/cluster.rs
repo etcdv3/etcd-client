@@ -160,7 +160,7 @@ impl MemberAddResponse {
         self.0.header.as_ref().map(From::from)
     }
 
-    /// Get Member List
+    /// Get the member information of the added member.
     #[inline]
     pub fn member(&self) -> Option<&Member> {
         self.0.member.as_ref().map(From::from)
@@ -172,7 +172,7 @@ impl MemberAddResponse {
         self.0.header.take().map(ResponseHeader::new)
     }
 
-    /// Get Member List
+    /// Get the member list after adding the new member.
     #[inline]
     pub fn member_list(&self) -> &[Member] {
         unsafe { &*(self.0.members.as_slice() as *const _ as *const [Member]) }

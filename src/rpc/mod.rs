@@ -126,6 +126,11 @@ impl KeyValue {
         std::str::from_utf8_unchecked(self.value())
     }
 
+    /// Convert to key-value pair.
+    pub fn into_key_value(self) -> (Vec<u8>, Vec<u8>) {
+        (self.0.key, self.0.value)
+    }
+
     /// The revision of last creation on this key.
     #[inline]
     pub const fn create_revision(&self) -> i64 {
@@ -159,6 +164,13 @@ impl From<&PbKeyValue> for &KeyValue {
     #[inline]
     fn from(src: &PbKeyValue) -> Self {
         unsafe { &*(src as *const _ as *const KeyValue) }
+    }
+}
+
+impl From<&mut PbKeyValue> for &mut KeyValue {
+    #[inline]
+    fn from(src: &mut PbKeyValue) -> Self {
+        unsafe { &mut *(src as *mut _ as *mut KeyValue) }
     }
 }
 
