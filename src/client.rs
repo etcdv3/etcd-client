@@ -34,7 +34,6 @@ use crate::rpc::maintenance::{
     HashResponse, MaintenanceClient, MoveLeaderResponse, SnapshotStreaming, StatusResponse,
 };
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
-use crate::AuthHandle;
 #[cfg(feature = "tls-openssl")]
 use crate::OpenSslResult;
 #[cfg(feature = "tls")]
@@ -66,7 +65,6 @@ pub struct Client {
     cluster: ClusterClient,
     election: ElectionClient,
     options: Option<ConnectOptions>,
-    auth_handle: AuthHandle,
     tx: Sender<Change<Uri, Endpoint>>,
 }
 
@@ -244,9 +242,7 @@ impl Client {
         let auth = AuthClient::new(channel.clone(), auth_token.clone());
         let cluster = ClusterClient::new(channel.clone(), auth_token.clone());
         let maintenance = MaintenanceClient::new(channel.clone(), auth_token.clone());
-        let election = ElectionClient::new(channel, auth_token.clone());
-
-        let auth_handle = AuthHandle::new(auth_token, auth.clone());
+        let election = ElectionClient::new(channel, auth_token);
 
         Self {
             kv,
@@ -258,7 +254,6 @@ impl Client {
             cluster,
             election,
             options,
-            auth_handle,
             tx,
         }
     }
@@ -342,12 +337,6 @@ impl Client {
     #[inline]
     pub fn election_client(&self) -> ElectionClient {
         self.election.clone()
-    }
-
-    /// Gets a auth handle.
-    #[inline]
-    pub fn auth_handle(&self) -> AuthHandle {
-        self.auth_handle.clone()
     }
 
     /// Put the given key into the key-value store.
@@ -743,16 +732,14 @@ impl Client {
         self.election.resign(option).await
     }
 
-    /// Updates client authentication.
-    #[inline]
-    pub async fn update_auth(&mut self, name: String, password: String) -> Result<()> {
-        self.auth_handle.update_auth(name, password).await
+    /// Sets client-side authentication.
+    pub async fn set_client_auth(&mut self, name: String, password: String) -> Result<()> {
+        self.auth.set_client_auth(name, password).await
     }
 
-    /// Removes client authentication.
-    #[inline]
-    pub fn remove_auth(&mut self) {
-        self.auth_handle.remove_auth();
+    /// Removes client-side authentication.
+    pub fn remove_client_auth(&mut self) {
+        self.auth.remove_client_auth();
     }
 }
 

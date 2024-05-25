@@ -40,21 +40,36 @@ use std::{string::String, sync::Arc};
 use tonic::{IntoRequest, Request};
 
 /// Client for Auth operations.
-#[repr(transparent)]
 #[derive(Clone)]
 pub struct AuthClient {
     inner: PbAuthClient<AuthService<Channel>>,
+    auth_token: Arc<RwLock<Option<HeaderValue>>>,
 }
 
 impl AuthClient {
     /// Creates an auth client.
     #[inline]
     pub(crate) fn new(channel: Channel, auth_token: Arc<RwLock<Option<HeaderValue>>>) -> Self {
-        let inner = PbAuthClient::new(AuthService::new(channel, auth_token));
-        Self { inner }
+        let inner = PbAuthClient::new(AuthService::new(channel, auth_token.clone()));
+        Self { inner, auth_token }
     }
 
-    /// Enables authentication.
+    /// Sets client-side authentication.
+    pub async fn set_client_auth(&mut self, name: String, password: String) -> Result<()> {
+        let resp = self.authenticate(name, password).await?;
+        self.auth_token
+            .write()
+            .unwrap()
+            .replace(resp.token().parse()?);
+        Ok(())
+    }
+
+    /// Removes client-side authentication.
+    pub fn remove_client_auth(&mut self) {
+        self.auth_token.write().unwrap().take();
+    }
+
+    /// Enables authentication for the etcd cluster.
     #[inline]
     pub async fn auth_enable(&mut self) -> Result<AuthEnableResponse> {
         let resp = self
@@ -65,7 +80,7 @@ impl AuthClient {
         Ok(AuthEnableResponse::new(resp))
     }
 
-    /// Disables authentication.
+    /// Disables authentication for the etcd cluster.
     #[inline]
     pub async fn auth_disable(&mut self) -> Result<AuthDisableResponse> {
         let resp = self
@@ -76,7 +91,9 @@ impl AuthClient {
         Ok(AuthDisableResponse::new(resp))
     }
 
-    /// Processes an authenticate request.
+    /// Sends an authenticate request.
+    /// Note that this does not set or update client-side authentication settings.
+    /// Call [`set_client_auth`] to set or update client-side authentication.
     #[inline]
     pub async fn authenticate(
         &mut self,

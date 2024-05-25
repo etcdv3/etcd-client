@@ -64,7 +64,6 @@ mod error;
 mod openssl_tls;
 mod rpc;
 
-pub use crate::auth::AuthHandle;
 pub use crate::client::{Client, ConnectOptions};
 pub use crate::error::Error;
 pub use crate::rpc::auth::{

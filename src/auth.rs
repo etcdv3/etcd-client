@@ -1,8 +1,5 @@
 //! Authentication service.
 
-use crate::error::Error;
-use crate::AuthClient;
-
 use http::{header::AUTHORIZATION, HeaderValue, Request};
 use std::sync::{Arc, RwLock};
 use std::task::{Context, Poll};
@@ -41,32 +38,5 @@ where
         }
 
         self.inner.call(request)
-    }
-}
-
-#[derive(Clone)]
-pub struct AuthHandle {
-    token: Arc<RwLock<Option<HeaderValue>>>,
-    cli: AuthClient,
-}
-
-impl AuthHandle {
-    #[inline]
-    pub(crate) fn new(token: Arc<RwLock<Option<HeaderValue>>>, cli: AuthClient) -> Self {
-        Self { token, cli }
-    }
-
-    /// Updates client authentication.
-    pub async fn update_auth(&mut self, name: String, password: String) -> Result<(), Error> {
-        let resp = self.cli.authenticate(name, password).await?;
-
-        self.token.write().unwrap().replace(resp.token().parse()?);
-
-        Ok(())
-    }
-
-    /// Removes client authentication.
-    pub fn remove_auth(&mut self) {
-        self.token.write().unwrap().take();
     }
 }
