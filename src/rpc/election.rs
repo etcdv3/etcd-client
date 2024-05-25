@@ -457,6 +457,7 @@ impl LeaderKey {
 }
 
 impl Default for LeaderKey {
+    #[inline]
     fn default() -> Self {
         Self::new()
     }
