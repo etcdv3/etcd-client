@@ -456,6 +456,12 @@ impl LeaderKey {
     }
 }
 
+impl Default for LeaderKey {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl From<LeaderKey> for PbLeaderKey {
     #[inline]
     fn from(leader_key: LeaderKey) -> Self {
