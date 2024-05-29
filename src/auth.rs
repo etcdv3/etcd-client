@@ -1,19 +1,19 @@
 //! Authentication service.
 
 use http::{header::AUTHORIZATION, HeaderValue, Request};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::task::{Context, Poll};
 use tower_service::Service;
 
 #[derive(Debug, Clone)]
 pub struct AuthService<S> {
     inner: S,
-    token: Option<Arc<HeaderValue>>,
+    token: Arc<RwLock<Option<HeaderValue>>>,
 }
 
 impl<S> AuthService<S> {
     #[inline]
-    pub fn new(inner: S, token: Option<Arc<HeaderValue>>) -> Self {
+    pub fn new(inner: S, token: Arc<RwLock<Option<HeaderValue>>>) -> Self {
         Self { inner, token }
     }
 }
@@ -33,10 +33,8 @@ where
 
     #[inline]
     fn call(&mut self, mut request: Request<Body>) -> Self::Future {
-        if let Some(token) = &self.token {
-            request
-                .headers_mut()
-                .insert(AUTHORIZATION, token.as_ref().clone());
+        if let Some(token) = self.token.read().unwrap().as_ref() {
+            request.headers_mut().insert(AUTHORIZATION, token.clone());
         }
 
         self.inner.call(request)

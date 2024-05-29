@@ -14,6 +14,7 @@ use crate::rpc::pb::etcdserverpb::{
 };
 use crate::rpc::ResponseHeader;
 use http::HeaderValue;
+use std::sync::RwLock;
 use std::{string::String, sync::Arc};
 use tonic::{IntoRequest, Request};
 
@@ -27,7 +28,7 @@ pub struct ClusterClient {
 impl ClusterClient {
     /// Creates an Cluster client.
     #[inline]
-    pub(crate) fn new(channel: Channel, auth_token: Option<Arc<HeaderValue>>) -> Self {
+    pub(crate) fn new(channel: Channel, auth_token: Arc<RwLock<Option<HeaderValue>>>) -> Self {
         let inner = PbClusterClient::new(AuthService::new(channel, auth_token));
         Self { inner }
     }

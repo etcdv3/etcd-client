@@ -6,7 +6,7 @@ use crate::channel::Channel;
 use crate::error::Result;
 use crate::rpc::ResponseHeader;
 use http::HeaderValue;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use tonic::{IntoRequest, Request};
 use v3lockpb::lock_client::LockClient as PbLockClient;
 use v3lockpb::{
@@ -24,7 +24,7 @@ pub struct LockClient {
 impl LockClient {
     /// Creates a lock client.
     #[inline]
-    pub(crate) fn new(channel: Channel, auth_token: Option<Arc<HeaderValue>>) -> Self {
+    pub(crate) fn new(channel: Channel, auth_token: Arc<RwLock<Option<HeaderValue>>>) -> Self {
         let inner = PbLockClient::new(AuthService::new(channel, auth_token));
         Self { inner }
     }

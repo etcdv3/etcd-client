@@ -22,7 +22,7 @@ use crate::rpc::{get_prefix, KeyRange, KeyValue, ResponseHeader};
 use crate::vec::VecExt;
 use http::HeaderValue;
 use std::mem::ManuallyDrop;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use tonic::{IntoRequest, Request};
 
 /// Client for KV operations.
@@ -35,7 +35,7 @@ pub struct KvClient {
 impl KvClient {
     /// Creates a kv client.
     #[inline]
-    pub(crate) fn new(channel: Channel, auth_token: Option<Arc<HeaderValue>>) -> Self {
+    pub(crate) fn new(channel: Channel, auth_token: Arc<RwLock<Option<HeaderValue>>>) -> Self {
         let inner = PbKvClient::new(AuthService::new(channel, auth_token));
         Self { inner }
     }
