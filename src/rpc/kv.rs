@@ -21,6 +21,7 @@ use crate::rpc::pb::etcdserverpb::{
 use crate::rpc::{get_prefix, KeyRange, KeyValue, ResponseHeader};
 use crate::vec::VecExt;
 use http::HeaderValue;
+use std::mem::ManuallyDrop;
 use std::sync::{Arc, RwLock};
 use tonic::{IntoRequest, Request};
 
@@ -469,7 +470,8 @@ impl GetResponse {
     /// If `kvs` is set in the request, take the key-value pairs, leaving an empty vector in its place.
     #[inline]
     pub fn take_kvs(&mut self) -> Vec<KeyValue> {
-        unsafe { std::mem::transmute(std::mem::take(&mut self.0.kvs)) }
+        let kvs = ManuallyDrop::new(std::mem::take(&mut self.0.kvs));
+        unsafe { Vec::from_raw_parts(kvs.as_ptr() as *mut KeyValue, kvs.len(), kvs.capacity()) }
     }
 
     #[inline]
@@ -619,7 +621,8 @@ impl DeleteResponse {
     /// If `prev_kvs` is set in the request, take the previous key-value pairs, leaving an empty vector in its place.
     #[inline]
     pub fn take_prev_kvs(&mut self) -> Vec<KeyValue> {
-        unsafe { std::mem::transmute(std::mem::take(&mut self.0.prev_kvs)) }
+        let kvs = ManuallyDrop::new(std::mem::take(&mut self.0.prev_kvs));
+        unsafe { Vec::from_raw_parts(kvs.as_ptr() as *mut KeyValue, kvs.len(), kvs.capacity()) }
     }
 
     #[inline]
@@ -866,7 +869,16 @@ impl Txn {
         assert!(!self.c_else, "cannot call when after or_else");
 
         self.c_when = true;
-        self.req.compare = unsafe { std::mem::transmute(compares.into()) };
+
+        let compares = ManuallyDrop::new(compares.into());
+        self.req.compare = unsafe {
+            Vec::from_raw_parts(
+                compares.as_ptr() as *mut PbCompare,
+                compares.len(),
+                compares.capacity(),
+            )
+        };
+
         self
     }
 
