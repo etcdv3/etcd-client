@@ -9,7 +9,8 @@ OR
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE-MIT)
 
 An [etcd](https://github.com/etcd-io/etcd) v3 API client for Rust.
-It provides asynchronous client backed by [tokio](https://github.com/tokio-rs/tokio) and [tonic](https://github.com/hyperium/tonic).
+It provides asynchronous client backed by [tokio](https://github.com/tokio-rs/tokio)
+and [tonic](https://github.com/hyperium/tonic).
 
 ## Features
 
@@ -34,7 +35,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-etcd-client = "0.12"
+etcd-client = "0.13"
 tokio = { version = "1.0", features = ["full"] }
 ```
 
@@ -65,8 +66,10 @@ Examples can be found in [`examples`](./examples).
 ## Feature Flags
 
 - `tls`: Enables the `rustls`-based TLS connection. Not enabled by default.
-- `tls-roots`: Adds system trust roots to `rustls`-based TLS connection using the `rustls-native-certs` crate. Not enabled by default.
-- `pub-response-field`: Exposes structs used to create regular `etcd-client` responses including internal protobuf representations. Useful for mocking. Not enabled by default.
+- `tls-roots`: Adds system trust roots to `rustls`-based TLS connection using the `rustls-native-certs` crate. Not
+  enabled by default.
+- `pub-response-field`: Exposes structs used to create regular `etcd-client` responses including internal protobuf
+  representations. Useful for mocking. Not enabled by default.
 - `tls-openssl`: Enables the `openssl`-based TLS connections. This would make your binary dynamically link to `libssl`.
 - `tls-openssl-vendored`: Like `tls-openssl`, however compile openssl from source code and statically link to it.
 
@@ -78,13 +81,16 @@ Notes that we use a fixed `etcd` server URI (localhost:2379) to connect to etcd 
 
 ## Rust version requirements
 
-The minimum supported version is 1.64. The current `etcd-client` version is not guaranteed to build on Rust versions earlier than the minimum supported version.
+The minimum supported version is 1.70. The current `etcd-client` version is not guaranteed to build on Rust versions
+earlier than the minimum supported version.
 
 ## License
 
 Dual-licensed to be compatible with the Rust project.
 
-Licensed under the Apache License, Version 2.0 http://www.apache.org/licenses/LICENSE-2.0 or the MIT license http://opensource.org/licenses/MIT, at your option. This file may not be copied, modified, or distributed except according to those terms.
+Licensed under the Apache License, Version 2.0 http://www.apache.org/licenses/LICENSE-2.0 or the MIT
+license http://opensource.org/licenses/MIT, at your option. This file may not be copied, modified, or distributed except
+according to those terms.
 
 ## Contribution
 
