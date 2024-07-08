@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use super::backoff::{BackOffStatus, BackOffWhenFail};
 use http::{Request, Uri};
-use hyper::client::HttpConnector;
-use hyper_openssl::HttpsConnector;
+use hyper_openssl::client::legacy::HttpsConnector;
+use hyper_util::client::legacy::connect::HttpConnector;
 use openssl::{
     error::ErrorStack,
     pkey::PKey,
