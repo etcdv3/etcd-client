@@ -1,10 +1,10 @@
 name: Etcd Client Test
 run-name: ${{ github.actor }} is testing out etcd client
 on:
-  pull_request_target:
-    branches: ['**']
+  pull_request:
+    branches: [ '**' ]
   push:
-    branches: ['**']
+    branches: [ '**' ]
 
 jobs:
   regression-test:
@@ -12,12 +12,12 @@ jobs:
     steps:
       - run: echo "Get latest etcd from docker hub"
       - run: docker --version
-      - run: sudo docker pull bitnami/etcd:latest 
+      - run: sudo docker pull bitnami/etcd:latest
       - run: sudo docker network create app-tier --driver bridge
       - run: sudo docker run -d --name Etcd-server --network app-tier --publish 2379:2379 --publish 2380:2380 --env ALLOW_NONE_AUTHENTICATION=yes --env ETCD_ADVERTISE_CLIENT_URLS=http://etcd-server:2379 bitnami/etcd:latest
       - run: sudo apt install -y protobuf-compiler libprotobuf-dev
       - name: Check out repository code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - run: cargo --version --verbose
       - run: rustc --version --verbose
       - name: format check
