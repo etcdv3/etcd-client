@@ -43,6 +43,15 @@ async fn main() -> Result<(), Error> {
             }
         }
     }
+    let resp = msg.message().await?;
+    if let Some(r) = resp {
+        // snapshot hash is sent after r.remaining_bytes() == 0
+        println!(
+            "Received snapshot hash {:?} of len {}",
+            r.blob(),
+            r.blob().len()
+        );
+    }
 
     // Mover leader
     let resp = client.member_list().await?;
