@@ -77,7 +77,7 @@ Examples can be found in [`examples`](./examples).
 
 We test this library with etcd 3.5.
 
-Notes that we use a fixed `etcd` server URI (localhost:2379) to connect to etcd server.
+Note that we use a fixed `etcd` server URI (localhost:2379) to connect to etcd server.
 
 ## Rust version requirements
 
