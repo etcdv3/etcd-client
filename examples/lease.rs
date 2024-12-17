@@ -40,5 +40,10 @@ async fn main() -> Result<(), Error> {
     // revoke a lease
     let _resp = client.lease_revoke(id).await?;
     println!("revoke a lease with id {:?}", id);
+
+    // keep alive a revoked lease returns error
+    if let Err(err) = client.lease_keep_alive(id).await {
+        println!("revoked lease {:?} keep alive error: {:?}", id, err);
+    }
     Ok(())
 }

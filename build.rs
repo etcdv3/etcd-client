@@ -4,7 +4,7 @@ fn main() {
 
     tonic_build::configure()
         .build_server(false)
-        .compile(
+        .compile_protos(
             &[
                 "proto/auth.proto",
                 "proto/kv.proto",

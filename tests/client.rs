@@ -294,6 +294,9 @@ async fn test_keep_alive() -> Result<()> {
     assert_eq!(resp.ttl(), 60);
 
     client.lease_revoke(id).await?;
+
+    // keep alive a revoked lease should return error
+    assert!(client.lease_keep_alive(id).await.is_err());
     Ok(())
 }
 
