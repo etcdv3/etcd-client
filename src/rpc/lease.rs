@@ -83,7 +83,12 @@ impl LeaseClient {
         let mut stream = self.inner.lease_keep_alive(receiver).await?.into_inner();
 
         let id = match stream.message().await? {
-            Some(resp) => resp.id,
+            Some(resp) => {
+                if resp.ttl <= 0 {
+                    return Err(Error::LeaseKeepAliveError("lease not found".to_string()));
+                }
+                resp.id
+            }
             None => {
                 return Err(Error::WatchError(
                     "failed to create lease keeper".to_string(),
