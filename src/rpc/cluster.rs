@@ -14,7 +14,7 @@ use crate::rpc::pb::etcdserverpb::{
 };
 use crate::rpc::ResponseHeader;
 use http::HeaderValue;
-use std::sync::RwLock;
+use parking_lot::RwLock;
 use std::{string::String, sync::Arc};
 use tonic::{IntoRequest, Request};
 

@@ -31,6 +31,7 @@ openssl = { version = "0.10", optional = true }
 hyper = { version = "1.4", features = ["client"], optional = true }
 hyper-openssl = { version = "0.10", features = ["client-legacy", "tokio"], optional = true }
 hyper-util = { version = "0.1", features = ["client-legacy"], optional = true }
+parking_lot = "0.12"
 
 [dev-dependencies]
 tokio = { version = "1.38", features = ["full"] }

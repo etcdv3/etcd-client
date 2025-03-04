@@ -14,8 +14,9 @@ use crate::rpc::pb::etcdserverpb::{
 use crate::rpc::pb::mvccpb::Event as PbEvent;
 use crate::rpc::{KeyRange, KeyValue, ResponseHeader};
 use http::HeaderValue;
+use parking_lot::RwLock;
 use std::pin::Pin;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::task::{Context, Poll};
 use tokio::sync::mpsc::{channel, Sender};
 use tokio_stream::{wrappers::ReceiverStream, Stream};

@@ -1,7 +1,8 @@
 //! Authentication service.
 
 use http::{header::AUTHORIZATION, HeaderValue, Request};
-use std::sync::{Arc, RwLock};
+use parking_lot::RwLock;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 use tower_service::Service;
 
@@ -33,7 +34,7 @@ where
 
     #[inline]
     fn call(&mut self, mut request: Request<Body>) -> Self::Future {
-        if let Some(token) = self.token.read().unwrap().as_ref() {
+        if let Some(token) = self.token.read().as_ref() {
             request.headers_mut().insert(AUTHORIZATION, token.clone());
         }
 

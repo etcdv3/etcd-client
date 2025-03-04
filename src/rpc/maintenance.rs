@@ -20,7 +20,8 @@ use crate::rpc::ResponseHeader;
 use etcdserverpb::maintenance_client::MaintenanceClient as PbMaintenanceClient;
 use etcdserverpb::AlarmMember as PbAlarmMember;
 use http::HeaderValue;
-use std::sync::{Arc, RwLock};
+use parking_lot::RwLock;
+use std::sync::Arc;
 use tonic::codec::Streaming as PbStreaming;
 use tonic::{IntoRequest, Request};
 

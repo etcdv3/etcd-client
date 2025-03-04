@@ -6,7 +6,8 @@ use crate::channel::Channel;
 use crate::error::Result;
 use crate::rpc::ResponseHeader;
 use http::HeaderValue;
-use std::sync::{Arc, RwLock};
+use parking_lot::RwLock;
+use std::sync::Arc;
 use tonic::{IntoRequest, Request};
 use v3lockpb::lock_client::LockClient as PbLockClient;
 use v3lockpb::{

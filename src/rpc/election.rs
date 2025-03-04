@@ -12,7 +12,7 @@ use crate::rpc::pb::v3electionpb::{
 };
 use crate::rpc::{KeyValue, ResponseHeader};
 use http::HeaderValue;
-use std::sync::RwLock;
+use parking_lot::RwLock;
 use std::task::{Context, Poll};
 use std::{pin::Pin, sync::Arc};
 use tokio_stream::Stream;

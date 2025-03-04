@@ -21,8 +21,9 @@ use crate::rpc::pb::etcdserverpb::{
 use crate::rpc::{get_prefix, KeyRange, KeyValue, ResponseHeader};
 use crate::vec::VecExt;
 use http::HeaderValue;
+use parking_lot::RwLock;
 use std::mem::ManuallyDrop;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use tonic::{IntoRequest, Request};
 
 /// Client for KV operations.

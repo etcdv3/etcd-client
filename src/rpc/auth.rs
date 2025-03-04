@@ -35,7 +35,7 @@ use crate::rpc::pb::etcdserverpb::{
 use crate::rpc::ResponseHeader;
 use crate::rpc::{get_prefix, KeyRange};
 use http::HeaderValue;
-use std::sync::RwLock;
+use parking_lot::RwLock;
 use std::{string::String, sync::Arc};
 use tonic::{IntoRequest, Request};
 
@@ -57,16 +57,13 @@ impl AuthClient {
     /// Sets client-side authentication.
     pub async fn set_client_auth(&mut self, name: String, password: String) -> Result<()> {
         let resp = self.authenticate(name, password).await?;
-        self.auth_token
-            .write()
-            .unwrap()
-            .replace(resp.token().parse()?);
+        self.auth_token.write().replace(resp.token().parse()?);
         Ok(())
     }
 
     /// Removes client-side authentication.
     pub fn remove_client_auth(&mut self) {
-        self.auth_token.write().unwrap().take();
+        self.auth_token.write().take();
     }
 
     /// Enables authentication for the etcd cluster.
