@@ -1,3 +1,4 @@
+use crate::lock::MutexExt;
 use std::{
     future::Future,
     pin::Pin,
@@ -85,17 +86,17 @@ impl BackOffStatus {
 
 impl BackOffHandle {
     fn fail(&self) {
-        let mut status = self.inner.lock().unwrap();
+        let mut status = self.inner.lock_unpoisoned();
         status.fail()
     }
 
     fn failed(&self) -> bool {
-        let mut status = self.inner.lock().unwrap();
+        let mut status = self.inner.lock_unpoisoned();
         status.failed()
     }
 
     fn success(&self) {
-        let mut status = self.inner.lock().unwrap();
+        let mut status = self.inner.lock_unpoisoned();
         status.success()
     }
 }

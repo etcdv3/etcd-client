@@ -1,5 +1,6 @@
 //! Authentication service.
 
+use crate::lock::RwLockExt;
 use http::{header::AUTHORIZATION, HeaderValue, Request};
 use std::sync::{Arc, RwLock};
 use std::task::{Context, Poll};
@@ -33,7 +34,7 @@ where
 
     #[inline]
     fn call(&mut self, mut request: Request<Body>) -> Self::Future {
-        if let Some(token) = self.token.read().unwrap().as_ref() {
+        if let Some(token) = self.token.read_unpoisoned().as_ref() {
             request.headers_mut().insert(AUTHORIZATION, token.clone());
         }
 

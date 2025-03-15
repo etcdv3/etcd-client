@@ -5,6 +5,7 @@ pub use crate::rpc::pb::authpb::permission::Type as PermissionType;
 use crate::auth::AuthService;
 use crate::channel::Channel;
 use crate::error::Result;
+use crate::lock::RwLockExt;
 use crate::rpc::pb::authpb::{Permission as PbPermission, UserAddOptions as PbUserAddOptions};
 use crate::rpc::pb::etcdserverpb::auth_client::AuthClient as PbAuthClient;
 use crate::rpc::pb::etcdserverpb::{
@@ -58,15 +59,14 @@ impl AuthClient {
     pub async fn set_client_auth(&mut self, name: String, password: String) -> Result<()> {
         let resp = self.authenticate(name, password).await?;
         self.auth_token
-            .write()
-            .unwrap()
+            .write_unpoisoned()
             .replace(resp.token().parse()?);
         Ok(())
     }
 
     /// Removes client-side authentication.
     pub fn remove_client_auth(&mut self) {
-        self.auth_token.write().unwrap().take();
+        self.auth_token.write_unpoisoned().take();
     }
 
     /// Enables authentication for the etcd cluster.
