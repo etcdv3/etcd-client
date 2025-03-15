@@ -81,7 +81,7 @@ Note that we use a fixed `etcd` server URI (localhost:2379) to connect to etcd s
 
 ## Rust version requirements
 
-The minimum supported version is 1.70. The current `etcd-client` version is not guaranteed to build on Rust versions
+The minimum supported version is 1.80. The current `etcd-client` version is not guaranteed to build on Rust versions
 earlier than the minimum supported version.
 
 ## License
