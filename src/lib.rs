@@ -58,6 +58,7 @@ mod auth;
 mod channel;
 mod client;
 mod error;
+mod lock;
 mod namespace;
 mod openssl_tls;
 mod rpc;

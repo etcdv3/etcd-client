@@ -2,6 +2,7 @@
 
 use crate::channel::Channel;
 use crate::error::{Error, Result};
+use crate::lock::RwLockExt;
 #[cfg(feature = "tls-openssl")]
 use crate::openssl_tls::{self, OpenSslClientConfig, OpenSslConnector};
 use crate::rpc::auth::Permission;
@@ -227,7 +228,7 @@ impl Client {
         if let Some((name, password)) = user {
             let mut tmp_auth = AuthClient::new(channel, auth_token.clone());
             let resp = tmp_auth.authenticate(name, password).await?;
-            auth_token.write().unwrap().replace(resp.token().parse()?);
+            auth_token.write_unpoisoned().replace(resp.token().parse()?);
         }
 
         Ok(())

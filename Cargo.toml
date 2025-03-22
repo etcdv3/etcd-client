@@ -3,6 +3,7 @@ name = "etcd-client"
 version = "0.14.1"
 authors = ["The etcd-client Authors <davidli2010@foxmail.com>"]
 edition = "2021"
+rust-version = "1.80.0"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
 description = "An etcd v3 API client"
