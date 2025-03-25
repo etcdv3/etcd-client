@@ -1,6 +1,6 @@
 # etcd-client
 
-[![Minimum rustc version](https://img.shields.io/badge/rustc-1.64+-lightgray.svg)](https://github.com/etcdv3/etcd-client#rust-version-requirements)
+[![Minimum rustc version](https://img.shields.io/badge/rustc-1.80+-lightgray.svg)](https://github.com/etcdv3/etcd-client#rust-version-requirements)
 [![Crate](https://img.shields.io/crates/v/etcd-client.svg)](https://crates.io/crates/etcd-client)
 [![API](https://docs.rs/etcd-client/badge.svg)](https://docs.rs/etcd-client)
 
