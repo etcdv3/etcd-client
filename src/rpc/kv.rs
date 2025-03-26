@@ -4,8 +4,8 @@ pub use crate::rpc::pb::etcdserverpb::compare::CompareResult as CompareOp;
 pub use crate::rpc::pb::etcdserverpb::range_request::{SortOrder, SortTarget};
 
 use crate::auth::AuthService;
-use crate::channel::Channel;
 use crate::error::Result;
+use crate::intercept::InterceptedChannel;
 use crate::rpc::pb::etcdserverpb::compare::{CompareTarget, TargetUnion};
 use crate::rpc::pb::etcdserverpb::kv_client::KvClient as PbKvClient;
 use crate::rpc::pb::etcdserverpb::request_op::Request as PbTxnOp;
@@ -29,13 +29,16 @@ use tonic::{IntoRequest, Request};
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct KvClient {
-    inner: PbKvClient<AuthService<Channel>>,
+    inner: PbKvClient<AuthService<InterceptedChannel>>,
 }
 
 impl KvClient {
     /// Creates a kv client.
     #[inline]
-    pub(crate) fn new(channel: Channel, auth_token: Arc<RwLock<Option<HeaderValue>>>) -> Self {
+    pub(crate) fn new(
+        channel: InterceptedChannel,
+        auth_token: Arc<RwLock<Option<HeaderValue>>>,
+    ) -> Self {
         let inner = PbKvClient::new(AuthService::new(channel, auth_token));
         Self { inner }
     }

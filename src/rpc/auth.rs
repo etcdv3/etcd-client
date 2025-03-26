@@ -3,8 +3,8 @@
 pub use crate::rpc::pb::authpb::permission::Type as PermissionType;
 
 use crate::auth::AuthService;
-use crate::channel::Channel;
 use crate::error::Result;
+use crate::intercept::InterceptedChannel;
 use crate::lock::RwLockExt;
 use crate::rpc::pb::authpb::{Permission as PbPermission, UserAddOptions as PbUserAddOptions};
 use crate::rpc::pb::etcdserverpb::auth_client::AuthClient as PbAuthClient;
@@ -43,14 +43,17 @@ use tonic::{IntoRequest, Request};
 /// Client for Auth operations.
 #[derive(Clone)]
 pub struct AuthClient {
-    inner: PbAuthClient<AuthService<Channel>>,
+    inner: PbAuthClient<AuthService<InterceptedChannel>>,
     auth_token: Arc<RwLock<Option<HeaderValue>>>,
 }
 
 impl AuthClient {
     /// Creates an auth client.
     #[inline]
-    pub(crate) fn new(channel: Channel, auth_token: Arc<RwLock<Option<HeaderValue>>>) -> Self {
+    pub(crate) fn new(
+        channel: InterceptedChannel,
+        auth_token: Arc<RwLock<Option<HeaderValue>>>,
+    ) -> Self {
         let inner = PbAuthClient::new(AuthService::new(channel, auth_token.clone()));
         Self { inner, auth_token }
     }

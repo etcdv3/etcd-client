@@ -1,8 +1,8 @@
 //! Etcd Cluster RPC.
 
 use crate::auth::AuthService;
-use crate::channel::Channel;
 use crate::error::Result;
+use crate::intercept::InterceptedChannel;
 use crate::rpc::pb::etcdserverpb::cluster_client::ClusterClient as PbClusterClient;
 use crate::rpc::pb::etcdserverpb::{
     Member as PbMember, MemberAddRequest as PbMemberAddRequest,
@@ -22,13 +22,16 @@ use tonic::{IntoRequest, Request};
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct ClusterClient {
-    inner: PbClusterClient<AuthService<Channel>>,
+    inner: PbClusterClient<AuthService<InterceptedChannel>>,
 }
 
 impl ClusterClient {
     /// Creates an Cluster client.
     #[inline]
-    pub(crate) fn new(channel: Channel, auth_token: Arc<RwLock<Option<HeaderValue>>>) -> Self {
+    pub(crate) fn new(
+        channel: InterceptedChannel,
+        auth_token: Arc<RwLock<Option<HeaderValue>>>,
+    ) -> Self {
         let inner = PbClusterClient::new(AuthService::new(channel, auth_token));
         Self { inner }
     }

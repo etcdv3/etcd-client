@@ -3,8 +3,8 @@
 pub use crate::rpc::pb::mvccpb::event::EventType;
 
 use crate::auth::AuthService;
-use crate::channel::Channel;
 use crate::error::{Error, Result};
+use crate::intercept::InterceptedChannel;
 use crate::rpc::pb::etcdserverpb::watch_client::WatchClient as PbWatchClient;
 use crate::rpc::pb::etcdserverpb::watch_request::RequestUnion as WatchRequestUnion;
 use crate::rpc::pb::etcdserverpb::{
@@ -25,13 +25,16 @@ use tonic::Streaming;
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct WatchClient {
-    inner: PbWatchClient<AuthService<Channel>>,
+    inner: PbWatchClient<AuthService<InterceptedChannel>>,
 }
 
 impl WatchClient {
     /// Creates a watch client.
     #[inline]
-    pub(crate) fn new(channel: Channel, auth_token: Arc<RwLock<Option<HeaderValue>>>) -> Self {
+    pub(crate) fn new(
+        channel: InterceptedChannel,
+        auth_token: Arc<RwLock<Option<HeaderValue>>>,
+    ) -> Self {
         let inner = PbWatchClient::new(AuthService::new(channel, auth_token));
         Self { inner }
     }

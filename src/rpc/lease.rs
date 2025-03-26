@@ -1,8 +1,8 @@
 //! Etcd Lease RPC.
 
 use crate::auth::AuthService;
-use crate::channel::Channel;
 use crate::error::Result;
+use crate::intercept::InterceptedChannel;
 use crate::rpc::pb::etcdserverpb::lease_client::LeaseClient as PbLeaseClient;
 use crate::rpc::pb::etcdserverpb::{
     LeaseGrantRequest as PbLeaseGrantRequest, LeaseGrantResponse as PbLeaseGrantResponse,
@@ -29,13 +29,16 @@ use tonic::{IntoRequest, Request, Streaming};
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct LeaseClient {
-    inner: PbLeaseClient<AuthService<Channel>>,
+    inner: PbLeaseClient<AuthService<InterceptedChannel>>,
 }
 
 impl LeaseClient {
     /// Creates a `LeaseClient`.
     #[inline]
-    pub(crate) fn new(channel: Channel, auth_token: Arc<RwLock<Option<HeaderValue>>>) -> Self {
+    pub(crate) fn new(
+        channel: InterceptedChannel,
+        auth_token: Arc<RwLock<Option<HeaderValue>>>,
+    ) -> Self {
         let inner = PbLeaseClient::new(AuthService::new(channel, auth_token));
         Self { inner }
     }
