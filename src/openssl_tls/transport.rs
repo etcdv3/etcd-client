@@ -159,6 +159,7 @@ impl OpenSslClientConfig {
     /// partial chain of certificates by default.
     /// If you want to provide a non-root CA here, please manually allow partial chain here.
     /// ```no_run
+    /// use openssl::x509::verify::X509VerifyFlags;
     /// manually(|c| c.cert_store_mut().set_flags(X509VerifyFlags::PARTIAL_CHAIN))
     /// ```
     pub fn ca_cert_pem(self, s: &[u8]) -> Self {
@@ -179,6 +180,7 @@ impl OpenSslClientConfig {
     /// you may need to add those certificates manually. (Which is the default behavior
     /// of Google's gRPC implementation.)
     /// ```no_run
+    /// use openssl::x509::X509;
     /// manually(|c| {
     ///     let mut client_certs = X509::stack_from_pem(&cert_pem)?;
     ///     if client_certs.len() > 1 {
