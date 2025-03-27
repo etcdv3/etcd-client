@@ -67,7 +67,7 @@ pub struct Client {
     cluster: ClusterClient,
     election: ElectionClient,
     options: Option<ConnectOptions>,
-    tx: Sender<Change<Uri, Endpoint>>,
+    tx: Option<Sender<Change<Uri, Endpoint>>>,
 }
 
 impl Client {
@@ -117,7 +117,18 @@ impl Client {
         let auth_token = Arc::new(RwLock::new(None));
         Self::auth(channel.clone(), &mut options, &auth_token).await?;
 
-        Ok(Self::build_client(channel, tx, auth_token, options))
+        Ok(Self::build_client(channel, Some(tx), auth_token, options))
+    }
+
+    #[cfg(feature = "raw-channel")]
+    /// Connect to `etcd` servers represented by the given `channel`.
+    pub async fn from_channel(channel: Channel, options: Option<ConnectOptions>) -> Result<Self> {
+        let mut options = options;
+
+        let auth_token = Arc::new(RwLock::new(None));
+        Self::auth(channel.clone(), &mut options, &auth_token).await?;
+
+        Ok(Self::build_client(channel, None, auth_token, options))
     }
 
     fn build_endpoint(url: &str, options: &Option<ConnectOptions>) -> Result<Endpoint> {
@@ -243,7 +254,7 @@ impl Client {
 
     fn build_client(
         channel: InterceptedChannel,
-        tx: Sender<Change<Uri, Endpoint>>,
+        tx: Option<Sender<Change<Uri, Endpoint>>>,
         auth_token: Arc<RwLock<Option<HeaderValue>>>,
         options: Option<ConnectOptions>,
     ) -> Self {
@@ -283,7 +294,9 @@ impl Client {
     #[inline]
     pub async fn add_endpoint<E: AsRef<str>>(&self, endpoint: E) -> Result<()> {
         let endpoint = Self::build_endpoint(endpoint.as_ref(), &self.options)?;
-        let tx = &self.tx;
+        let Some(tx) = &self.tx else {
+            return Err(Error::EndpointsNotManaged);
+        };
         tx.send(Change::Insert(endpoint.uri().clone(), endpoint))
             .await
             .map_err(|e| Error::EndpointError(format!("failed to add endpoint because of {}", e)))
@@ -297,7 +310,9 @@ impl Client {
     #[inline]
     pub async fn remove_endpoint<E: AsRef<str>>(&self, endpoint: E) -> Result<()> {
         let uri = http::Uri::from_str(endpoint.as_ref())?;
-        let tx = &self.tx;
+        let Some(tx) = &self.tx else {
+            return Err(Error::EndpointsNotManaged);
+        };
         tx.send(Change::Remove(uri)).await.map_err(|e| {
             Error::EndpointError(format!("failed to remove endpoint because of {}", e))
         })
