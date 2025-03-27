@@ -18,12 +18,14 @@ jobs:
       - run: sudo apt install -y protobuf-compiler libprotobuf-dev
       - name: Check out repository code
         uses: actions/checkout@v4
+      - name: install cargo-hack
+        uses: taiki-e/install-action@cargo-hack
       - run: cargo --version --verbose
       - run: rustc --version --verbose
       - name: format check
         run: cargo fmt --check
       - name: clippy
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo hack --feature-powerset --mutually-exclusive-features tls,tls-openssl --mutually-exclusive-features tls-roots,tls-openssl clippy --all-targets -- -D warnings
       - name: unit test
         run: cargo test
       - run: cargo run --example kv

@@ -1,5 +1,6 @@
 //! Asynchronous client & synchronous client.
 
+#[cfg(not(feature = "tls-openssl"))]
 use crate::channel::Channel;
 use crate::error::{Error, Result};
 use crate::intercept::{InterceptedChannel, Interceptor};
