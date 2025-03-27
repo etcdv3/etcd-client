@@ -5,8 +5,8 @@ pub use crate::rpc::pb::etcdserverpb::AlarmType;
 
 use super::pb::etcdserverpb;
 use crate::auth::AuthService;
-use crate::channel::Channel;
 use crate::error::Result;
+use crate::intercept::InterceptedChannel;
 use crate::rpc::pb::etcdserverpb::{
     AlarmRequest as PbAlarmRequest, AlarmResponse as PbAlarmResponse,
     DefragmentRequest as PbDefragmentRequest, DefragmentResponse as PbDefragmentResponse,
@@ -28,7 +28,7 @@ use tonic::{IntoRequest, Request};
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct MaintenanceClient {
-    inner: PbMaintenanceClient<AuthService<Channel>>,
+    inner: PbMaintenanceClient<AuthService<InterceptedChannel>>,
 }
 
 /// Options for `alarm` operation.
@@ -556,7 +556,10 @@ impl MoveLeaderResponse {
 impl MaintenanceClient {
     /// Creates a maintenance client.
     #[inline]
-    pub(crate) fn new(channel: Channel, auth_token: Arc<RwLock<Option<HeaderValue>>>) -> Self {
+    pub(crate) fn new(
+        channel: InterceptedChannel,
+        auth_token: Arc<RwLock<Option<HeaderValue>>>,
+    ) -> Self {
         let inner = PbMaintenanceClient::new(AuthService::new(channel, auth_token));
         Self { inner }
     }

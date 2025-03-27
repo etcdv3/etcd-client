@@ -2,8 +2,8 @@
 
 use super::pb::v3lockpb;
 use crate::auth::AuthService;
-use crate::channel::Channel;
 use crate::error::Result;
+use crate::intercept::InterceptedChannel;
 use crate::rpc::ResponseHeader;
 use http::HeaderValue;
 use std::sync::{Arc, RwLock};
@@ -18,13 +18,16 @@ use v3lockpb::{
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct LockClient {
-    inner: PbLockClient<AuthService<Channel>>,
+    inner: PbLockClient<AuthService<InterceptedChannel>>,
 }
 
 impl LockClient {
     /// Creates a lock client.
     #[inline]
-    pub(crate) fn new(channel: Channel, auth_token: Arc<RwLock<Option<HeaderValue>>>) -> Self {
+    pub(crate) fn new(
+        channel: InterceptedChannel,
+        auth_token: Arc<RwLock<Option<HeaderValue>>>,
+    ) -> Self {
         let inner = PbLockClient::new(AuthService::new(channel, auth_token));
         Self { inner }
     }

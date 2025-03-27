@@ -1,8 +1,8 @@
 //! Etcd Election RPC.
 
 use crate::auth::AuthService;
-use crate::channel::Channel;
 use crate::error::Result;
+use crate::intercept::InterceptedChannel;
 use crate::rpc::pb::v3electionpb::election_client::ElectionClient as PbElectionClient;
 use crate::rpc::pb::v3electionpb::{
     CampaignRequest as PbCampaignRequest, CampaignResponse as PbCampaignResponse,
@@ -22,7 +22,7 @@ use tonic::{IntoRequest, Request, Streaming};
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct ElectionClient {
-    inner: PbElectionClient<AuthService<Channel>>,
+    inner: PbElectionClient<AuthService<InterceptedChannel>>,
 }
 
 /// Options for `campaign` operation.
@@ -487,7 +487,10 @@ impl From<&PbLeaderKey> for &LeaderKey {
 impl ElectionClient {
     /// Creates a election
     #[inline]
-    pub(crate) fn new(channel: Channel, auth_token: Arc<RwLock<Option<HeaderValue>>>) -> Self {
+    pub(crate) fn new(
+        channel: InterceptedChannel,
+        auth_token: Arc<RwLock<Option<HeaderValue>>>,
+    ) -> Self {
         let inner = PbElectionClient::new(AuthService::new(channel, auth_token));
         Self { inner }
     }

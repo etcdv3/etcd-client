@@ -2,6 +2,7 @@
 
 use crate::channel::Channel;
 use crate::error::{Error, Result};
+use crate::intercept::{InterceptedChannel, Interceptor};
 use crate::lock::RwLockExt;
 #[cfg(feature = "tls-openssl")]
 use crate::openssl_tls::{self, OpenSslClientConfig, OpenSslConnector};
@@ -98,6 +99,12 @@ impl Client {
                 .and_then(|o| o.otls)
                 .unwrap_or_else(OpenSslConnector::create_default)?,
         )?;
+        let channel = InterceptedChannel::new(
+            channel,
+            Interceptor {
+                require_leader: options.as_ref().map(|o| o.require_leader).unwrap_or(false),
+            },
+        );
         for endpoint in endpoints {
             // The rx inside `channel` won't be closed or dropped here
             tx.send(Change::Insert(endpoint.uri().clone(), endpoint))
@@ -213,7 +220,7 @@ impl Client {
     }
 
     async fn auth(
-        channel: Channel,
+        channel: InterceptedChannel,
         options: &mut Option<ConnectOptions>,
         auth_token: &Arc<RwLock<Option<HeaderValue>>>,
     ) -> Result<()> {
@@ -235,7 +242,7 @@ impl Client {
     }
 
     fn build_client(
-        channel: Channel,
+        channel: InterceptedChannel,
         tx: Sender<Change<Uri, Endpoint>>,
         auth_token: Arc<RwLock<Option<HeaderValue>>>,
         options: Option<ConnectOptions>,
@@ -767,6 +774,8 @@ pub struct ConnectOptions {
     tls: Option<TlsOptions>,
     #[cfg(feature = "tls-openssl")]
     otls: Option<OpenSslResult<OpenSslConnector>>,
+    /// Require a leader to be present for the operation to complete.
+    require_leader: bool,
 }
 
 impl ConnectOptions {
@@ -840,6 +849,13 @@ impl ConnectOptions {
         self
     }
 
+    /// Whether to enforce that a leader be present in the etcd cluster.
+    #[inline]
+    pub fn with_require_leader(mut self, require_leader: bool) -> Self {
+        self.require_leader = require_leader;
+        self
+    }
+
     /// Creates a `ConnectOptions`.
     #[inline]
     pub const fn new() -> Self {
@@ -854,6 +870,7 @@ impl ConnectOptions {
             tls: None,
             #[cfg(feature = "tls-openssl")]
             otls: None,
+            require_leader: false,
         }
     }
 }
