@@ -19,6 +19,7 @@ tls-openssl-vendored = ["tls-openssl", "openssl/vendored"]
 tls-roots = ["tls", "tonic/tls-roots"]
 pub-response-field = ["visible"]
 build-server = ["pub-response-field"]
+raw-channel = []
 
 [dependencies]
 tonic = "0.12.3"
