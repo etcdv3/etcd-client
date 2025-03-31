@@ -41,6 +41,9 @@ pub enum Error {
     /// Endpoint error
     EndpointError(String),
 
+    /// Endpoint set is not managed by this client
+    EndpointsNotManaged,
+
     /// OpenSSL errors.
     #[cfg(feature = "tls-openssl")]
     OpenSsl(openssl::error::ErrorStack),
@@ -61,6 +64,7 @@ impl Display for Error {
             Error::ElectError(e) => write!(f, "election error: {}", e),
             Error::InvalidHeaderValue(e) => write!(f, "invalid metadata value: {}", e),
             Error::EndpointError(e) => write!(f, "endpoint error: {}", e),
+            Error::EndpointsNotManaged => write!(f, "endpoints not managed by this client"),
             #[cfg(feature = "tls-openssl")]
             Error::OpenSsl(e) => write!(f, "open ssl error: {}", e),
         }
