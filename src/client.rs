@@ -1,5 +1,6 @@
 //! Asynchronous client & synchronous client.
 
+use crate::change::{EndpointUpdate, EndpointUpdateRef};
 use crate::error::{Error, Result};
 use crate::intercept::{InterceptedChannel, Interceptor};
 use crate::lock::RwLockExt;
@@ -39,17 +40,14 @@ use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 use crate::OpenSslResult;
 #[cfg(feature = "tls")]
 use crate::TlsOptions;
-use http::uri::Uri;
 use http::HeaderValue;
+use tower::discover::Change;
 
 use std::str::FromStr;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
-use tokio::sync::mpsc::Sender;
 
 use tonic::transport::Endpoint;
-
-use tower::discover::Change;
 
 const HTTP_PREFIX: &str = "http://";
 const HTTPS_PREFIX: &str = "https://";
@@ -66,7 +64,7 @@ pub struct Client {
     cluster: ClusterClient,
     election: ElectionClient,
     options: Option<ConnectOptions>,
-    tx: Sender<Change<Uri, Endpoint>>,
+    endpoint_updater: EndpointUpdateRef,
 }
 
 impl Client {
@@ -111,7 +109,7 @@ impl Client {
         }
 
         // Always use balance strategy even if there is only one endpoint.
-        let (channel, tx) = make_balanced_channel.balanced_channel(64)?;
+        let (channel, endpoint_updater) = make_balanced_channel.balanced_channel(64)?;
         let channel = InterceptedChannel::new(
             channel,
             Interceptor {
@@ -120,17 +118,24 @@ impl Client {
         );
         for endpoint in endpoints {
             // The rx inside `channel` won't be closed or dropped here
-            tx.send(Change::Insert(endpoint.uri().clone(), endpoint))
-                .await
-                .unwrap();
+            endpoint_updater
+                .send(Change::Insert(endpoint.uri().clone(), endpoint))
+                .await;
         }
 
         let mut options = options;
 
         let auth_token = Arc::new(RwLock::new(None));
         Self::auth(channel.clone(), &mut options, &auth_token).await?;
+        
+        let endpoint_updater = Arc::new(endpoint_updater);
 
-        Ok(Self::build_client(channel, tx, auth_token, options))
+        Ok(Self::build_client(
+            channel,
+            endpoint_updater,
+            auth_token,
+            options,
+        ))
     }
 
     fn build_endpoint(url: &str, options: &Option<ConnectOptions>) -> Result<Endpoint> {
@@ -255,7 +260,7 @@ impl Client {
 
     fn build_client(
         channel: InterceptedChannel,
-        tx: Sender<Change<Uri, Endpoint>>,
+        endpoint_updater: EndpointUpdateRef,
         auth_token: Arc<RwLock<Option<HeaderValue>>>,
         options: Option<ConnectOptions>,
     ) -> Self {
@@ -278,7 +283,7 @@ impl Client {
             cluster,
             election,
             options,
-            tx,
+            endpoint_updater,
         }
     }
 
@@ -295,10 +300,10 @@ impl Client {
     #[inline]
     pub async fn add_endpoint<E: AsRef<str>>(&self, endpoint: E) -> Result<()> {
         let endpoint = Self::build_endpoint(endpoint.as_ref(), &self.options)?;
-        let tx = &self.tx;
-        tx.send(Change::Insert(endpoint.uri().clone(), endpoint))
-            .await
-            .map_err(|e| Error::EndpointError(format!("failed to add endpoint because of {}", e)))
+        self.endpoint_updater
+            .send(Change::Insert(endpoint.uri().clone(), endpoint))
+            .await;
+        Ok(())
     }
 
     /// Dynamically remove an endpoint from the client.
@@ -309,10 +314,8 @@ impl Client {
     #[inline]
     pub async fn remove_endpoint<E: AsRef<str>>(&self, endpoint: E) -> Result<()> {
         let uri = http::Uri::from_str(endpoint.as_ref())?;
-        let tx = &self.tx;
-        tx.send(Change::Remove(uri)).await.map_err(|e| {
-            Error::EndpointError(format!("failed to remove endpoint because of {}", e))
-        })
+        self.endpoint_updater.send(Change::Remove(uri)).await;
+        Ok(())
     }
 
     /// Gets a KV client.

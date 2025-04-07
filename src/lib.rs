@@ -58,6 +58,7 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod auth;
+mod change;
 mod channel;
 mod client;
 mod error;
@@ -68,6 +69,7 @@ mod openssl_tls;
 mod rpc;
 mod vec;
 
+pub use crate::change::EndpointUpdate;
 pub use crate::channel::{BalancedChannelBuilder, Channel};
 pub use crate::client::{Client, ConnectOptions};
 pub use crate::error::Error;
