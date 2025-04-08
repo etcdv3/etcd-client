@@ -43,7 +43,10 @@ use crate::OpenSslResult;
 use crate::TlsOptions;
 use http::uri::Uri;
 use http::HeaderValue;
+#[cfg(not(feature = "tls-openssl"))]
 use tonic::transport::channel::Change;
+#[cfg(feature = "tls-openssl")]
+use tower::discover::Change;
 
 use std::str::FromStr;
 use std::sync::{Arc, RwLock};
@@ -67,6 +70,9 @@ pub struct Client {
     cluster: ClusterClient,
     election: ElectionClient,
     options: Option<ConnectOptions>,
+    #[cfg(not(feature = "tls-openssl"))]
+    tx: Sender<Change<Uri, Endpoint>>,
+    #[cfg(feature = "tls-openssl")]
     tx: Sender<Change<Uri, Endpoint>>,
 }
 
