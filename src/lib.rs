@@ -68,6 +68,7 @@ mod openssl_tls;
 mod rpc;
 mod vec;
 
+pub use crate::channel::{Channel, MakeBalancedChannel};
 pub use crate::client::{Client, ConnectOptions};
 pub use crate::error::Error;
 pub use crate::namespace::{KvClientPrefix, LeaseClientPrefix};
