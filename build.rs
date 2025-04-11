@@ -1,9 +1,19 @@
+#[cfg(feature = "build-server")]
+fn should_build_server() -> bool {
+    true
+}
+
+#[cfg(not(feature = "build-server"))]
+fn should_build_server() -> bool {
+    false
+}
+
 fn main() {
     let proto_root = "proto";
     println!("cargo:rerun-if-changed={}", proto_root);
 
     tonic_build::configure()
-        .build_server(false)
+        .build_server(should_build_server())
         .compile_protos(
             &[
                 "proto/auth.proto",

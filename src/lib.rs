@@ -161,4 +161,46 @@ pub mod proto {
     pub use crate::rpc::pb::v3lockpb::{
         LockResponse as PbLockResponse, UnlockResponse as PbUnlockResponse,
     };
+
+    #[cfg(feature = "build-server")]
+    pub use crate::rpc::pb::etcdserverpb::{
+        auth_server::{Auth as PbAuthService, AuthServer as PbAuthServer},
+        cluster_server::{Cluster as PbClusterService, ClusterServer as PbClusterServer},
+        kv_server::{Kv as PbKvService, KvServer as PbKvServer},
+        lease_server::{Lease as PbLeaseService, LeaseServer as PbLeaseServer},
+        maintenance_server::{
+            Maintenance as PbMaintenanceService, MaintenanceServer as PbMaintenanceServer,
+        },
+        watch_server::{Watch as PbWatchService, WatchServer as PbWatchServer},
+    };
+
+    #[cfg(feature = "build-server")]
+    pub use crate::rpc::pb::etcdserverpb::{
+        AlarmRequest as PbAlarmRequest, AuthDisableRequest as PbAuthDisableRequest,
+        AuthEnableRequest as PbAuthEnableRequest, AuthRoleAddRequest as PbAuthRoleAddRequest,
+        AuthRoleDeleteRequest as PbAuthRoleDeleteRequest,
+        AuthRoleGetRequest as PbAuthRoleGetRequest,
+        AuthRoleGrantPermissionRequest as PbAuthRoleGrantPermissionRequest,
+        AuthRoleListRequest as PbAuthRoleListRequest,
+        AuthRoleRevokePermissionRequest as PbAuthRoleRevokePermissionRequest,
+        AuthUserAddRequest as PbAuthUserAddRequest,
+        AuthUserChangePasswordRequest as PbAuthUserChangePasswordRequest,
+        AuthUserDeleteRequest as PbAuthUserDeleteRequest,
+        AuthUserGetRequest as PbAuthUserGetRequest,
+        AuthUserGrantRoleRequest as PbAuthUserGrantRoleRequest,
+        AuthUserListRequest as PbAuthUserListRequest,
+        AuthUserRevokeRoleRequest as PbAuthUserRevokeRoleRequest,
+        AuthenticateRequest as PbAuthenticateRequest, CompactionRequest as PbCompactionRequest,
+        DefragmentRequest as PbDefragmentRequest, DeleteRangeRequest as PbDeleteRequest,
+        HashKvRequest as PbHashKvRequest, HashRequest as PbHashRequest,
+        LeaseGrantRequest as PbLeaseGrantRequest, LeaseKeepAliveRequest as PbLeaseKeepAliveRequest,
+        LeaseLeasesRequest as PbLeaseLeasesRequest, LeaseRevokeRequest as PbLeaseRevokeRequest,
+        LeaseTimeToLiveRequest as PbLeaseTimeToLiveRequest, MemberAddRequest as PbMemberAddRequest,
+        MemberListRequest as PbMemberListRequest, MemberPromoteRequest as PbMemberPromoteRequest,
+        MemberRemoveRequest as PbMemberRemoveRequest, MemberUpdateRequest as PbMemberUpdateRequest,
+        MoveLeaderRequest as PbMoveLeaderRequest, PutRequest as PbPutRequest,
+        RangeRequest as PbRangeRequest, SnapshotRequest as PbSnapshotRequest,
+        StatusRequest as PbStatusRequest, TxnRequest as PbTxnRequest,
+        WatchRequest as PbWatchRequest,
+    };
 }
