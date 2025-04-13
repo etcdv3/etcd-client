@@ -25,7 +25,12 @@ jobs:
       - name: format check
         run: cargo fmt --check
       - name: clippy
-        run: cargo hack --feature-powerset --mutually-exclusive-features tls,tls-openssl --mutually-exclusive-features tls-roots,tls-openssl clippy --all-targets -- -D warnings
+        run: |
+          cargo hack --feature-powerset \
+          --exclude-features _rust-tls \
+          --mutually-exclusive-features tls,tls-ring,tls-aws-lc,tls-openssl \
+          --mutually-exclusive-features tls-roots,tls-openssl \
+          clippy --all-targets -- -D warnings
       - name: unit test
         run: cargo test
       - run: cargo run --example kv
