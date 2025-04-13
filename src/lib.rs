@@ -48,7 +48,9 @@
 //!
 //! # Feature Flags
 //!
-//! - `tls`: Enables the `rustls`-based TLS connection. Not enabled by default.
+//! - `tls`: Enables the `rustls`-based TLS connection, crypto provider is `ring`. Not enabled by default.
+//! - `tls-aws-lc`: Enables the `rustls`-based TLS connection, crypto provider is `aws-lc`. Not enabled by default.
+//! - `tls-ring`: Enables the `rustls`-based TLS connection, crypto provider is `ring`. Not enabled by default.
 //! - `tls-roots`: Adds system trust roots to `rustls`-based TLS connection using the `rustls-native-certs` crate. Not enabled by default.
 //! - `pub-response-field`: Exposes structs used to create regular `etcd-client` responses including internal protobuf representations. Useful for mocking. Not enabled by default.
 //! - `tls-openssl`: Enables the `openssl`-based TLS connections. This would make your binary dynamically link to `libssl`.
@@ -109,8 +111,8 @@ pub use crate::rpc::watch::{
 };
 pub use crate::rpc::{KeyValue, ResponseHeader};
 
-#[cfg(feature = "tls")]
-#[cfg_attr(docsrs, doc(cfg(feature = "tls")))]
+#[cfg(feature = "_tls-rustls")]
+#[cfg_attr(docsrs, doc(cfg(feature = "_tls-rustls")))]
 pub use tonic::transport::{Certificate, ClientTlsConfig as TlsOptions, Identity};
 
 #[cfg(feature = "tls-openssl")]
