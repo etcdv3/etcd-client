@@ -70,9 +70,6 @@ pub struct Client {
     cluster: ClusterClient,
     election: ElectionClient,
     options: Option<ConnectOptions>,
-    #[cfg(not(feature = "tls-openssl"))]
-    tx: Sender<Change<Uri, Endpoint>>,
-    #[cfg(feature = "tls-openssl")]
     tx: Sender<Change<Uri, Endpoint>>,
 }
 
