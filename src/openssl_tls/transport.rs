@@ -47,7 +47,7 @@ impl OpenSslConnector {
     }
 }
 
-#[cfg(feature = "tls")]
+#[cfg(feature = "_tls-rustls")]
 compile_error!(concat!(
     "**You should only enable one of `tls` and `tls-openssl`.** Reason: ",
     "For now, `tls-openssl` would take over the transport layer (sockets) to implement TLS based connection. ",

@@ -39,7 +39,7 @@ use crate::rpc::maintenance::{
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 #[cfg(feature = "tls-openssl")]
 use crate::OpenSslResult;
-#[cfg(feature = "tls")]
+#[cfg(feature = "_tls-rustls")]
 use crate::TlsOptions;
 use http::uri::Uri;
 use http::HeaderValue;
@@ -130,7 +130,7 @@ impl Client {
         #[cfg(feature = "tls-openssl")]
         use tonic::transport::Channel;
         let mut endpoint = if url.starts_with(HTTP_PREFIX) {
-            #[cfg(feature = "tls")]
+            #[cfg(feature = "_tls-rustls")]
             if let Some(connect_options) = options {
                 if connect_options.tls.is_some() {
                     return Err(Error::InvalidArgs(String::from(
@@ -141,17 +141,17 @@ impl Client {
 
             Channel::builder(url.parse()?)
         } else if url.starts_with(HTTPS_PREFIX) {
-            #[cfg(not(any(feature = "tls", feature = "tls-openssl")))]
+            #[cfg(not(any(feature = "_tls-rustls", feature = "tls-openssl")))]
             return Err(Error::InvalidArgs(String::from(
                 "HTTPS URLs are only supported with the feature \"tls\"",
             )));
 
-            #[cfg(all(feature = "tls-openssl", not(feature = "tls")))]
+            #[cfg(all(feature = "tls-openssl", not(feature = "_tls-rustls")))]
             {
                 Channel::builder(url.parse()?)
             }
 
-            #[cfg(feature = "tls")]
+            #[cfg(feature = "_tls-rustls")]
             {
                 let tls = if let Some(connect_options) = options {
                     connect_options.tls.clone()
@@ -163,7 +163,7 @@ impl Client {
                 Channel::builder(url.parse()?).tls_config(tls)?
             }
         } else {
-            #[cfg(feature = "tls")]
+            #[cfg(feature = "_tls-rustls")]
             {
                 let tls = if let Some(connect_options) = options {
                     connect_options.tls.clone()
@@ -183,7 +183,7 @@ impl Client {
                 }
             }
 
-            #[cfg(all(feature = "tls-openssl", not(feature = "tls")))]
+            #[cfg(all(feature = "tls-openssl", not(feature = "_tls-rustls")))]
             {
                 let pfx = if options.as_ref().and_then(|o| o.otls.as_ref()).is_some() {
                     HTTPS_PREFIX
@@ -194,7 +194,7 @@ impl Client {
                 Channel::builder(e.parse()?)
             }
 
-            #[cfg(all(not(feature = "tls"), not(feature = "tls-openssl")))]
+            #[cfg(all(not(feature = "_tls-rustls"), not(feature = "tls-openssl")))]
             {
                 let e = HTTP_PREFIX.to_owned() + url;
                 Channel::builder(e.parse()?)
@@ -776,7 +776,7 @@ pub struct ConnectOptions {
     connect_timeout: Option<Duration>,
     /// TCP keepalive.
     tcp_keepalive: Option<Duration>,
-    #[cfg(feature = "tls")]
+    #[cfg(feature = "_tls-rustls")]
     tls: Option<TlsOptions>,
     #[cfg(feature = "tls-openssl")]
     otls: Option<OpenSslResult<OpenSslConnector>>,
@@ -795,8 +795,8 @@ impl ConnectOptions {
     /// Sets TLS options.
     ///
     /// Notes that this function have to work with `HTTPS` URLs.
-    #[cfg_attr(docsrs, doc(cfg(feature = "tls")))]
-    #[cfg(feature = "tls")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "_tls-rustls")))]
+    #[cfg(feature = "_tls-rustls")]
     #[inline]
     pub fn with_tls(mut self, tls: TlsOptions) -> Self {
         self.tls = Some(tls);
@@ -872,7 +872,7 @@ impl ConnectOptions {
             timeout: None,
             connect_timeout: None,
             tcp_keepalive: None,
-            #[cfg(feature = "tls")]
+            #[cfg(feature = "_tls-rustls")]
             tls: None,
             #[cfg(feature = "tls-openssl")]
             otls: None,
