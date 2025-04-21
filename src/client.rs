@@ -1,12 +1,10 @@
 //! Asynchronous client & synchronous client.
 
-#[cfg(not(feature = "tls-openssl"))]
-use crate::channel::Channel;
 use crate::error::{Error, Result};
 use crate::intercept::{InterceptedChannel, Interceptor};
 use crate::lock::RwLockExt;
 #[cfg(feature = "tls-openssl")]
-use crate::openssl_tls::{self, OpenSslClientConfig, OpenSslConnector};
+use crate::openssl_tls::{OpenSslClientConfig, OpenSslConnector};
 use crate::rpc::auth::Permission;
 use crate::rpc::auth::{AuthClient, AuthDisableResponse, AuthEnableResponse};
 use crate::rpc::auth::{
@@ -77,6 +75,28 @@ impl Client {
         endpoints: S,
         options: Option<ConnectOptions>,
     ) -> Result<Self> {
+        #[cfg(not(feature = "tls-openssl"))]
+        let make_balanced_channel = crate::channel::Tonic;
+        #[cfg(feature = "tls-openssl")]
+        let make_balanced_channel = crate::channel::Openssl {
+            conn: options
+                .clone()
+                .and_then(|o| o.otls)
+                .unwrap_or_else(OpenSslConnector::create_default)?,
+        };
+        Self::connect_with_balanced_channel(endpoints, options, make_balanced_channel).await
+    }
+
+    /// Connect to `etcd` servers from given `endpoints` and a balanced channel.
+    pub async fn connect_with_balanced_channel<E: AsRef<str>, S: AsRef<[E]>, MBC>(
+        endpoints: S,
+        options: Option<ConnectOptions>,
+        make_balanced_channel: MBC,
+    ) -> Result<Self>
+    where
+        MBC: crate::channel::BalancedChannelBuilder,
+        crate::error::Error: From<MBC::Error>,
+    {
         let endpoints = {
             let mut eps = Vec::new();
             for e in endpoints.as_ref() {
@@ -91,15 +111,7 @@ impl Client {
         }
 
         // Always use balance strategy even if there is only one endpoint.
-        #[cfg(not(feature = "tls-openssl"))]
-        let (channel, tx) = Channel::balance_channel(64);
-        #[cfg(feature = "tls-openssl")]
-        let (channel, tx) = openssl_tls::balanced_channel(
-            options
-                .clone()
-                .and_then(|o| o.otls)
-                .unwrap_or_else(OpenSslConnector::create_default)?,
-        )?;
+        let (channel, tx) = make_balanced_channel.balanced_channel(64)?;
         let channel = InterceptedChannel::new(
             channel,
             Interceptor {
@@ -122,8 +134,7 @@ impl Client {
     }
 
     fn build_endpoint(url: &str, options: &Option<ConnectOptions>) -> Result<Endpoint> {
-        #[cfg(feature = "tls-openssl")]
-        use tonic::transport::Channel;
+        use tonic::transport::Channel as TonicChannel;
         let mut endpoint = if url.starts_with(HTTP_PREFIX) {
             #[cfg(feature = "tls")]
             if let Some(connect_options) = options {
@@ -134,7 +145,7 @@ impl Client {
                 }
             }
 
-            Channel::builder(url.parse()?)
+            TonicChannel::builder(url.parse()?)
         } else if url.starts_with(HTTPS_PREFIX) {
             #[cfg(not(any(feature = "tls", feature = "tls-openssl")))]
             return Err(Error::InvalidArgs(String::from(
@@ -143,7 +154,7 @@ impl Client {
 
             #[cfg(all(feature = "tls-openssl", not(feature = "tls")))]
             {
-                Channel::builder(url.parse()?)
+                TonicChannel::builder(url.parse()?)
             }
 
             #[cfg(feature = "tls")]
@@ -155,7 +166,7 @@ impl Client {
                 }
                 .unwrap_or_else(TlsOptions::new);
 
-                Channel::builder(url.parse()?).tls_config(tls)?
+                TonicChannel::builder(url.parse()?).tls_config(tls)?
             }
         } else {
             #[cfg(feature = "tls")]
@@ -169,11 +180,11 @@ impl Client {
                 match tls {
                     Some(tls) => {
                         let e = HTTPS_PREFIX.to_owned() + url;
-                        Channel::builder(e.parse()?).tls_config(tls)?
+                        TonicChannel::builder(e.parse()?).tls_config(tls)?
                     }
                     None => {
                         let e = HTTP_PREFIX.to_owned() + url;
-                        Channel::builder(e.parse()?)
+                        TonicChannel::builder(e.parse()?)
                     }
                 }
             }
@@ -186,13 +197,13 @@ impl Client {
                     HTTP_PREFIX
                 };
                 let e = pfx.to_owned() + url;
-                Channel::builder(e.parse()?)
+                TonicChannel::builder(e.parse()?)
             }
 
             #[cfg(all(not(feature = "tls"), not(feature = "tls-openssl")))]
             {
                 let e = HTTP_PREFIX.to_owned() + url;
-                Channel::builder(e.parse()?)
+                TonicChannel::builder(e.parse()?)
             }
         };
 
