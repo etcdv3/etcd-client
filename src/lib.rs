@@ -54,6 +54,7 @@
 //! - `tls-openssl`: Enables the `openssl`-based TLS connections. This would make your binary dynamically link to `libssl`.
 //! - `tls-openssl-vendored`: Like `tls-openssl`, however compile openssl from source code and statically link to it.
 //! - `build-server`: Builds a server variant of the etcd protobuf and re-exports it under the same `proto` package as the `pub-response-field` feature does.
+//! - `raw-channel`: Allows the caller to construct the underlying Tonic channel used by the client.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
