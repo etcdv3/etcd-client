@@ -1,6 +1,7 @@
-use std::time::Duration;
+use std::{error::Error, time::Duration};
 
-use super::backoff::{BackOffStatus, BackOffWhenFail};
+use super::backoff::{BackOffStatus, BackOffWhenFail, TraceFailFuture};
+use futures::future::MapErr;
 use http::{Request, Uri};
 use hyper_openssl::client::legacy::HttpsConnector;
 use hyper_util::client::legacy::connect::HttpConnector;
@@ -13,8 +14,8 @@ use openssl::{
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{
-    body::BoxBody,
-    transport::{Channel, Endpoint},
+    body::Body,
+    transport::{channel::ResponseFuture, Channel, Endpoint, Error as TonicError},
 };
 use tower::{balance::p2c::Balance, buffer::Buffer, discover::Change};
 
@@ -23,10 +24,11 @@ use crate::error::Result;
 pub type SslConnectorBuilder = openssl::ssl::SslConnectorBuilder;
 pub type OpenSslResult<T> = std::result::Result<T, ErrorStack>;
 // Below are some type alias for make clearer types.
-pub type TonicRequest = Request<BoxBody>;
-pub type Buffered<T> = Buffer<T, TonicRequest>;
-pub type Balanced<T> = Balance<T, TonicRequest>;
-pub type OpenSslChannel = Buffered<Balanced<OpenSslDiscover<Uri>>>;
+pub type TonicRequest = Request<Body>;
+pub type Buffered<T> = Buffer<TonicRequest, T>;
+pub type OpenSslChannel = Buffered<
+    MapErr<TraceFailFuture<ResponseFuture>, fn(TonicError) -> Box<dyn Error + Send + Sync>>,
+>;
 /// OpenSslDiscover is the backend for balanced channel based on OpenSSL transports.
 /// Because `Channel::balance` doesn't allow us to provide custom connector, we must implement ourselves' balancer...
 pub type OpenSslDiscover<K> = ReceiverStream<Result<Change<K, BackOffWhenFail<Channel>>>>;

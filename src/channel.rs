@@ -1,37 +1,39 @@
 use std::{future::Future, pin::Pin, task::ready};
 
-use http::Uri;
-use tokio::sync::mpsc::Sender;
-use tonic::transport::Endpoint;
-use tower::{discover::Change, util::BoxCloneService, Service};
+use tower::{util::BoxCloneService, Service};
 
-/// A type alias to make the below types easier to represent.
-pub type EndpointUpdater = Sender<Change<Uri, Endpoint>>;
+use crate::change::{EndpointUpdate, TonicEndpointUpdater};
+
+#[cfg(feature = "tls-openssl")]
+use crate::change::TowerEndpointUpdater;
 
 /// Creates a balanced channel.
 pub trait BalancedChannelBuilder {
     type Error;
 
+    type EndpointUpdate: EndpointUpdate;
+
     /// Makes a new balanced channel, given the provided options.
     fn balanced_channel(
         self,
         buffer_size: usize,
-    ) -> Result<(Channel, EndpointUpdater), Self::Error>;
+    ) -> Result<(Channel, Self::EndpointUpdate), Self::Error>;
 }
 
-/// Create a simple Tonic channel.
 pub struct Tonic;
 
 impl BalancedChannelBuilder for Tonic {
     type Error = tonic::transport::Error;
 
+    type EndpointUpdate = TonicEndpointUpdater;
+
     #[inline]
     fn balanced_channel(
         self,
         buffer_size: usize,
-    ) -> Result<(Channel, EndpointUpdater), Self::Error> {
+    ) -> Result<(Channel, TonicEndpointUpdater), Self::Error> {
         let (chan, tx) = tonic::transport::Channel::balance_channel(buffer_size);
-        Ok((Channel::Tonic(chan), tx))
+        Ok((Channel::Tonic(chan), TonicEndpointUpdater { sender: tx }))
     }
 }
 
@@ -45,15 +47,17 @@ pub struct Openssl {
 impl BalancedChannelBuilder for Openssl {
     type Error = crate::error::Error;
 
+    type EndpointUpdate = TowerEndpointUpdater;
+
     #[inline]
-    fn balanced_channel(self, _: usize) -> Result<(Channel, EndpointUpdater), Self::Error> {
+    fn balanced_channel(self, _: usize) -> Result<(Channel, TowerEndpointUpdater), Self::Error> {
         let (chan, tx) = crate::openssl_tls::balanced_channel(self.conn)?;
-        Ok((Channel::Openssl(chan), tx))
+        Ok((Channel::Openssl(chan), TowerEndpointUpdater { sender: tx }))
     }
 }
 
-type TonicRequest = http::Request<tonic::body::BoxBody>;
-type TonicResponse = http::Response<tonic::body::BoxBody>;
+type TonicRequest = http::Request<tonic::body::Body>;
+type TonicResponse = http::Response<tonic::body::Body>;
 pub type CustomChannel = BoxCloneService<TonicRequest, TonicResponse, tower::BoxError>;
 
 /// Represents a channel that can be created by a BalancedChannelBuilder
