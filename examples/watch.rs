@@ -13,8 +13,8 @@ async fn main() -> Result<(), Error> {
     client.put("foo1", "bar1", None).await?;
     println!("put kv: {{foo1: bar1}}");
 
-    let (mut watcher, mut stream) = client.watch("foo", None).await?;
-    println!("create watcher {}", watcher.watch_id());
+    let (first_response, mut watcher, mut stream) = client.watch("foo", None).await?;
+    println!("create watcher {}", first_response.watch_id());
     println!();
 
     client.put("foo", "bar2", None).await?;
@@ -51,7 +51,7 @@ async fn main() -> Result<(), Error> {
             }
 
             if EventType::Delete == event.event_type() {
-                watcher.cancel_by_id(resp.watch_id()).await?;
+                watcher.cancel(resp.watch_id()).await?;
             }
         }
 
