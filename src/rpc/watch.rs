@@ -50,7 +50,7 @@ impl WatchClient {
         &mut self,
         key: impl Into<Vec<u8>>,
         options: Option<WatchOptions>,
-    ) -> Result<(WatchResponse, Watcher, WatchStream)> {
+    ) -> Result<(Watcher, WatchStream)> {
         let (request_sender, request_receiver) = channel::<WatchRequest>(100);
         let request_stream = ReceiverStream::new(request_receiver);
 
@@ -60,27 +60,10 @@ impl WatchClient {
             .map_err(|e| Error::WatchError(e.to_string()))?;
 
         let response_stream = self.inner.watch(request_stream).await?.into_inner();
-        let mut watch_stream = WatchStream::new(response_stream);
-
-        match watch_stream.message().await? {
-            Some(resp) => {
-                match (resp.created(), resp.canceled()) {
-                    // this is a create watch success response
-                    (true, false) => Ok((resp, Watcher::new(request_sender), watch_stream)),
-                    // this is a create watch failed response
-                    (true, true) => Err(Error::WatchError(resp.cancel_reason().into())),
-                    // this is a cancel watch response, unexpected when we first create a watch
-                    (false, true) => {
-                        Err(Error::WatchError("unexpected watch cancel response".into()))
-                    }
-                    // this is an event response
-                    (false, false) => {
-                        Err(Error::WatchError("unexpected watch event response".into()))
-                    }
-                }
-            }
-            None => Err(Error::WatchError("failed to create watch".into())),
-        }
+        Ok((
+            Watcher::new(request_sender),
+            WatchStream::new(response_stream),
+        ))
     }
 }
 

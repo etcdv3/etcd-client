@@ -13,8 +13,18 @@ async fn main() -> Result<(), Error> {
     client.put("foo1", "bar1", None).await?;
     println!("put kv: {{foo1: bar1}}");
 
-    let (first_response, mut watcher, mut stream) = client.watch("foo", None).await?;
-    println!("create watcher {}", first_response.watch_id());
+    let (mut watcher, mut stream) = client.watch("foo", None).await?;
+    let resp = stream
+        .message()
+        .await?
+        .ok_or(Error::WatchError("No initial watch response".into()))?;
+    let resp = match (resp.created(), resp.canceled()) {
+        (true, false) => Ok(resp),
+        (true, true) => Err(Error::WatchError(resp.cancel_reason().into())),
+        _ => Err(Error::WatchError("Unexpected watch response".into())),
+    }?;
+
+    println!("create watcher {}", resp.watch_id());
     println!();
 
     client.put("foo", "bar2", None).await?;
