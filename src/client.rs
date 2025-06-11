@@ -41,7 +41,6 @@ use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 use crate::OpenSslResult;
 #[cfg(feature = "tls")]
 use crate::TlsOptions;
-use crate::WatchResponse;
 use http::uri::Uri;
 use http::HeaderValue;
 
@@ -448,7 +447,7 @@ impl Client {
         &mut self,
         key: impl Into<Vec<u8>>,
         options: Option<WatchOptions>,
-    ) -> Result<(WatchResponse, Watcher, WatchStream)> {
+    ) -> Result<(Watcher, WatchStream)> {
         self.watch.watch(key, options).await
     }
 

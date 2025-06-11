@@ -246,7 +246,16 @@ async fn test_txn() -> Result<()> {
 async fn test_watch() -> Result<()> {
     let mut client = get_client().await?;
 
-    let (first_response, mut watcher, mut stream) = client.watch("watch01", None).await?;
+    let (mut watcher, mut stream) = client.watch("watch01", None).await?;
+    let first_response = stream
+        .message()
+        .await?
+        .ok_or(etcd_client::Error::WatchError(
+            "No initial watch response".into(),
+        ))?;
+
+    assert!(first_response.created());
+    assert!(!first_response.canceled());
     let watch_id = first_response.watch_id();
 
     client.put("watch01", "01", None).await?;
