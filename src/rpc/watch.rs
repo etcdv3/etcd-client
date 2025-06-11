@@ -56,7 +56,7 @@ impl WatchClient {
         &mut self,
         key: impl Into<Vec<u8>>,
         options: Option<WatchOptions>,
-    ) -> Result<(Watcher, WatchStream)> {
+    ) -> Result<(WatchResponse, Watcher, WatchStream)> {
         let (request_sender, request_receiver) = channel::<WatchRequest>(100);
         let request_stream = ReceiverStream::new(request_receiver);
 
@@ -68,17 +68,25 @@ impl WatchClient {
         let response_stream = self.inner.watch(request_stream).await?.into_inner();
         let mut watch_stream = WatchStream::new(response_stream);
 
-        let watch_id = match watch_stream.message().await? {
+        match watch_stream.message().await? {
             Some(resp) => {
-                assert!(resp.created(), "not a create watch response");
-                resp.watch_id()
+                match (resp.created(), resp.canceled()) {
+                    // this is a create watch success response
+                    (true, false) => Ok((resp, Watcher::new(request_sender), watch_stream)),
+                    // this is a create watch failed response
+                    (true, true) => Err(Error::WatchError(resp.cancel_reason().into())),
+                    // this is a cancel watch response, unexpected when we first create a watch
+                    (false, true) => {
+                        Err(Error::WatchError("unexpected watch cancel response".into()))
+                    }
+                    // this is an event response
+                    (false, false) => {
+                        Err(Error::WatchError("unexpected watch event response".into()))
+                    }
+                }
             }
-            None => {
-                return Err(Error::WatchError("failed to create watch".to_string()));
-            }
-        };
-
-        Ok((Watcher::new(watch_id, request_sender), watch_stream))
+            None => Err(Error::WatchError("failed to create watch".into())),
+        }
     }
 }
 
@@ -356,21 +364,14 @@ impl Event {
 #[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug)]
 pub struct Watcher {
-    watch_id: i64,
     sender: Sender<WatchRequest>,
 }
 
 impl Watcher {
     /// Creates a new `Watcher`.
     #[inline]
-    const fn new(watch_id: i64, sender: Sender<WatchRequest>) -> Self {
-        Self { watch_id, sender }
-    }
-
-    /// The ID of the watcher.
-    #[inline]
-    pub const fn watch_id(&self) -> i64 {
-        self.watch_id
+    const fn new(sender: Sender<WatchRequest>) -> Self {
+        Self { sender }
     }
 
     /// Watches for events happening or that have happened.
@@ -386,21 +387,9 @@ impl Watcher {
             .map_err(|e| Error::WatchError(e.to_string()))
     }
 
-    /// Cancels this watcher.
-    #[inline]
-    pub async fn cancel(&mut self) -> Result<()> {
-        let req = WatchCancelRequest {
-            watch_id: self.watch_id,
-        };
-        self.sender
-            .send(req.into())
-            .await
-            .map_err(|e| Error::WatchError(e.to_string()))
-    }
-
     /// Cancels watch by specified `watch_id`.
     #[inline]
-    pub async fn cancel_by_id(&mut self, watch_id: i64) -> Result<()> {
+    pub async fn cancel(&mut self, watch_id: i64) -> Result<()> {
         let req = WatchCancelRequest { watch_id };
         self.sender
             .send(req.into())
