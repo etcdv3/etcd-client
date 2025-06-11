@@ -41,6 +41,7 @@ use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
 use crate::OpenSslResult;
 #[cfg(feature = "tls")]
 use crate::TlsOptions;
+use crate::WatchResponse;
 use http::uri::Uri;
 use tonic::metadata::{Ascii, MetadataValue};
 
@@ -415,7 +416,7 @@ impl Client {
         &mut self,
         key: impl Into<Vec<u8>>,
         options: Option<WatchOptions>,
-    ) -> Result<(Watcher, WatchStream)> {
+    ) -> Result<(WatchResponse, Watcher, WatchStream)> {
         self.watch.watch(key, options).await
     }
 
