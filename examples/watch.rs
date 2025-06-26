@@ -13,8 +13,8 @@ async fn main() -> Result<(), Error> {
     client.put("foo1", "bar1", None).await?;
     println!("put kv: {{foo1: bar1}}");
 
-    let (mut watcher, mut stream) = client.watch("foo", None).await?;
-    let resp = stream
+    let mut watch_stream = client.watch("foo", None).await?;
+    let resp = watch_stream
         .message()
         .await?
         .ok_or(Error::WatchError("No initial watch response".into()))?;
@@ -24,31 +24,31 @@ async fn main() -> Result<(), Error> {
         _ => Err(Error::WatchError("Unexpected watch response".into())),
     }?;
 
-    println!("create watcher {}", resp.watch_id());
+    println!("create watcher, watch ID: {}", resp.watch_id());
     println!();
 
     client.put("foo", "bar2", None).await?;
-    watcher.request_progress().await?;
+    watch_stream.request_progress().await?;
     client.delete("foo", None).await?;
 
-    watcher.watch("foo1", None).await?;
+    watch_stream.watch("foo1", None).await?;
     tokio::time::sleep(Duration::from_secs(1)).await;
     client.put("foo1", "bar2", None).await?;
     client.delete("foo1", None).await?;
 
     let mut watch_count = 2;
 
-    while let Some(resp) = stream.message().await? {
+    while let Some(resp) = watch_stream.message().await? {
         println!("[{}] receive watch response", resp.watch_id());
         println!("compact revision: {}", resp.compact_revision());
 
         if resp.created() {
-            println!("watcher created: {}", resp.watch_id());
+            println!("watcher created, watch ID: {}", resp.watch_id());
         }
 
         if resp.canceled() {
             watch_count -= 1;
-            println!("watch canceled: {}", resp.watch_id());
+            println!("watch canceled, watch ID: {}", resp.watch_id());
             if watch_count == 0 {
                 break;
             }
@@ -61,7 +61,7 @@ async fn main() -> Result<(), Error> {
             }
 
             if EventType::Delete == event.event_type() {
-                watcher.cancel(resp.watch_id()).await?;
+                watch_stream.cancel(resp.watch_id()).await?;
             }
         }
 
