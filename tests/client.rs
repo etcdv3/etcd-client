@@ -246,8 +246,8 @@ async fn test_txn() -> Result<()> {
 async fn test_watch() -> Result<()> {
     let mut client = get_client().await?;
 
-    let (mut watcher, mut stream) = client.watch("watch01", None).await?;
-    let first_response = stream
+    let mut watch_stream = client.watch("watch01", None).await?;
+    let first_response = watch_stream
         .message()
         .await?
         .ok_or(etcd_client::Error::WatchError(
@@ -260,7 +260,7 @@ async fn test_watch() -> Result<()> {
 
     client.put("watch01", "01", None).await?;
 
-    let resp = stream.message().await?.unwrap();
+    let resp = watch_stream.message().await?.unwrap();
     assert_eq!(resp.watch_id(), watch_id);
     assert_eq!(resp.events().len(), 1);
 
@@ -269,9 +269,9 @@ async fn test_watch() -> Result<()> {
     assert_eq!(kv.value(), b"01");
     assert_eq!(resp.events()[0].event_type(), EventType::Put);
 
-    watcher.cancel(watch_id).await?;
+    watch_stream.cancel(watch_id).await?;
 
-    let resp = stream.message().await?.unwrap();
+    let resp = watch_stream.message().await?.unwrap();
     assert_eq!(resp.watch_id(), watch_id);
     assert!(resp.canceled());
 
