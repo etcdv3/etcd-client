@@ -3,7 +3,6 @@
 pub use crate::rpc::pb::etcdserverpb::compare::CompareResult as CompareOp;
 pub use crate::rpc::pb::etcdserverpb::range_request::{SortOrder, SortTarget};
 
-use crate::auth::AuthService;
 use crate::error::Result;
 use crate::intercept::InterceptedChannel;
 use crate::rpc::pb::etcdserverpb::compare::{CompareTarget, TargetUnion};
@@ -20,26 +19,21 @@ use crate::rpc::pb::etcdserverpb::{
 };
 use crate::rpc::{get_prefix, KeyRange, KeyValue, ResponseHeader};
 use crate::vec::VecExt;
-use http::HeaderValue;
 use std::mem::ManuallyDrop;
-use std::sync::{Arc, RwLock};
 use tonic::{IntoRequest, Request};
 
 /// Client for KV operations.
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct KvClient {
-    inner: PbKvClient<AuthService<InterceptedChannel>>,
+    inner: PbKvClient<InterceptedChannel>,
 }
 
 impl KvClient {
     /// Creates a kv client.
     #[inline]
-    pub(crate) fn new(
-        channel: InterceptedChannel,
-        auth_token: Arc<RwLock<Option<HeaderValue>>>,
-    ) -> Self {
-        let inner = PbKvClient::new(AuthService::new(channel, auth_token));
+    pub(crate) fn new(channel: InterceptedChannel) -> Self {
+        let inner = PbKvClient::new(channel);
         Self { inner }
     }
 

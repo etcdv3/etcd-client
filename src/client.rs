@@ -42,7 +42,7 @@ use crate::OpenSslResult;
 #[cfg(feature = "tls")]
 use crate::TlsOptions;
 use http::uri::Uri;
-use http::HeaderValue;
+use tonic::metadata::{Ascii, MetadataValue};
 
 use std::str::FromStr;
 use std::sync::{Arc, RwLock};
@@ -69,6 +69,7 @@ pub struct Client {
     election: ElectionClient,
     options: Option<ConnectOptions>,
     tx: Option<Sender<Change<Uri, Endpoint>>>,
+    auth_token: Arc<RwLock<Option<MetadataValue<Ascii>>>>,
 }
 
 impl Client {
@@ -112,12 +113,15 @@ impl Client {
             return Err(Error::InvalidArgs(String::from("empty endpoints")));
         }
 
+        let auth_token = Arc::new(RwLock::new(None));
+
         // Always use balance strategy even if there is only one endpoint.
         let (channel, tx) = make_balanced_channel.balanced_channel(64)?;
         let channel = InterceptedChannel::new(
             channel,
             Interceptor {
                 require_leader: options.as_ref().map(|o| o.require_leader).unwrap_or(false),
+                auth_token: auth_token.clone(),
             },
         );
         for endpoint in endpoints {
@@ -128,8 +132,6 @@ impl Client {
         }
 
         let mut options = options;
-
-        let auth_token = Arc::new(RwLock::new(None));
         Self::auth(channel.clone(), &mut options, &auth_token).await?;
 
         Ok(Self::build_client(channel, Some(tx), auth_token, options))
@@ -138,15 +140,15 @@ impl Client {
     #[cfg(feature = "raw-channel")]
     /// Connect to `etcd` servers represented by the given `channel`.
     pub async fn from_channel(channel: Channel, options: Option<ConnectOptions>) -> Result<Self> {
+        let auth_token = Arc::new(RwLock::new(None));
         let channel = InterceptedChannel::new(
             channel,
             Interceptor {
                 require_leader: options.as_ref().map(|o| o.require_leader).unwrap_or(false),
+                auth_token: auth_token.clone(),
             },
         );
         let mut options = options;
-
-        let auth_token = Arc::new(RwLock::new(None));
         Self::auth(channel.clone(), &mut options, &auth_token).await?;
 
         Ok(Self::build_client(channel, None, auth_token, options))
@@ -253,7 +255,7 @@ impl Client {
     async fn auth(
         channel: InterceptedChannel,
         options: &mut Option<ConnectOptions>,
-        auth_token: &Arc<RwLock<Option<HeaderValue>>>,
+        auth_token: &Arc<RwLock<Option<MetadataValue<Ascii>>>>,
     ) -> Result<()> {
         let user = match options {
             None => return Ok(()),
@@ -264,7 +266,7 @@ impl Client {
         };
 
         if let Some((name, password)) = user {
-            let mut tmp_auth = AuthClient::new(channel, auth_token.clone());
+            let mut tmp_auth = AuthClient::new(channel);
             let resp = tmp_auth.authenticate(name, password).await?;
             auth_token.write_unpoisoned().replace(resp.token().parse()?);
         }
@@ -275,17 +277,17 @@ impl Client {
     fn build_client(
         channel: InterceptedChannel,
         tx: Option<Sender<Change<Uri, Endpoint>>>,
-        auth_token: Arc<RwLock<Option<HeaderValue>>>,
+        auth_token: Arc<RwLock<Option<MetadataValue<Ascii>>>>,
         options: Option<ConnectOptions>,
     ) -> Self {
-        let kv = KvClient::new(channel.clone(), auth_token.clone());
-        let watch = WatchClient::new(channel.clone(), auth_token.clone());
-        let lease = LeaseClient::new(channel.clone(), auth_token.clone());
-        let lock = LockClient::new(channel.clone(), auth_token.clone());
-        let auth = AuthClient::new(channel.clone(), auth_token.clone());
-        let cluster = ClusterClient::new(channel.clone(), auth_token.clone());
-        let maintenance = MaintenanceClient::new(channel.clone(), auth_token.clone());
-        let election = ElectionClient::new(channel, auth_token);
+        let kv = KvClient::new(channel.clone());
+        let watch = WatchClient::new(channel.clone());
+        let lease = LeaseClient::new(channel.clone());
+        let lock = LockClient::new(channel.clone());
+        let auth = AuthClient::new(channel.clone());
+        let cluster = ClusterClient::new(channel.clone());
+        let maintenance = MaintenanceClient::new(channel.clone());
+        let election = ElectionClient::new(channel);
 
         Self {
             kv,
@@ -298,6 +300,7 @@ impl Client {
             election,
             options,
             tx,
+            auth_token,
         }
     }
 
@@ -781,12 +784,16 @@ impl Client {
 
     /// Sets client-side authentication.
     pub async fn set_client_auth(&mut self, name: String, password: String) -> Result<()> {
-        self.auth.set_client_auth(name, password).await
+        let resp = self.auth_client().authenticate(name, password).await?;
+        self.auth_token
+            .write_unpoisoned()
+            .replace(resp.token().parse()?);
+        Ok(())
     }
 
     /// Removes client-side authentication.
     pub fn remove_client_auth(&mut self) {
-        self.auth.remove_client_auth();
+        self.auth_token.write_unpoisoned().take();
     }
 }
 
