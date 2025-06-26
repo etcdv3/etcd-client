@@ -1,12 +1,9 @@
 //! Etcd Lock RPC.
 
 use super::pb::v3lockpb;
-use crate::auth::AuthService;
 use crate::error::Result;
 use crate::intercept::InterceptedChannel;
 use crate::rpc::ResponseHeader;
-use http::HeaderValue;
-use std::sync::{Arc, RwLock};
 use tonic::{IntoRequest, Request};
 use v3lockpb::lock_client::LockClient as PbLockClient;
 use v3lockpb::{
@@ -18,17 +15,14 @@ use v3lockpb::{
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct LockClient {
-    inner: PbLockClient<AuthService<InterceptedChannel>>,
+    inner: PbLockClient<InterceptedChannel>,
 }
 
 impl LockClient {
     /// Creates a lock client.
     #[inline]
-    pub(crate) fn new(
-        channel: InterceptedChannel,
-        auth_token: Arc<RwLock<Option<HeaderValue>>>,
-    ) -> Self {
-        let inner = PbLockClient::new(AuthService::new(channel, auth_token));
+    pub(crate) fn new(channel: InterceptedChannel) -> Self {
+        let inner = PbLockClient::new(channel);
         Self { inner }
     }
 

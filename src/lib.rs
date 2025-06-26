@@ -58,7 +58,6 @@
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-mod auth;
 mod channel;
 mod client;
 mod error;
