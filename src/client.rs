@@ -65,7 +65,7 @@ pub struct Client {
     maintenance: MaintenanceClient,
     cluster: ClusterClient,
     election: ElectionClient,
-    options: Option<ConnectOptions>,
+    options: ConnectOptions,
     tx: Option<Sender<Change<Uri, Endpoint>>>,
     auth_token: Arc<RwLock<Option<MetadataValue<Ascii>>>>,
 }
@@ -98,6 +98,7 @@ impl Client {
         MBC: crate::channel::BalancedChannelBuilder,
         crate::error::Error: From<MBC::Error>,
     {
+        let options = options.unwrap_or_default();
         let endpoints = {
             let mut eps = Vec::new();
             for e in endpoints.as_ref() {
@@ -118,7 +119,7 @@ impl Client {
         let channel = InterceptedChannel::new(
             channel,
             Interceptor {
-                require_leader: options.as_ref().map(|o| o.require_leader).unwrap_or(false),
+                require_leader: options.require_leader,
                 auth_token: auth_token.clone(),
             },
         );
@@ -129,39 +130,37 @@ impl Client {
                 .unwrap();
         }
 
-        let mut options = options;
-        Self::auth(channel.clone(), &mut options, &auth_token).await?;
-
-        Ok(Self::build_client(channel, Some(tx), auth_token, options))
+        let client = Self::build_client(channel, Some(tx), auth_token, options);
+        client.refresh_token().await?;
+        Ok(client)
     }
 
     #[cfg(feature = "raw-channel")]
     /// Connect to `etcd` servers represented by the given `channel`.
     pub async fn from_channel(channel: Channel, options: Option<ConnectOptions>) -> Result<Self> {
+        let options = options.unwrap_or_default();
         let auth_token = Arc::new(RwLock::new(None));
         let channel = InterceptedChannel::new(
             channel,
             Interceptor {
-                require_leader: options.as_ref().map(|o| o.require_leader).unwrap_or(false),
+                require_leader: options.require_leader,
                 auth_token: auth_token.clone(),
             },
         );
-        let mut options = options;
-        Self::auth(channel.clone(), &mut options, &auth_token).await?;
 
-        Ok(Self::build_client(channel, None, auth_token, options))
+        let client = Self::build_client(channel, None, auth_token, options);
+        client.refresh_token().await?;
+        Ok(client)
     }
 
-    fn build_endpoint(url: &str, options: &Option<ConnectOptions>) -> Result<Endpoint> {
+    fn build_endpoint(url: &str, options: &ConnectOptions) -> Result<Endpoint> {
         use tonic::transport::Channel as TonicChannel;
         let mut endpoint = if url.starts_with(HTTP_PREFIX) {
             #[cfg(feature = "tls")]
-            if let Some(connect_options) = options {
-                if connect_options.tls.is_some() {
-                    return Err(Error::InvalidArgs(String::from(
-                        "TLS options are only supported with HTTPS URLs",
-                    )));
-                }
+            if options.tls.is_some() {
+                return Err(Error::InvalidArgs(String::from(
+                    "TLS options are only supported with HTTPS URLs",
+                )));
             }
 
             TonicChannel::builder(url.parse()?)
@@ -178,23 +177,13 @@ impl Client {
 
             #[cfg(feature = "tls")]
             {
-                let tls = if let Some(connect_options) = options {
-                    connect_options.tls.clone()
-                } else {
-                    None
-                }
-                .unwrap_or_else(TlsOptions::new);
-
+                let tls = options.tls.clone().unwrap_or_default();
                 TonicChannel::builder(url.parse()?).tls_config(tls)?
             }
         } else {
             #[cfg(feature = "tls")]
             {
-                let tls = if let Some(connect_options) = options {
-                    connect_options.tls.clone()
-                } else {
-                    None
-                };
+                let tls = options.tls.clone();
 
                 match tls {
                     Some(tls) => {
@@ -210,7 +199,7 @@ impl Client {
 
             #[cfg(all(feature = "tls-openssl", not(feature = "tls")))]
             {
-                let pfx = if options.as_ref().and_then(|o| o.otls.as_ref()).is_some() {
+                let pfx = if options.otls.as_ref().is_some() {
                     HTTPS_PREFIX
                 } else {
                     HTTP_PREFIX
@@ -226,57 +215,33 @@ impl Client {
             }
         };
 
-        if let Some(opts) = options {
-            if let Some((interval, timeout)) = opts.keep_alive {
-                endpoint = endpoint
-                    .keep_alive_while_idle(opts.keep_alive_while_idle)
-                    .http2_keep_alive_interval(interval)
-                    .keep_alive_timeout(timeout);
-            }
+        if let Some((interval, timeout)) = options.keep_alive {
+            endpoint = endpoint
+                .keep_alive_while_idle(options.keep_alive_while_idle)
+                .http2_keep_alive_interval(interval)
+                .keep_alive_timeout(timeout);
+        }
 
-            if let Some(timeout) = opts.timeout {
-                endpoint = endpoint.timeout(timeout);
-            }
+        if let Some(timeout) = options.timeout {
+            endpoint = endpoint.timeout(timeout);
+        }
 
-            if let Some(timeout) = opts.connect_timeout {
-                endpoint = endpoint.connect_timeout(timeout);
-            }
+        if let Some(timeout) = options.connect_timeout {
+            endpoint = endpoint.connect_timeout(timeout);
+        }
 
-            if let Some(tcp_keepalive) = opts.tcp_keepalive {
-                endpoint = endpoint.tcp_keepalive(Some(tcp_keepalive));
-            }
+        if let Some(tcp_keepalive) = options.tcp_keepalive {
+            endpoint = endpoint.tcp_keepalive(Some(tcp_keepalive));
         }
 
         Ok(endpoint)
-    }
-
-    async fn auth(
-        channel: InterceptedChannel,
-        options: &mut Option<ConnectOptions>,
-        auth_token: &Arc<RwLock<Option<MetadataValue<Ascii>>>>,
-    ) -> Result<()> {
-        let user = match options {
-            None => return Ok(()),
-            Some(opt) => {
-                // Take away the user, the password should not be stored in client.
-                opt.user.take()
-            }
-        };
-
-        if let Some((name, password)) = user {
-            let mut tmp_auth = AuthClient::new(channel);
-            let resp = tmp_auth.authenticate(name, password).await?;
-            auth_token.write_unpoisoned().replace(resp.token().parse()?);
-        }
-
-        Ok(())
     }
 
     fn build_client(
         channel: InterceptedChannel,
         tx: Option<Sender<Change<Uri, Endpoint>>>,
         auth_token: Arc<RwLock<Option<MetadataValue<Ascii>>>>,
-        options: Option<ConnectOptions>,
+        options: ConnectOptions,
     ) -> Self {
         let kv = KvClient::new(channel.clone());
         let watch = WatchClient::new(channel.clone());
@@ -780,18 +745,43 @@ impl Client {
         self.election.resign(option).await
     }
 
-    /// Sets client-side authentication.
-    pub async fn set_client_auth(&mut self, name: String, password: String) -> Result<()> {
-        let resp = self.auth_client().authenticate(name, password).await?;
-        self.auth_token
-            .write_unpoisoned()
-            .replace(resp.token().parse()?);
+    async fn do_authenticate(
+        &self,
+        user: String,
+        password: String,
+    ) -> Result<MetadataValue<Ascii>> {
+        let resp = self.auth_client().authenticate(user, password).await?;
+        let token = resp.token().parse()?;
+        Ok(token)
+    }
+
+    /// Refresh the authentication token if the client has credentials options.
+    pub async fn refresh_token(&self) -> Result<()> {
+        if let Some((user, password)) = self.options.user.as_ref() {
+            let token = self.do_authenticate(user.clone(), password.clone()).await?;
+            self.auth_token.write_unpoisoned().replace(token);
+        } else {
+            let _ = self.auth_token.write_unpoisoned().take();
+        }
         Ok(())
     }
 
-    /// Removes client-side authentication.
-    pub fn remove_client_auth(&mut self) {
-        self.auth_token.write_unpoisoned().take();
+    /// Updates the user credentials for the client in flight.
+    ///
+    /// Client will perform the authentication with the given user credentials. If successful, the
+    /// authentication token will be updated in the client. Nothing happens if the authentication
+    /// fails.
+    ///
+    /// If the user is `None`, it will remove the authentication token from the client.
+    pub async fn update_user(&mut self, user: Option<(String, String)>) -> Result<()> {
+        if let Some((ref name, ref password)) = user {
+            let token = self.do_authenticate(name.clone(), password.clone()).await?;
+            self.auth_token.write_unpoisoned().replace(token);
+        } else {
+            let _ = self.auth_token.write_unpoisoned().take();
+        }
+        self.options.user = user;
+        Ok(())
     }
 }
 
