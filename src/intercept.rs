@@ -40,9 +40,16 @@ impl TonicInterceptor for Interceptor {
                 | ("etcdserverpb.Lease", _) => {
                     // Skip adding the token for all Lease methods
                 }
-                _ => {
+                (service, _)
+                    if service.starts_with("etcdserverpb")
+                        || service.starts_with("v3electionpb")
+                        || service.starts_with("v3lockpb") =>
+                {
                     // Add the authentication token if it exists
                     self.append_token(&mut request);
+                }
+                _ => {
+                    // For all other methods, e.g. health API, skip adding the token
                 }
             }
         }
