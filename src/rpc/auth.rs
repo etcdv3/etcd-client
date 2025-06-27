@@ -72,8 +72,9 @@ impl AuthClient {
     }
 
     /// Sends an authenticate request.
-    /// Note that this does not set or update client-side authentication settings.
-    /// Call [`set_client_auth`] to set or update client-side authentication.
+    ///
+    /// Note that this does not set or update client-side token.
+    /// Call [`crate::Client::refresh_token`] instead.
     #[inline]
     pub async fn authenticate(
         &mut self,
