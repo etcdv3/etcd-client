@@ -12,24 +12,22 @@ use openssl::{
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio_stream::wrappers::ReceiverStream;
-use tonic::{
-    body::BoxBody,
-    transport::{Channel, Endpoint},
-};
-use tower::{balance::p2c::Balance, buffer::Buffer, discover::Change};
+use tonic::transport::{channel::Change, Channel, Endpoint};
+use tower::Service;
+use tower::{balance::p2c::Balance, buffer::Buffer, discover::Change as TowerChange};
 
 use crate::error::Result;
 
 pub type SslConnectorBuilder = openssl::ssl::SslConnectorBuilder;
 pub type OpenSslResult<T> = std::result::Result<T, ErrorStack>;
 // Below are some type alias for make clearer types.
-pub type TonicRequest = Request<BoxBody>;
-pub type Buffered<T> = Buffer<T, TonicRequest>;
+pub type TonicRequest = Request<tonic::body::Body>;
 pub type Balanced<T> = Balance<T, TonicRequest>;
-pub type OpenSslChannel = Buffered<Balanced<OpenSslDiscover<Uri>>>;
+pub type OpenSslChannel =
+    Buffer<TonicRequest, <Balanced<OpenSslDiscover<Uri>> as Service<TonicRequest>>::Future>;
 /// OpenSslDiscover is the backend for balanced channel based on OpenSSL transports.
 /// Because `Channel::balance` doesn't allow us to provide custom connector, we must implement ourselves' balancer...
-pub type OpenSslDiscover<K> = ReceiverStream<Result<Change<K, BackOffWhenFail<Channel>>>>;
+pub type OpenSslDiscover<K> = ReceiverStream<Result<TowerChange<K, BackOffWhenFail<Channel>>>>;
 
 #[derive(Clone)]
 pub struct OpenSslConnector(HttpsConnector<HttpConnector>);
@@ -91,7 +89,7 @@ fn create_openssl_discover<K: Send + 'static>(
                 match x {
                     Change::Insert(name, e) => {
                         let chan = e.connect_with_connector_lazy(connector.clone().0);
-                        Ok(Change::Insert(
+                        Ok(TowerChange::Insert(
                             name,
                             BackOffWhenFail::new(
                                 chan,
@@ -102,7 +100,7 @@ fn create_openssl_discover<K: Send + 'static>(
                             ),
                         ))
                     }
-                    Change::Remove(name) => Ok(Change::Remove(name)),
+                    Change::Remove(name) => Ok(TowerChange::Remove(name)),
                 }
             }
             .await;

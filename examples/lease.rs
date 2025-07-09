@@ -26,7 +26,7 @@ async fn main() -> Result<(), Error> {
 
     // keep alive
     let (mut keeper, mut stream) = client.lease_keep_alive(id).await?;
-    println!("lease {:?} keep alive start", id);
+    println!("lease {id:?} keep alive start");
     keeper.keep_alive().await?;
     if let Some(resp) = stream.message().await? {
         println!("lease {:?} keep alive, new ttl {:?}", resp.id(), resp.ttl());
@@ -39,11 +39,11 @@ async fn main() -> Result<(), Error> {
 
     // revoke a lease
     let _resp = client.lease_revoke(id).await?;
-    println!("revoke a lease with id {:?}", id);
+    println!("revoke a lease with id {id:?}");
 
     // keep alive a revoked lease returns error
     if let Err(err) = client.lease_keep_alive(id).await {
-        println!("revoked lease {:?} keep alive error: {:?}", id, err);
+        println!("revoked lease {id:?} keep alive error: {err:?}");
     }
     Ok(())
 }

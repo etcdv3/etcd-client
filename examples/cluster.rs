@@ -37,6 +37,6 @@ async fn main() -> Result<(), Error> {
 
     // remove the added member
     let _resp = client.member_remove(id).await?;
-    println!("remove a member with id {:?}", id);
+    println!("remove a member with id {id:?}");
     Ok(())
 }

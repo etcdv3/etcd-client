@@ -75,7 +75,7 @@ async fn main() -> Result<(), Error> {
     if member_id == leader_id {
         assert!(header.is_none());
     } else {
-        println!("move_leader header {:?}", header);
+        println!("move_leader header {header:?}");
     }
 
     Ok(())

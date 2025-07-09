@@ -38,12 +38,12 @@ async fn main() -> Result<(), Error> {
 
     // put kv
     let resp = client.put(alice.key(), alice.value(), None).await?;
-    println!("put kv: {:?}", alice);
+    println!("put kv: {alice:?}");
     let revision = resp.header().unwrap().revision();
     client.put(bob.key(), bob.value(), None).await?;
-    println!("put kv: {:?}", bob);
+    println!("put kv: {bob:?}");
     client.put(chris.key(), chris.value(), None).await?;
-    println!("put kv: {:?}", chris);
+    println!("put kv: {chris:?}");
     println!();
 
     // get kv
@@ -92,10 +92,10 @@ async fn main() -> Result<(), Error> {
             "18",
             Some(PutOptions::new().with_ignore_lease()),
         )]);
-    println!("transaction: {:?}", txn);
+    println!("transaction: {txn:?}");
     let resp = client.txn(txn).await?;
     for op_resp in resp.op_responses() {
-        println!("transaction resp: {:?}", op_resp);
+        println!("transaction resp: {op_resp:?}");
     }
     let resp = client.get(alice.key(), None).await?;
     if let Some(kv) = resp.kvs().first() {
@@ -111,7 +111,7 @@ async fn main() -> Result<(), Error> {
     client
         .compact(revision, Some(CompactionOptions::new().with_physical()))
         .await?;
-    println!("Compact to revision {}.", revision);
+    println!("Compact to revision {revision}.");
 
     Ok(())
 }
