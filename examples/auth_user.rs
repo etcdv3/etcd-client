@@ -40,14 +40,14 @@ async fn main() -> Result<(), Error> {
 
     let resp = client.user_get(name1).await?;
     //show the result
-    println!("User {:?}\n{:?}", name1, resp);
+    println!("User {name1:?}\n{resp:?}");
 
     client.user_revoke_role(name1, role1).await?;
     println!("revoke role1 from usr1 successfully");
 
     let resp = client.user_get(name1).await?;
     //show the result
-    println!("User {:?}\n{:?}", name1, resp);
+    println!("User {name1:?}\n{resp:?}");
 
     let resp = client.user_list().await?;
     //show the result

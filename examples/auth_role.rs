@@ -45,7 +45,7 @@ async fn main() -> Result<(), Error> {
 
     let resp = client.role_get(role1).await?;
     //show the result
-    println!("Role {:?}\n{:?}", role1, resp);
+    println!("Role {role1:?}\n{resp:?}");
 
     let resp = client.role_revoke_permission(role1, "abc", None).await?;
     println!("{:?}", resp.header());
@@ -70,7 +70,7 @@ async fn main() -> Result<(), Error> {
 
     let resp = client.role_get(role1).await?;
     //show the result
-    println!("Role {:?}\n{:?}", role1, resp);
+    println!("Role {role1:?}\n{resp:?}");
 
     let resp = client.role_list().await?;
     //show the result

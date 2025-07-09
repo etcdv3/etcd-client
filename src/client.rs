@@ -317,7 +317,7 @@ impl Client {
         };
         tx.send(Change::Insert(endpoint.uri().clone(), endpoint))
             .await
-            .map_err(|e| Error::EndpointError(format!("failed to add endpoint because of {}", e)))
+            .map_err(|e| Error::EndpointError(format!("failed to add endpoint because of {e}")))
     }
 
     /// Dynamically remove an endpoint from the client.
@@ -331,9 +331,9 @@ impl Client {
         let Some(tx) = &self.tx else {
             return Err(Error::EndpointsNotManaged);
         };
-        tx.send(Change::Remove(uri)).await.map_err(|e| {
-            Error::EndpointError(format!("failed to remove endpoint because of {}", e))
-        })
+        tx.send(Change::Remove(uri))
+            .await
+            .map_err(|e| Error::EndpointError(format!("failed to remove endpoint because of {e}")))
     }
 
     /// Gets a KV client.
