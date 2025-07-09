@@ -331,7 +331,7 @@ impl Event {
         match self.0.r#type {
             0 => EventType::Put,
             1 => EventType::Delete,
-            i => panic!("unknown event {}", i),
+            i => panic!("unknown event {i}"),
         }
     }
 

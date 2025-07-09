@@ -10,7 +10,7 @@ async fn main() -> Result<(), Error> {
     let resp = client.lock("lock-test", None).await?;
     let key = resp.key();
     let key_str = std::str::from_utf8(key)?;
-    println!("the key is {:?}", key_str);
+    println!("the key is {key_str:?}");
 
     println!("try to unlock it");
     client.unlock(key).await?;
@@ -27,15 +27,12 @@ async fn main() -> Result<(), Error> {
     let lease_id = resp.id();
 
     // lock with lease
-    println!(
-        "try to lock with name \'lock-test2\' and lease {:?}",
-        lease_id
-    );
+    println!("try to lock with name \'lock-test2\' and lease {lease_id:?}");
     let lock_options = LockOptions::new().with_lease(lease_id);
     let resp = client.lock("lock-test2", Some(lock_options)).await?;
     let key = resp.key();
     let key_str = std::str::from_utf8(key);
-    println!("the key is {:?}", key_str);
+    println!("the key is {key_str:?}");
 
     println!("try to unlock it");
     client.unlock(key).await?;

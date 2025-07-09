@@ -172,18 +172,16 @@ mod test {
     fn test_back_off() {
         let mut state = BackOffStatus::new(Duration::from_secs(1), Duration::from_secs(4));
         let assert_state = |state: &mut BackOffStatus, failed, curr, next, desc| {
-            assert_eq!(state.failed(), failed, "{}: success status not match", desc);
+            assert_eq!(state.failed(), failed, "{desc}: success status not match");
             assert_eq!(
                 state.current_backoff_dur,
                 Duration::from_secs(curr),
-                "{}: current_backoff_dur not match",
-                desc
+                "{desc}: current_backoff_dur not match"
             );
             assert_eq!(
                 state.next_backoff_dur,
                 Duration::from_secs(next),
-                "{}: next_backoff_dur not match",
-                desc
+                "{desc}: next_backoff_dur not match"
             );
         };
         assert!(!state.failed());

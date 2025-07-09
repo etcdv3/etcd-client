@@ -13,23 +13,23 @@ documentation = "https://docs.rs/etcd-client/"
 keywords = ["etcd", "v3", "api", "client", "async"]
 
 [features]
-tls = ["tonic/tls"]
+tls = ["tonic/tls-ring"]
 tls-openssl = ["openssl", "hyper-openssl", "hyper", "hyper-util"]
 tls-openssl-vendored = ["tls-openssl", "openssl/vendored"]
-tls-roots = ["tls", "tonic/tls-roots"]
+tls-roots = ["tls", "tonic/tls-native-roots"]
 pub-response-field = ["visible"]
 build-server = ["pub-response-field"]
 raw-channel = []
 
 [dependencies]
-tonic = "0.12.3"
+tonic = "0.13.1"
 prost = "0.13"
 tokio = "1.38"
 tokio-stream = "0.1"
 tower-service = "0.3"
 http = "1.1"
 visible = { version = "0.0.1", optional = true }
-tower = { version = "0.4", default-features = false }
+tower = { version = "0.5", default-features = false }
 openssl = { version = "0.10", optional = true }
 hyper = { version = "1.4", features = ["client"], optional = true }
 hyper-openssl = { version = "0.10", features = ["client-legacy", "tokio"], optional = true }
@@ -39,7 +39,7 @@ hyper-util = { version = "0.1", features = ["client-legacy"], optional = true }
 tokio = { version = "1.38", features = ["full"] }
 
 [build-dependencies]
-tonic-build = { version = "0.12.3", default-features = false, features = ["prost"] }
+tonic-build = { version = "0.13.1", default-features = false, features = ["prost"] }
 
 [package.metadata.docs.rs]
 features = ["tls", "tls-roots"]
