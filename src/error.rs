@@ -36,7 +36,7 @@ pub enum Error {
     ElectError(String),
 
     /// Invalid header value
-    InvalidHeaderValue(http::header::InvalidHeaderValue),
+    InvalidMetadataValue(tonic::metadata::errors::InvalidMetadataValue),
 
     /// Endpoint error
     EndpointError(String),
@@ -62,7 +62,7 @@ impl Display for Error {
             Error::Utf8Error(e) => write!(f, "utf8 error: {e}"),
             Error::LeaseKeepAliveError(e) => write!(f, "lease keep alive error: {e}"),
             Error::ElectError(e) => write!(f, "election error: {e}"),
-            Error::InvalidHeaderValue(e) => write!(f, "invalid metadata value: {e}"),
+            Error::InvalidMetadataValue(e) => write!(f, "invalid metadata value: {e}"),
             Error::EndpointError(e) => write!(f, "endpoint error: {e}"),
             Error::EndpointsNotManaged => write!(f, "endpoints not managed by this client"),
             #[cfg(feature = "tls-openssl")]
@@ -108,10 +108,10 @@ impl From<Utf8Error> for Error {
     }
 }
 
-impl From<http::header::InvalidHeaderValue> for Error {
+impl From<tonic::metadata::errors::InvalidMetadataValue> for Error {
     #[inline]
-    fn from(e: http::header::InvalidHeaderValue) -> Self {
-        Error::InvalidHeaderValue(e)
+    fn from(e: tonic::metadata::errors::InvalidMetadataValue) -> Self {
+        Error::InvalidMetadataValue(e)
     }
 }
 
