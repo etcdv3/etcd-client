@@ -59,6 +59,27 @@ async fn main() -> Result<(), Error> {
 }
 ```
 
+### Upgrade from pre 0.17 to 0.18
+
+Since 0.18, the `WatchClient` API has changed to support watch stream error handling precisely.
+
+The `WatchClient` is not a high level watcher, it is just a watch API stub. So it should be only
+responsible for sending requests and receiving responses. Let the high level watcher decide what
+to do if received an unexpected response.
+
+```diff
+- WatchClient::watch(key: impl Into<Vec<u8>>, options: Option<WatchOptions>) -> Result<(WatchResponse, Watcher, WatchStream)>
++ WatchClient::watch(key: impl Into<Vec<u8>>, options: Option<WatchOptions>) -> Result<WatchStream>
+```
+
+The new `WatchStream` is different from the old version. It represents underlying bidirectional
+watch stream (HTTP 2 stream). So it can be used to send requests and receive responses and events.
+
+It's the user's responsibility to check the received response is a response or an event, if it is
+created successfully or not, or if it is a cancel response.
+
+See [watch.rs](./examples/watch.rs) for example.
+
 ## Examples
 
 Examples can be found in [`examples`](./examples).

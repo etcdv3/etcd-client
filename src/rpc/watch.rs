@@ -355,7 +355,7 @@ impl WatchStream {
         }
     }
 
-    /// Watches for events happening or that have happened.
+    /// Send watch request in the existing watch stream.
     #[inline]
     pub async fn watch(
         &mut self,
@@ -389,7 +389,7 @@ impl WatchStream {
             .map_err(|e| Error::WatchError(e.to_string()))
     }
 
-    /// Receive WatchResponse from this watch stream.
+    /// Receive [`WatchResponse`] from this watch stream.
     #[inline]
     pub async fn message(&mut self) -> Result<Option<WatchResponse>> {
         match self.response_stream.message().await? {
