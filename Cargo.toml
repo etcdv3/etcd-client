@@ -3,7 +3,7 @@ name = "etcd-client"
 version = "0.16.1"
 authors = ["The etcd-client Authors <davidli2010@foxmail.com>"]
 edition = "2021"
-rust-version = "1.80.0"
+rust-version = "1.86.0"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
 description = "An etcd v3 API client"
@@ -22,9 +22,10 @@ build-server = ["pub-response-field"]
 raw-channel = []
 
 [dependencies]
-tonic = "0.13.1"
-prost = "0.13"
-tokio = "1.38"
+tonic = "0.14"
+prost = "0.14"
+tonic-prost = "0.14"
+tokio = "1"
 tokio-stream = "0.1"
 tower-service = "0.3"
 http = "1.1"
@@ -39,7 +40,8 @@ hyper-util = { version = "0.1", features = ["client-legacy"], optional = true }
 tokio = { version = "1.38", features = ["full"] }
 
 [build-dependencies]
-tonic-build = { version = "0.13.1", default-features = false, features = ["prost"] }
+tonic-build = { version = "0.14", default-features = false }
+tonic-prost-build = "0.14"
 
 [package.metadata.docs.rs]
 features = ["tls", "tls-roots"]
