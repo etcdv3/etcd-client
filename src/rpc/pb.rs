@@ -3,6 +3,7 @@
 #![allow(clippy::enum_variant_names)]
 #![allow(clippy::derive_partial_eq_without_eq)]
 #![allow(clippy::doc_lazy_continuation)]
+#![allow(dead_code)]
 
 pub mod authpb {
     tonic::include_proto!("authpb");
