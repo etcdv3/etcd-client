@@ -20,6 +20,7 @@ pub trait BalancedChannelBuilder {
 }
 
 /// Create a simple Tonic channel.
+#[allow(dead_code)]
 pub struct Tonic;
 
 impl BalancedChannelBuilder for Tonic {
