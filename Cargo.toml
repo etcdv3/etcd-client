@@ -1,6 +1,6 @@
 [package]
 name = "etcd-client"
-version = "0.16.1"
+version = "0.17.0"
 authors = ["The etcd-client Authors <davidli2010@foxmail.com>"]
 edition = "2021"
 rust-version = "1.80.0"
