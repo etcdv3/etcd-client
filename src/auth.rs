@@ -36,6 +36,8 @@ where
     fn call(&mut self, mut request: Request<Body>) -> Self::Future {
         if let Some(token) = self.token.read_unpoisoned().as_ref() {
             request.headers_mut().insert(AUTHORIZATION, token.clone());
+            //  Compatible with authentication versions below 3.3.0 (excluding 3.3.0). In older versions, the header key is 'token'.
+            request.headers_mut().insert("token", token.clone());
         }
 
         self.inner.call(request)
