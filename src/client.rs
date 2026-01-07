@@ -124,10 +124,13 @@ impl Client {
             },
         );
         for endpoint in endpoints {
-            // The rx inside `channel` won't be closed or dropped here
+            // The rx inside `channel` may be closed or error, e.g. the balanced service is
+            // openssl based and the openssl connector is misconfigured, the send here may fail.
             tx.send(Change::Insert(endpoint.uri().clone(), endpoint))
                 .await
-                .unwrap();
+                .map_err(|_| {
+                    Error::Internal("failed to insert endpoint into the balanced channel".into())
+                })?;
         }
 
         let client = Self::build_client(channel, Some(tx), auth_token, options);

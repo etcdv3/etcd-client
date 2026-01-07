@@ -47,6 +47,9 @@ pub enum Error {
     /// OpenSSL errors.
     #[cfg(feature = "tls-openssl")]
     OpenSsl(openssl::error::ErrorStack),
+
+    /// Internal error
+    Internal(String),
 }
 
 impl Display for Error {
@@ -67,6 +70,7 @@ impl Display for Error {
             Error::EndpointsNotManaged => write!(f, "endpoints not managed by this client"),
             #[cfg(feature = "tls-openssl")]
             Error::OpenSsl(e) => write!(f, "open ssl error: {e}"),
+            Error::Internal(e) => write!(f, "internal error: {e}"),
         }
     }
 }
