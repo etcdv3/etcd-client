@@ -106,7 +106,6 @@ pub use crate::rpc::maintenance::{
 };
 pub use crate::rpc::watch::{
     Event, EventType, WatchClient, WatchFilterType, WatchOptions, WatchResponse, WatchStream,
-    Watcher,
 };
 pub use crate::rpc::{KeyValue, ResponseHeader};
 

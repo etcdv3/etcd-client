@@ -1,7 +1,7 @@
 //! Watch example
 
 use etcd_client::*;
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -13,34 +13,77 @@ async fn main() -> Result<(), Error> {
     client.put("foo1", "bar1", None).await?;
     println!("put kv: {{foo1: bar1}}");
 
-    let (mut watcher, mut stream) = client.watch("foo", None).await?;
-    println!("create watcher {}", watcher.watch_id());
+    // Record watch IDs and their starting revisions
+    let mut watches: HashMap<i64 /* watch ID */, i64 /* revision */> = HashMap::new();
+
+    let opts = WatchOptions::new().with_watch_id(1);
+    let mut watch_stream = client.watch("foo", Some(opts)).await?;
+    let resp = watch_stream
+        .message()
+        .await?
+        .ok_or(Error::WatchError("No initial watch response".into()))?;
+    let resp = match (resp.created(), resp.canceled()) {
+        (true, false) => Ok(resp),
+        (true, true) => Err(Error::WatchError(resp.cancel_reason().into())),
+        _ => Err(Error::WatchError("Unexpected watch response".into())),
+    }?;
+
+    println!("create watcher, watch ID: {}", resp.watch_id());
     println!();
+    let rev = resp
+        .header()
+        .map(|h| h.revision())
+        .ok_or_else(|| Error::WatchError("No header revision in initial watch response".into()))?;
+    watches.insert(resp.watch_id(), rev);
 
     client.put("foo", "bar2", None).await?;
-    watcher.request_progress().await?;
+    watch_stream.request_progress().await?;
     client.delete("foo", None).await?;
 
-    watcher.watch("foo1", None).await?;
+    // Reuse the same watch stream to watch another key
+    let opts = WatchOptions::new().with_watch_id(2);
+    watch_stream.watch("foo1", Some(opts)).await?;
     tokio::time::sleep(Duration::from_secs(1)).await;
     client.put("foo1", "bar2", None).await?;
     client.delete("foo1", None).await?;
 
-    let mut watch_count = 2;
-
-    while let Some(resp) = stream.message().await? {
-        println!("[{}] receive watch response", resp.watch_id());
+    // NOTE: The responses to the following watches may receive out of order.
+    while let Some(resp) = watch_stream.message().await? {
+        let watch_id = resp.watch_id();
+        println!("[{}] receive watch response", watch_id);
         println!("compact revision: {}", resp.compact_revision());
 
-        if resp.created() {
-            println!("watcher created: {}", resp.watch_id());
-        }
-
-        if resp.canceled() {
-            watch_count -= 1;
-            println!("watch canceled: {}", resp.watch_id());
-            if watch_count == 0 {
-                break;
+        match (resp.created(), resp.canceled()) {
+            (true, false) if watch_id == 2 => {
+                let rev = resp.header().map(|h| h.revision()).ok_or_else(|| {
+                    Error::WatchError("No header revision in watch creation response".into())
+                })?;
+                watches.insert(resp.watch_id(), rev);
+            }
+            (true, true) if watch_id == 2 => {
+                println!(
+                    "watch ID {} creation canceled: {}",
+                    resp.watch_id(),
+                    resp.cancel_reason()
+                );
+            }
+            (false, true) => {
+                watches.remove(&resp.watch_id());
+                println!(
+                    "watch ID {} canceled: {}, reason: {}",
+                    resp.watch_id(),
+                    resp.canceled(),
+                    resp.cancel_reason()
+                );
+            }
+            (created, canceled) => {
+                println!(
+                    "watch ID {} created: {}, canceled: {}, reason: {}",
+                    resp.watch_id(),
+                    created,
+                    canceled,
+                    resp.cancel_reason()
+                );
             }
         }
 
@@ -51,8 +94,14 @@ async fn main() -> Result<(), Error> {
             }
 
             if EventType::Delete == event.event_type() {
-                watcher.cancel_by_id(resp.watch_id()).await?;
+                println!("canceling watch ID {}", resp.watch_id());
+                watch_stream.cancel(resp.watch_id()).await?;
             }
+        }
+
+        if watches.is_empty() {
+            println!("all watches canceled, exiting...");
+            break;
         }
 
         println!();

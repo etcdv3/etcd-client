@@ -36,7 +36,7 @@ use crate::rpc::maintenance::{
     AlarmAction, AlarmOptions, AlarmResponse, AlarmType, DefragmentResponse, HashKvResponse,
     HashResponse, MaintenanceClient, MoveLeaderResponse, SnapshotStreaming, StatusResponse,
 };
-use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream, Watcher};
+use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream};
 #[cfg(feature = "tls-openssl")]
 use crate::OpenSslResult;
 #[cfg(feature = "tls")]
@@ -415,7 +415,7 @@ impl Client {
         &mut self,
         key: impl Into<Vec<u8>>,
         options: Option<WatchOptions>,
-    ) -> Result<(Watcher, WatchStream)> {
+    ) -> Result<WatchStream> {
         self.watch.watch(key, options).await
     }
 

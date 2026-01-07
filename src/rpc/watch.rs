@@ -43,36 +43,24 @@ impl WatchClient {
 
     /// Watches for events happening or that have happened. Both input and output
     /// are streams; the input stream is for creating and canceling watchers and the output
-    /// stream sends events. One watch RPC can watch on multiple key ranges, streaming events
-    /// for several watches at once. The entire event history can be watched starting from the
+    /// stream receives resposnes and events.
+    ///
+    /// One watch stream can watch on multiple key ranges, streaming events for several watches
+    /// are grouped by watch ID. The entire event history can be watched starting from the
     /// last compaction revision.
     pub async fn watch(
         &mut self,
         key: impl Into<Vec<u8>>,
         options: Option<WatchOptions>,
-    ) -> Result<(Watcher, WatchStream)> {
+    ) -> Result<WatchStream> {
         let (request_sender, request_receiver) = channel::<WatchRequest>(100);
-        let request_stream = ReceiverStream::new(request_receiver);
-
         request_sender
             .send(options.unwrap_or_default().with_key(key).into())
             .await
             .map_err(|e| Error::WatchError(e.to_string()))?;
-
+        let request_stream = ReceiverStream::new(request_receiver);
         let response_stream = self.inner.watch(request_stream).await?.into_inner();
-        let mut watch_stream = WatchStream::new(response_stream);
-
-        let watch_id = match watch_stream.message().await? {
-            Some(resp) => {
-                assert!(resp.created(), "not a create watch response");
-                resp.watch_id()
-            }
-            None => {
-                return Err(Error::WatchError("failed to create watch".to_string()));
-            }
-        };
-
-        Ok((Watcher::new(watch_id, request_sender), watch_stream))
+        Ok(WatchStream::new(request_sender, response_stream))
     }
 }
 
@@ -349,54 +337,42 @@ impl Event {
 /// The watching handle.
 #[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug)]
-pub struct Watcher {
-    watch_id: i64,
-    sender: Sender<WatchRequest>,
+pub struct WatchStream {
+    request_stream: Sender<WatchRequest>,
+    response_stream: Streaming<PbWatchResponse>,
 }
 
-impl Watcher {
-    /// Creates a new `Watcher`.
+impl WatchStream {
+    /// Creates a new `WatchStream`.
     #[inline]
-    const fn new(watch_id: i64, sender: Sender<WatchRequest>) -> Self {
-        Self { watch_id, sender }
+    const fn new(
+        request_stream: Sender<WatchRequest>,
+        response_stream: Streaming<PbWatchResponse>,
+    ) -> Self {
+        Self {
+            request_stream,
+            response_stream,
+        }
     }
 
-    /// The ID of the watcher.
-    #[inline]
-    pub const fn watch_id(&self) -> i64 {
-        self.watch_id
-    }
-
-    /// Watches for events happening or that have happened.
+    /// Send watch request in the existing watch stream.
     #[inline]
     pub async fn watch(
         &mut self,
         key: impl Into<Vec<u8>>,
         options: Option<WatchOptions>,
     ) -> Result<()> {
-        self.sender
+        self.request_stream
             .send(options.unwrap_or_default().with_key(key).into())
-            .await
-            .map_err(|e| Error::WatchError(e.to_string()))
-    }
-
-    /// Cancels this watcher.
-    #[inline]
-    pub async fn cancel(&mut self) -> Result<()> {
-        let req = WatchCancelRequest {
-            watch_id: self.watch_id,
-        };
-        self.sender
-            .send(req.into())
             .await
             .map_err(|e| Error::WatchError(e.to_string()))
     }
 
     /// Cancels watch by specified `watch_id`.
     #[inline]
-    pub async fn cancel_by_id(&mut self, watch_id: i64) -> Result<()> {
+    pub async fn cancel(&mut self, watch_id: i64) -> Result<()> {
         let req = WatchCancelRequest { watch_id };
-        self.sender
+        self.request_stream
             .send(req.into())
             .await
             .map_err(|e| Error::WatchError(e.to_string()))
@@ -407,34 +383,24 @@ impl Watcher {
     #[inline]
     pub async fn request_progress(&mut self) -> Result<()> {
         let req = WatchProgressRequest {};
-        self.sender
+        self.request_stream
             .send(req.into())
             .await
             .map_err(|e| Error::WatchError(e.to_string()))
     }
-}
 
-/// The watch response stream.
-#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
-#[derive(Debug)]
-pub struct WatchStream {
-    stream: Streaming<PbWatchResponse>,
-}
-
-impl WatchStream {
-    /// Creates a new `WatchStream`.
-    #[inline]
-    const fn new(stream: Streaming<PbWatchResponse>) -> Self {
-        Self { stream }
-    }
-
-    /// Fetch the next message from this stream.
+    /// Receive [`WatchResponse`] from this watch stream.
     #[inline]
     pub async fn message(&mut self) -> Result<Option<WatchResponse>> {
-        match self.stream.message().await? {
+        match self.response_stream.message().await? {
             Some(resp) => Ok(Some(WatchResponse::new(resp))),
             None => Ok(None),
         }
+    }
+
+    /// Splits the watch stream into a sender and a receiver.
+    pub fn split(self) -> (Sender<WatchRequest>, Streaming<PbWatchResponse>) {
+        (self.request_stream, self.response_stream)
     }
 }
 
@@ -443,7 +409,7 @@ impl Stream for WatchStream {
 
     #[inline]
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        Pin::new(&mut self.get_mut().stream)
+        Pin::new(&mut self.get_mut().response_stream)
             .poll_next(cx)
             .map(|t| match t {
                 Some(Ok(resp)) => Some(Ok(WatchResponse::new(resp))),
