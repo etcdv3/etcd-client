@@ -1,6 +1,5 @@
 //! Etcd Election RPC.
 
-use crate::auth::AuthService;
 use crate::error::Result;
 use crate::intercept::InterceptedChannel;
 use crate::rpc::pb::v3electionpb::election_client::ElectionClient as PbElectionClient;
@@ -11,10 +10,8 @@ use crate::rpc::pb::v3electionpb::{
     ResignRequest as PbResignRequest, ResignResponse as PbResignResponse,
 };
 use crate::rpc::{KeyValue, ResponseHeader};
-use http::HeaderValue;
-use std::sync::RwLock;
+use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::{pin::Pin, sync::Arc};
 use tokio_stream::Stream;
 use tonic::{IntoRequest, Request, Streaming};
 
@@ -22,7 +19,7 @@ use tonic::{IntoRequest, Request, Streaming};
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct ElectionClient {
-    inner: PbElectionClient<AuthService<InterceptedChannel>>,
+    inner: PbElectionClient<InterceptedChannel>,
 }
 
 /// Options for `campaign` operation.
@@ -487,11 +484,8 @@ impl From<&PbLeaderKey> for &LeaderKey {
 impl ElectionClient {
     /// Creates a election
     #[inline]
-    pub(crate) fn new(
-        channel: InterceptedChannel,
-        auth_token: Arc<RwLock<Option<HeaderValue>>>,
-    ) -> Self {
-        let inner = PbElectionClient::new(AuthService::new(channel, auth_token));
+    pub(crate) fn new(channel: InterceptedChannel) -> Self {
+        let inner = PbElectionClient::new(channel);
         Self { inner }
     }
 

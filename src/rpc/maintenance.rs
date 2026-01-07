@@ -4,7 +4,6 @@ pub use crate::rpc::pb::etcdserverpb::alarm_request::AlarmAction;
 pub use crate::rpc::pb::etcdserverpb::AlarmType;
 
 use super::pb::etcdserverpb;
-use crate::auth::AuthService;
 use crate::error::Result;
 use crate::intercept::InterceptedChannel;
 use crate::rpc::pb::etcdserverpb::{
@@ -19,8 +18,6 @@ use crate::rpc::pb::etcdserverpb::{
 use crate::rpc::ResponseHeader;
 use etcdserverpb::maintenance_client::MaintenanceClient as PbMaintenanceClient;
 use etcdserverpb::AlarmMember as PbAlarmMember;
-use http::HeaderValue;
-use std::sync::{Arc, RwLock};
 use tonic::codec::Streaming as PbStreaming;
 use tonic::{IntoRequest, Request};
 
@@ -28,7 +25,7 @@ use tonic::{IntoRequest, Request};
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct MaintenanceClient {
-    inner: PbMaintenanceClient<AuthService<InterceptedChannel>>,
+    inner: PbMaintenanceClient<InterceptedChannel>,
 }
 
 /// Options for `alarm` operation.
@@ -556,11 +553,8 @@ impl MoveLeaderResponse {
 impl MaintenanceClient {
     /// Creates a maintenance client.
     #[inline]
-    pub(crate) fn new(
-        channel: InterceptedChannel,
-        auth_token: Arc<RwLock<Option<HeaderValue>>>,
-    ) -> Self {
-        let inner = PbMaintenanceClient::new(AuthService::new(channel, auth_token));
+    pub(crate) fn new(channel: InterceptedChannel) -> Self {
+        let inner = PbMaintenanceClient::new(channel);
         Self { inner }
     }
 

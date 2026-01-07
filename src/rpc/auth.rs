@@ -2,10 +2,8 @@
 
 pub use crate::rpc::pb::authpb::permission::Type as PermissionType;
 
-use crate::auth::AuthService;
 use crate::error::Result;
 use crate::intercept::InterceptedChannel;
-use crate::lock::RwLockExt;
 use crate::rpc::pb::authpb::{Permission as PbPermission, UserAddOptions as PbUserAddOptions};
 use crate::rpc::pb::etcdserverpb::auth_client::AuthClient as PbAuthClient;
 use crate::rpc::pb::etcdserverpb::{
@@ -35,41 +33,20 @@ use crate::rpc::pb::etcdserverpb::{
 };
 use crate::rpc::ResponseHeader;
 use crate::rpc::{get_prefix, KeyRange};
-use http::HeaderValue;
-use std::sync::RwLock;
-use std::{string::String, sync::Arc};
 use tonic::{IntoRequest, Request};
 
 /// Client for Auth operations.
 #[derive(Clone)]
 pub struct AuthClient {
-    inner: PbAuthClient<AuthService<InterceptedChannel>>,
-    auth_token: Arc<RwLock<Option<HeaderValue>>>,
+    inner: PbAuthClient<InterceptedChannel>,
 }
 
 impl AuthClient {
     /// Creates an auth client.
     #[inline]
-    pub(crate) fn new(
-        channel: InterceptedChannel,
-        auth_token: Arc<RwLock<Option<HeaderValue>>>,
-    ) -> Self {
-        let inner = PbAuthClient::new(AuthService::new(channel, auth_token.clone()));
-        Self { inner, auth_token }
-    }
-
-    /// Sets client-side authentication.
-    pub async fn set_client_auth(&mut self, name: String, password: String) -> Result<()> {
-        let resp = self.authenticate(name, password).await?;
-        self.auth_token
-            .write_unpoisoned()
-            .replace(resp.token().parse()?);
-        Ok(())
-    }
-
-    /// Removes client-side authentication.
-    pub fn remove_client_auth(&mut self) {
-        self.auth_token.write_unpoisoned().take();
+    pub(crate) fn new(channel: InterceptedChannel) -> Self {
+        let inner = PbAuthClient::new(channel);
+        Self { inner }
     }
 
     /// Enables authentication for the etcd cluster.
@@ -95,8 +72,9 @@ impl AuthClient {
     }
 
     /// Sends an authenticate request.
+    ///
     /// Note that this does not set or update client-side authentication settings.
-    /// Call [`set_client_auth`][`Self::set_client_auth`] to set or update client-side authentication.
+    /// Call [`crate::Client::refresh_token`] instead.
     #[inline]
     pub async fn authenticate(
         &mut self,
