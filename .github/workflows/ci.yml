@@ -12,10 +12,18 @@ jobs:
     steps:
       - run: echo "Get latest etcd from docker hub"
       - run: docker --version
-      - run: sudo docker pull bitnami/etcd:latest
-      - run: sudo docker network create app-tier --driver bridge
-      - run: sudo docker run -d --name Etcd-server --network app-tier --publish 2379:2379 --publish 2380:2380 --env ALLOW_NONE_AUTHENTICATION=yes --env ETCD_ADVERTISE_CLIENT_URLS=http://etcd-server:2379 bitnami/etcd:latest
-      - run: sudo apt install -y protobuf-compiler libprotobuf-dev
+      - run: sudo docker pull quay.io/coreos/etcd:v3.5.26
+      - run: >
+          sudo docker run -d --name etcd-server
+          --publish 2379:2379
+          --publish 2380:2380
+          --env ALLOW_NONE_AUTHENTICATION=yes
+          --env ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+          --env ETCD_ADVERTISE_CLIENT_URLS=http://localhost:2379
+          quay.io/coreos/etcd:v3.5.26
+      - run: sudo docker exec etcd-server etcdctl member list -w table
+      - run: sudo docker exec etcd-server etcdctl endpoint status -w table
+      - run: sudo apt install -y protobuf-compiler libprotobuf-dev curl
       - name: Check out repository code
         uses: actions/checkout@v4
       - name: install cargo-hack
@@ -24,8 +32,15 @@ jobs:
       - run: rustc --version --verbose
       - name: format check
         run: cargo fmt --check
+      - run: curl -v http://localhost:2379/health
       - name: clippy
-        run: cargo hack --feature-powerset --mutually-exclusive-features tls,tls-openssl --mutually-exclusive-features tls-roots,tls-openssl clippy --all-targets -- -D warnings
+        run: >
+          cargo hack --feature-powerset
+          --mutually-exclusive-features tls,tls-openssl
+          --mutually-exclusive-features tls-roots,tls-openssl clippy
+          --all-targets
+          --
+          -D warnings
       - name: unit test
         run: cargo test
       - run: cargo run --example kv
