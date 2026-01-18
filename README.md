@@ -87,36 +87,39 @@ Examples can be found in [`examples`](./examples).
 ## Feature Flags
 
 - `tls`: Enables the `rustls`-based TLS connection. Not enabled by default.
-- `tls-roots`: Adds system trust roots to `rustls`-based TLS connection using the `rustls-native-certs` crate. Not
-  enabled by default.
-- `pub-response-field`: Exposes structs used to create regular `etcd-client` responses including internal protobuf
-  representations. Useful for mocking. Not enabled by default.
-- `tls-openssl`: Enables the `openssl`-based TLS connections. This would make your binary dynamically link to `libssl`.
-- `tls-openssl-vendored`: Like `tls-openssl`, however compile openssl from source code and statically link to it.
-- `build-server`: Builds a server variant of the etcd protobuf and re-exports it under the same `proto` package as the `pub-response-field` feature does.
+- `tls-roots`: Adds system trust roots to `rustls`-based TLS connection using the
+  `rustls-native-certs` crate. Not enabled by default.
+- `pub-response-field`: Exposes structs used to create regular `etcd-client` responses including
+  internal protobuf representations. Useful for mocking. Not enabled by default.
+- `tls-openssl`: Enables the `openssl`-based TLS connections. This would make your binary
+  dynamically link to `libssl`.
+- `tls-openssl-vendored`: Like `tls-openssl`, however compile openssl from source code and
+  statically link to it.
+- `build-server`: Builds a server variant of the etcd protobuf and re-exports it under the same
+  `proto` package as the `pub-response-field` feature does.
 - `raw-channel`: Allows the caller to construct the underlying Tonic channel used by the client.
 
 ## Test
 
 We test this library with etcd 3.5.
 
-Note that we use a fixed `etcd` server URI (localhost:2379) to connect to etcd server.
+Note that we use a fixed `etcd` server URI (`localhost:2379`) to connect to etcd server.
 
 ## Rust version requirements
 
-The minimum supported version is 1.80. The current `etcd-client` version is not guaranteed to build on Rust versions
-earlier than the minimum supported version.
+The minimum supported version is 1.80. The current `etcd-client` version is not guaranteed to
+build on Rust versions earlier than the minimum supported version.
 
 ## License
 
 Dual-licensed to be compatible with the Rust project.
 
-Licensed under the Apache License, Version 2.0 http://www.apache.org/licenses/LICENSE-2.0 or the MIT
-license http://opensource.org/licenses/MIT, at your option. This file may not be copied, modified, or distributed except
-according to those terms.
+Licensed under the Apache License, Version 2.0 http://www.apache.org/licenses/LICENSE-2.0 or the
+MIT license http://opensource.org/licenses/MIT, at your option. This file may not be copied,
+modified, or distributed except according to those terms.
 
 ## Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in `etcd-client` by you, shall be licensed as Apache-2.0 and MIT, without any additional
-terms or conditions.
+for inclusion in `etcd-client` by you, shall be licensed as Apache-2.0 and MIT, without any
+additional terms or conditions.
