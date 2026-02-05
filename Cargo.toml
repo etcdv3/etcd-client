@@ -13,10 +13,12 @@ documentation = "https://docs.rs/etcd-client/"
 keywords = ["etcd", "v3", "api", "client", "async"]
 
 [features]
-tls = ["tonic/tls-ring"]
+tls-ring = ["tonic/tls-ring"]
+tls-aws-lc = ["tonic/tls-aws-lc"]
 tls-openssl = ["openssl", "hyper-openssl", "hyper", "hyper-util"]
 tls-openssl-vendored = ["tls-openssl", "openssl/vendored"]
-tls-roots = ["tls", "tonic/tls-native-roots"]
+tls-native-roots = ["tonic/tls-native-roots"]
+tls-webpki-roots = ["tonic/tls-webpki-roots"]
 pub-response-field = ["visible"]
 build-server = ["pub-response-field"]
 raw-channel = []
@@ -44,5 +46,5 @@ tonic-build = { version = "0.14", default-features = false }
 tonic-prost-build = "0.14"
 
 [package.metadata.docs.rs]
-features = ["tls", "tls-roots"]
+features = ["tls-ring", "tls-native-roots"]
 rustdoc-args = ["--cfg", "docsrs"]
