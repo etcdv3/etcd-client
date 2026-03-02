@@ -210,4 +210,7 @@ pub mod proto {
         RangeRequest as PbRangeRequest, SnapshotRequest as PbSnapshotRequest,
         StatusRequest as PbStatusRequest, WatchRequest as PbWatchRequest,
     };
+
+    #[cfg(feature = "build-server")]
+    pub use crate::rpc::pb::etcdserverpb::watch_request::RequestUnion as PbWatchRequestUnion;
 }
