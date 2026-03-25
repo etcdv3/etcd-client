@@ -45,9 +45,9 @@ impl OpenSslConnector {
     }
 }
 
-#[cfg(feature = "tls")]
+#[cfg(any(feature = "tls-ring", feature = "tls-aws-lc"))]
 compile_error!(concat!(
-    "**You should only enable one of `tls` and `tls-openssl`.** Reason: ",
+    "**You should only enable one of `tls-ring`, `tls-aws-lc` and `tls-openssl`.** Reason: ",
     "For now, `tls-openssl` would take over the transport layer (sockets) to implement TLS based connection. ",
     "As a result, once using with `tonic`'s internal TLS implementation (which based on `rustls`), ", 
     "we may create TLS tunnels over TLS tunnels or directly fail because of some sorts of misconfiguration.")
