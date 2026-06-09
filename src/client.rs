@@ -39,7 +39,7 @@ use crate::rpc::maintenance::{
 use crate::rpc::watch::{WatchClient, WatchOptions, WatchStream};
 #[cfg(feature = "tls-openssl")]
 use crate::OpenSslResult;
-#[cfg(feature = "tls")]
+#[cfg(any(feature = "tls-ring", feature = "tls-aws-lc"))]
 use crate::TlsOptions;
 use http::uri::Uri;
 use tonic::metadata::{Ascii, MetadataValue};
@@ -159,7 +159,7 @@ impl Client {
     fn build_endpoint(url: &str, options: &ConnectOptions) -> Result<Endpoint> {
         use tonic::transport::Channel as TonicChannel;
         let mut endpoint = if url.starts_with(HTTP_PREFIX) {
-            #[cfg(feature = "tls")]
+            #[cfg(any(feature = "tls-ring", feature = "tls-aws-lc"))]
             if options.tls.is_some() {
                 return Err(Error::InvalidArgs(String::from(
                     "TLS options are only supported with HTTPS URLs",
@@ -168,23 +168,30 @@ impl Client {
 
             TonicChannel::builder(url.parse()?)
         } else if url.starts_with(HTTPS_PREFIX) {
-            #[cfg(not(any(feature = "tls", feature = "tls-openssl")))]
+            #[cfg(not(any(
+                feature = "tls-ring",
+                feature = "tls-aws-lc",
+                feature = "tls-openssl"
+            )))]
             return Err(Error::InvalidArgs(String::from(
                 "HTTPS URLs are only supported with the feature \"tls\"",
             )));
 
-            #[cfg(all(feature = "tls-openssl", not(feature = "tls")))]
+            #[cfg(all(
+                feature = "tls-openssl",
+                not(any(feature = "tls-ring", feature = "tls-aws-lc"))
+            ))]
             {
                 TonicChannel::builder(url.parse()?)
             }
 
-            #[cfg(feature = "tls")]
+            #[cfg(any(feature = "tls-ring", feature = "tls-aws-lc"))]
             {
                 let tls = options.tls.clone().unwrap_or_default();
                 TonicChannel::builder(url.parse()?).tls_config(tls)?
             }
         } else {
-            #[cfg(feature = "tls")]
+            #[cfg(any(feature = "tls-ring", feature = "tls-aws-lc"))]
             {
                 let tls = options.tls.clone();
 
@@ -200,7 +207,10 @@ impl Client {
                 }
             }
 
-            #[cfg(all(feature = "tls-openssl", not(feature = "tls")))]
+            #[cfg(all(
+                feature = "tls-openssl",
+                not(any(feature = "tls-ring", feature = "tls-aws-lc"))
+            ))]
             {
                 let pfx = if options.otls.as_ref().is_some() {
                     HTTPS_PREFIX
@@ -211,7 +221,11 @@ impl Client {
                 TonicChannel::builder(e.parse()?)
             }
 
-            #[cfg(all(not(feature = "tls"), not(feature = "tls-openssl")))]
+            #[cfg(all(
+                not(feature = "tls-ring"),
+                not(feature = "tls-aws-lc"),
+                not(feature = "tls-openssl")
+            ))]
             {
                 let e = HTTP_PREFIX.to_owned() + url;
                 TonicChannel::builder(e.parse()?)
@@ -803,7 +817,7 @@ pub struct ConnectOptions {
     connect_timeout: Option<Duration>,
     /// TCP keepalive.
     tcp_keepalive: Option<Duration>,
-    #[cfg(feature = "tls")]
+    #[cfg(any(feature = "tls-ring", feature = "tls-aws-lc"))]
     tls: Option<TlsOptions>,
     #[cfg(feature = "tls-openssl")]
     otls: Option<OpenSslResult<OpenSslConnector>>,
@@ -822,8 +836,8 @@ impl ConnectOptions {
     /// Sets TLS options.
     ///
     /// Notes that this function have to work with `HTTPS` URLs.
-    #[cfg_attr(docsrs, doc(cfg(feature = "tls")))]
-    #[cfg(feature = "tls")]
+    #[cfg_attr(docsrs, doc(cfg(any(feature = "tls-ring", feature = "tls-aws-lc"))))]
+    #[cfg(any(feature = "tls-ring", feature = "tls-aws-lc"))]
     #[inline]
     pub fn with_tls(mut self, tls: TlsOptions) -> Self {
         self.tls = Some(tls);
@@ -899,7 +913,7 @@ impl ConnectOptions {
             timeout: None,
             connect_timeout: None,
             tcp_keepalive: None,
-            #[cfg(feature = "tls")]
+            #[cfg(any(feature = "tls-ring", feature = "tls-aws-lc"))]
             tls: None,
             #[cfg(feature = "tls-openssl")]
             otls: None,
