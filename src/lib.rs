@@ -105,7 +105,8 @@ pub use crate::rpc::maintenance::{
     SnapshotStreaming, StatusResponse,
 };
 pub use crate::rpc::watch::{
-    Event, EventType, WatchClient, WatchFilterType, WatchOptions, WatchResponse, WatchStream,
+    Event, EventType, WatchClient, WatchFilterType, WatchOptions, WatchRequestSender,
+    WatchResponse, WatchResponseStream, WatchStream,
 };
 pub use crate::rpc::{KeyValue, ResponseHeader};
 
