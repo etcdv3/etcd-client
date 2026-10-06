@@ -436,6 +436,14 @@ async fn test_auth_refresh_token() -> Result<()> {
     client.get("key", None).await?;
     tokio::time::sleep(TOKEN_TTL).await;
     client.get("key", None).await?;
+
+    // Lock service reports an expired token with a different status code,
+    // verify that it is refreshed too.
+    tokio::time::sleep(TOKEN_TTL).await;
+    let resp = client.lock("lock-refresh-token-test", None).await?;
+    tokio::time::sleep(TOKEN_TTL).await;
+    client.unlock(resp.key()).await?;
+
     client.auth_disable().await?;
 
     Ok(())

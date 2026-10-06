@@ -5,7 +5,7 @@ use std::{
 
 use tonic::{
     metadata::{Ascii, MetadataValue},
-    Code,
+    Code, Status,
 };
 
 use crate::{
@@ -149,7 +149,7 @@ impl<T> ClientCaller<T> {
         // Clone the request to be able to retry in the case of token expiration.
         let resp = (call)(&mut self.inner, req.clone()).await;
         match resp {
-            Err(GRpcStatus(status)) if status.code() == Code::Unauthenticated => {
+            Err(GRpcStatus(status)) if is_invalid_auth_token(&status) => {
                 // Re-authenticate and retry this query.
                 self.refresh_token().await?;
                 (call)(&mut self.inner, req).await
@@ -170,6 +170,24 @@ impl<T> ClientCaller<T> {
             .await?;
         let token = resp.token().parse()?;
         Ok(token)
+    }
+}
+
+/// The error message etcd returns for an invalid or expired token.
+/// https://github.com/etcd-io/etcd/blob/76d58e32b30d57a540821c9c5bbcb651fd89994c/api/v3rpc/rpctypes/error.go#L73
+const INVALID_AUTH_TOKEN_MSG: &str = "etcdserver: invalid auth token";
+
+/// Check whether the status reports an invalid or expired token.
+///
+/// Usually etcd responds with [`Code::Unauthenticated`]. However, services
+/// implemented on top of the in-process etcd client (Lock, Election) lose the
+/// status code and respond with [`Code::Unknown`] keeping the original message,
+/// so the message is matched in that case.
+fn is_invalid_auth_token(status: &Status) -> bool {
+    match status.code() {
+        Code::Unauthenticated => true,
+        Code::Unknown => status.message() == INVALID_AUTH_TOKEN_MSG,
+        _ => false,
     }
 }
 
