@@ -16,11 +16,11 @@ fn main() {
         .build_server(should_build_server())
         .compile_protos(
             &[
-                "proto/auth.proto",
-                "proto/kv.proto",
-                "proto/rpc.proto",
-                "proto/v3election.proto",
-                "proto/v3lock.proto",
+                "proto/etcd/api/authpb/auth.proto",
+                "proto/etcd/api/etcdserverpb/rpc.proto",
+                "proto/etcd/api/mvccpb/kv.proto",
+                "proto/etcd/server/etcdserver/api/v3election/v3electionpb/v3election.proto",
+                "proto/etcd/server/etcdserver/api/v3lock/v3lockpb/v3lock.proto",
             ],
             &[proto_root],
         )
