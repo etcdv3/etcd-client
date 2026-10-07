@@ -413,9 +413,36 @@ async fn test_auth() -> Result<()> {
     Ok(())
 }
 
+struct TestContext { }
+
+impl TestContext {
+    fn new() -> Self {
+        Self{}
+    }
+}
+
+impl Drop for TestContext {
+    fn drop(&mut self) {
+        // Create a new thread to run blocking runtime to disable auth,
+        // because the drop function is not async.
+        let handler = std::thread::spawn(move || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                // If auth is enabled, disable it to avoid affecting other tests.
+                if let Ok(mut client) = get_auth_client(None).await {
+                    client.auth_disable().await.ok();
+                }
+            });
+        });
+        handler.join().unwrap();
+    }
+}
+
 #[tokio::test]
 #[serial]
 async fn test_auth_refresh_token() -> Result<()> {
+    let _ctx = TestContext::new();
+
     const TOKEN_TTL: Duration = Duration::from_secs(4);
 
     let mut client = get_client().await?;
