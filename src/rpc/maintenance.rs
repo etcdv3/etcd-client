@@ -2,6 +2,7 @@
 
 use crate::caller::{ClientCaller, ClientCallerBuilder};
 pub use crate::rpc::pb::etcdserverpb::alarm_request::AlarmAction;
+pub use crate::rpc::pb::etcdserverpb::downgrade_request::DowngradeAction;
 pub use crate::rpc::pb::etcdserverpb::AlarmType;
 
 use super::pb::etcdserverpb;
@@ -10,6 +11,7 @@ use crate::intercept::InterceptedChannel;
 use crate::rpc::pb::etcdserverpb::{
     AlarmRequest as PbAlarmRequest, AlarmResponse as PbAlarmResponse,
     DefragmentRequest as PbDefragmentRequest, DefragmentResponse as PbDefragmentResponse,
+    DowngradeRequest as PbDowngradeRequest, DowngradeResponse as PbDowngradeResponse,
     HashKvRequest as PbHashKvRequest, HashKvResponse as PbHashKvResponse,
     HashRequest as PbHashRequest, HashResponse as PbHashResponse,
     MoveLeaderRequest as PbMoveLeaderRequest, MoveLeaderResponse as PbMoveLeaderResponse,
@@ -76,6 +78,46 @@ impl From<AlarmOptions> for PbAlarmRequest {
 impl IntoRequest<PbAlarmRequest> for AlarmOptions {
     #[inline]
     fn into_request(self) -> Request<PbAlarmRequest> {
+        Request::new(self.into())
+    }
+}
+
+/// Options for `Downgrade` operation.
+#[derive(Debug, Clone)]
+pub enum DowngradeOptions {
+    /// Validate downgrade capability before starting downgrade, with the given target version
+    Validate(String),
+
+    /// Start a downgrade action to cluster to the given target version
+    Enable(String),
+
+    /// Cancel the ongoing downgrade action to cluster
+    Cancel,
+}
+
+impl From<DowngradeOptions> for PbDowngradeRequest {
+    #[inline]
+    fn from(options: DowngradeOptions) -> Self {
+        match options {
+            DowngradeOptions::Validate(version) => PbDowngradeRequest {
+                action: DowngradeAction::Validate as i32,
+                version,
+            },
+            DowngradeOptions::Enable(version) => PbDowngradeRequest {
+                action: DowngradeAction::Enable as i32,
+                version,
+            },
+            DowngradeOptions::Cancel => PbDowngradeRequest {
+                action: DowngradeAction::Cancel as i32,
+                version: String::new(),
+            },
+        }
+    }
+}
+
+impl IntoRequest<PbDowngradeRequest> for DowngradeOptions {
+    #[inline]
+    fn into_request(self) -> Request<PbDowngradeRequest> {
         Request::new(self.into())
     }
 }
@@ -553,6 +595,37 @@ impl MoveLeaderResponse {
     }
 }
 
+/// Response for `Downgrade` operation.
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
+#[derive(Debug, Clone)]
+#[repr(transparent)]
+pub struct DowngradeResponse(PbDowngradeResponse);
+
+impl DowngradeResponse {
+    #[inline]
+    const fn new(resp: PbDowngradeResponse) -> Self {
+        Self(resp)
+    }
+
+    /// Get response header.
+    #[inline]
+    pub fn header(&self) -> Option<&ResponseHeader> {
+        self.0.header.as_ref().map(From::from)
+    }
+
+    /// Takes the header out of the response, leaving a [`None`] in its place.
+    #[inline]
+    pub fn take_header(&mut self) -> Option<ResponseHeader> {
+        self.0.header.take().map(ResponseHeader::new)
+    }
+
+    /// Get the current cluster version.
+    #[inline]
+    pub fn version(&self) -> &str {
+        &self.0.version
+    }
+}
+
 impl MaintenanceClient {
     /// Creates a maintenance client.
     #[inline]
@@ -671,5 +744,21 @@ impl MaintenanceClient {
                 move_leader_impl,
             )
             .await
+    }
+
+    /// Downgrade requests downgrades, verifies feasibility or cancels downgrade
+    /// on the cluster version.
+    ///
+    /// Supported since etcd 3.5.
+    #[inline]
+    pub async fn downgrade(&mut self, options: DowngradeOptions) -> Result<DowngradeResponse> {
+        async fn downgrade_impl(
+            client: &mut Client,
+            options: DowngradeOptions,
+        ) -> Result<DowngradeResponse> {
+            let resp = client.downgrade(options).await?.into_inner();
+            Ok(DowngradeResponse::new(resp))
+        }
+        self.inner.do_call(options, downgrade_impl).await
     }
 }

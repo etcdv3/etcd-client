@@ -109,8 +109,8 @@ pub use crate::rpc::lease::{
 pub use crate::rpc::lock::{LockClient, LockOptions, LockResponse, UnlockResponse};
 pub use crate::rpc::maintenance::{
     AlarmAction, AlarmMember, AlarmOptions, AlarmResponse, AlarmType, DefragmentResponse,
-    HashKvResponse, HashResponse, MaintenanceClient, MoveLeaderResponse, SnapshotResponse,
-    SnapshotStreaming, StatusResponse,
+    DowngradeResponse, HashKvResponse, HashResponse, MaintenanceClient, MoveLeaderResponse,
+    SnapshotResponse, SnapshotStreaming, StatusResponse,
 };
 pub use crate::rpc::watch::{
     Event, EventType, WatchClient, WatchFilterType, WatchOptions, WatchRequestSender,
@@ -152,8 +152,9 @@ pub mod proto {
         AuthUserRevokeRoleResponse as PbAuthUserRevokeRoleResponse,
         AuthenticateResponse as PbAuthenticateResponse, CompactionResponse as PbCompactionResponse,
         Compare as PbCompare, DefragmentResponse as PbDefragmentResponse,
-        DeleteRangeResponse as PbDeleteResponse, HashKvResponse as PbHashKvResponse,
-        HashResponse as PbHashResponse, LeaseGrantResponse as PbLeaseGrantResponse,
+        DeleteRangeResponse as PbDeleteResponse, DowngradeResponse as PbDowngradeResponse,
+        HashKvResponse as PbHashKvResponse, HashResponse as PbHashResponse,
+        LeaseGrantResponse as PbLeaseGrantResponse,
         LeaseKeepAliveResponse as PbLeaseKeepAliveResponse,
         LeaseLeasesResponse as PbLeaseLeasesResponse, LeaseRevokeResponse as PbLeaseRevokeResponse,
         LeaseStatus as PbLeaseStatus, LeaseTimeToLiveResponse as PbLeaseTimeToLiveResponse,
@@ -209,8 +210,9 @@ pub mod proto {
         AuthUserRevokeRoleRequest as PbAuthUserRevokeRoleRequest,
         AuthenticateRequest as PbAuthenticateRequest, CompactionRequest as PbCompactionRequest,
         DefragmentRequest as PbDefragmentRequest, DeleteRangeRequest as PbDeleteRequest,
-        HashKvRequest as PbHashKvRequest, HashRequest as PbHashRequest,
-        LeaseGrantRequest as PbLeaseGrantRequest, LeaseKeepAliveRequest as PbLeaseKeepAliveRequest,
+        DowngradeRequest as PbDowngradeRequest, HashKvRequest as PbHashKvRequest,
+        HashRequest as PbHashRequest, LeaseGrantRequest as PbLeaseGrantRequest,
+        LeaseKeepAliveRequest as PbLeaseKeepAliveRequest,
         LeaseLeasesRequest as PbLeaseLeasesRequest, LeaseRevokeRequest as PbLeaseRevokeRequest,
         LeaseTimeToLiveRequest as PbLeaseTimeToLiveRequest, MemberAddRequest as PbMemberAddRequest,
         MemberListRequest as PbMemberListRequest, MemberPromoteRequest as PbMemberPromoteRequest,
