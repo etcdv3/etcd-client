@@ -866,6 +866,7 @@ async fn test_cluster() -> Result<()> {
 }
 
 #[tokio::test]
+#[parallel]
 async fn test_move_leader() -> Result<()> {
     let mut client = get_client().await?;
     let resp = client.member_list().await?;
@@ -875,6 +876,10 @@ async fn test_move_leader() -> Result<()> {
     let leader_id = resp.leader();
     println!("status {:?}, leader_id {:?}", resp, resp.leader());
 
+    // FIXME: Move leader operation should be performed on a multi-node cluster.
+    // In a single-node cluster, the leader cannot be moved to another node.
+    // Therefore, this test does not actually move the leader,
+    // it only checks the response of the move_leader operation, but not make senses.
     let mut member_id = leader_id;
     for member in member_list {
         println!("member_id {:?}, name is {:?}", member.id(), member.name());
