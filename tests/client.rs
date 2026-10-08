@@ -167,6 +167,49 @@ async fn test_get_stream() -> Result<()> {
 
 #[tokio::test]
 #[parallel]
+#[ignore = "requires etcd v3.7 or later"]
+async fn test_get_stream_chunked() -> Result<()> {
+    let mut client = get_client().await?.kv_client();
+    let value = "x".repeat(1024 * 3); // 3KB value
+
+    // NOTE: Starts etcd server with --max-request-bytes=10240
+    // Put 50 keys with 3KB value, total 150KB, which is larger than max-request-bytes
+    // In this case, the server will return chunked response, and the client should be
+    // able to handle it correctly.
+    for i in 0..50 {
+        client
+            .put(format!("get_stream_chunked_{:02}", i), value.clone(), None)
+            .await?;
+    }
+
+    // get_stream from key
+    {
+        let mut stream = client
+            .get_stream(
+                "get_stream_chunked_",
+                Some(GetOptions::new().with_prefix().with_limit(20)),
+            )
+            .await?;
+        let mut last_resp = None;
+        while let Some(resp) = stream.message().await? {
+            last_resp = Some(resp.clone());
+            assert!(resp.kvs().len() < 50, "Expected the number of keys in each response to be less than 50 because etcd server will return chunked response");
+            assert!(!resp.kvs().is_empty());
+        }
+        assert!(
+            last_resp.is_some(),
+            "Expected there should be more keys because we limited the number of response to 20"
+        );
+        let last_resp = last_resp.unwrap();
+        assert!(last_resp.more());
+        assert_eq!(last_resp.count(), 50);
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+#[parallel]
 async fn test_delete() -> Result<()> {
     let mut client = get_client().await?;
     client.put("del10", "10", None).await?;
