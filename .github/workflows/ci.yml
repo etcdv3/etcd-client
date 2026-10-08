@@ -29,7 +29,7 @@ jobs:
       - run: sudo docker exec etcd-server etcdctl user grant-role root root
       - run: sudo apt install -y protobuf-compiler libprotobuf-dev curl
       - name: Check out repository code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: install cargo-hack
         uses: taiki-e/install-action@cargo-hack
       - run: cargo --version --verbose
@@ -84,7 +84,7 @@ jobs:
       - run: sudo docker exec etcd-server etcdctl user grant-role root root
       - run: sudo apt install -y protobuf-compiler libprotobuf-dev curl
       - name: Check out repository code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: install cargo-hack
         uses: taiki-e/install-action@cargo-hack
       - run: cargo --version --verbose
