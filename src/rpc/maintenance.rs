@@ -11,12 +11,13 @@ use crate::intercept::InterceptedChannel;
 use crate::rpc::pb::etcdserverpb::{
     AlarmRequest as PbAlarmRequest, AlarmResponse as PbAlarmResponse,
     DefragmentRequest as PbDefragmentRequest, DefragmentResponse as PbDefragmentResponse,
-    DowngradeRequest as PbDowngradeRequest, DowngradeResponse as PbDowngradeResponse,
-    HashKvRequest as PbHashKvRequest, HashKvResponse as PbHashKvResponse,
-    HashRequest as PbHashRequest, HashResponse as PbHashResponse,
-    MoveLeaderRequest as PbMoveLeaderRequest, MoveLeaderResponse as PbMoveLeaderResponse,
-    SnapshotRequest as PbSnapshotRequest, SnapshotResponse as PbSnapshotResponse,
-    StatusRequest as PbStatusRequest, StatusResponse as PbStatusResponse,
+    DowngradeInfo as PbDowngradeInfo, DowngradeRequest as PbDowngradeRequest,
+    DowngradeResponse as PbDowngradeResponse, HashKvRequest as PbHashKvRequest,
+    HashKvResponse as PbHashKvResponse, HashRequest as PbHashRequest,
+    HashResponse as PbHashResponse, MoveLeaderRequest as PbMoveLeaderRequest,
+    MoveLeaderResponse as PbMoveLeaderResponse, SnapshotRequest as PbSnapshotRequest,
+    SnapshotResponse as PbSnapshotResponse, StatusRequest as PbStatusRequest,
+    StatusResponse as PbStatusResponse,
 };
 use crate::rpc::ResponseHeader;
 use etcdserverpb::maintenance_client::MaintenanceClient as PbMaintenanceClient;
@@ -83,7 +84,7 @@ impl IntoRequest<PbAlarmRequest> for AlarmOptions {
 }
 
 /// Options for `Downgrade` operation.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DowngradeOptions {
     /// Validate downgrade capability before starting downgrade, with the given target version
     Validate(String),
@@ -119,6 +120,33 @@ impl IntoRequest<PbDowngradeRequest> for DowngradeOptions {
     #[inline]
     fn into_request(self) -> Request<PbDowngradeRequest> {
         Request::new(self.into())
+    }
+}
+
+/// Downgrade information of cluster.
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
+#[derive(Debug, Clone)]
+#[repr(transparent)]
+pub struct DowngradeInfo(PbDowngradeInfo);
+
+impl DowngradeInfo {
+    /// Enabled indicates whether the cluster is enabled to downgrade.
+    #[inline]
+    pub fn enabled(&self) -> bool {
+        self.0.enabled
+    }
+
+    /// Get target version of downgrade.
+    #[inline]
+    pub fn target_version(&self) -> &str {
+        &self.0.target_version
+    }
+}
+
+impl From<&PbDowngradeInfo> for &DowngradeInfo {
+    #[inline]
+    fn from(info: &PbDowngradeInfo) -> Self {
+        unsafe { &*(info as *const _ as *const DowngradeInfo) }
     }
 }
 
@@ -382,6 +410,32 @@ impl StatusResponse {
     pub fn is_learner(&self) -> bool {
         self.0.is_learner
     }
+
+    /// storageVersion is the version of the db file.
+    /// It might be updated with delay in relationship to the target cluster version.
+    ///
+    /// Supported since etcd 3.6.
+    #[inline]
+    pub fn storage_version(&self) -> &str {
+        &self.0.storage_version
+    }
+
+    /// dbSizeQuota is the configured etcd storage quota in bytes
+    /// (the value passed to etcd instance by flag --quota-backend-bytes)
+    ///
+    /// Supported since etcd 3.6.
+    #[inline]
+    pub fn db_size_quota(&self) -> i64 {
+        self.0.db_size_quota
+    }
+
+    /// downgradeInfo indicates if there is downgrade process.
+    ///
+    /// Supported since etcd 3.6.
+    #[inline]
+    pub fn downgrade_info(&self) -> Option<&DowngradeInfo> {
+        self.0.downgrade_info.as_ref().map(From::from)
+    }
 }
 
 /// Response for `defragment` operation.
@@ -478,6 +532,14 @@ impl HashKvResponse {
     pub fn compact_version(&self) -> i64 {
         self.0.compact_revision
     }
+
+    /// Gets the revision up to which the hash is calculated.
+    ///
+    /// Supported since etcd 3.6.
+    #[inline]
+    pub fn hash_revision(&self) -> i64 {
+        self.0.hash_revision
+    }
 }
 
 /// Response for `snapshot` operation.
@@ -515,6 +577,16 @@ impl SnapshotResponse {
     #[inline]
     pub fn blob(&self) -> &[u8] {
         &self.0.blob
+    }
+
+    /// local version of server that created the snapshot.
+    /// In cluster with binaries with different version, each cluster can return different result.
+    /// Informs which etcd server version should be used when restoring the snapshot.
+    ///
+    /// Supported since etcd 3.6.
+    #[inline]
+    pub fn version(&self) -> &str {
+        &self.0.version
     }
 }
 

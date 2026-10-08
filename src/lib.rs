@@ -109,8 +109,8 @@ pub use crate::rpc::lease::{
 pub use crate::rpc::lock::{LockClient, LockOptions, LockResponse, UnlockResponse};
 pub use crate::rpc::maintenance::{
     AlarmAction, AlarmMember, AlarmOptions, AlarmResponse, AlarmType, DefragmentResponse,
-    DowngradeResponse, HashKvResponse, HashResponse, MaintenanceClient, MoveLeaderResponse,
-    SnapshotResponse, SnapshotStreaming, StatusResponse,
+    DowngradeInfo, DowngradeOptions, DowngradeResponse, HashKvResponse, HashResponse,
+    MaintenanceClient, MoveLeaderResponse, SnapshotResponse, SnapshotStreaming, StatusResponse,
 };
 pub use crate::rpc::watch::{
     Event, EventType, WatchClient, WatchFilterType, WatchOptions, WatchRequestSender,
@@ -152,9 +152,9 @@ pub mod proto {
         AuthUserRevokeRoleResponse as PbAuthUserRevokeRoleResponse,
         AuthenticateResponse as PbAuthenticateResponse, CompactionResponse as PbCompactionResponse,
         Compare as PbCompare, DefragmentResponse as PbDefragmentResponse,
-        DeleteRangeResponse as PbDeleteResponse, DowngradeResponse as PbDowngradeResponse,
-        HashKvResponse as PbHashKvResponse, HashResponse as PbHashResponse,
-        LeaseGrantResponse as PbLeaseGrantResponse,
+        DeleteRangeResponse as PbDeleteResponse, DowngradeInfo as PbDowngradeInfo,
+        DowngradeResponse as PbDowngradeResponse, HashKvResponse as PbHashKvResponse,
+        HashResponse as PbHashResponse, LeaseGrantResponse as PbLeaseGrantResponse,
         LeaseKeepAliveResponse as PbLeaseKeepAliveResponse,
         LeaseLeasesResponse as PbLeaseLeasesResponse, LeaseRevokeResponse as PbLeaseRevokeResponse,
         LeaseStatus as PbLeaseStatus, LeaseTimeToLiveResponse as PbLeaseTimeToLiveResponse,
