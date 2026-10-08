@@ -39,11 +39,11 @@ pub struct KvClient {
 /// Response for `StreamRange` operation.
 #[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
 #[derive(Debug)]
-pub struct GetResponseStream {
+pub struct GetStreamResponse {
     stream: Streaming<PbRangeStreamResponse>,
 }
 
-impl GetResponseStream {
+impl GetStreamResponse {
     #[inline]
     const fn new(stream: Streaming<PbRangeStreamResponse>) -> Self {
         Self { stream }
@@ -61,7 +61,7 @@ impl GetResponseStream {
     }
 }
 
-impl Stream for GetResponseStream {
+impl Stream for GetStreamResponse {
     type Item = Result<GetResponse>;
 
     #[inline]
@@ -152,13 +152,13 @@ impl KvClient {
         &mut self,
         key: impl Into<Vec<u8>>,
         options: Option<GetOptions>,
-    ) -> Result<GetResponseStream> {
+    ) -> Result<GetStreamResponse> {
         async fn get_stream_impl(
             client: &mut Client,
             req: GetOptions,
-        ) -> Result<GetResponseStream> {
+        ) -> Result<GetStreamResponse> {
             let resp = client.range_stream(req).await?.into_inner();
-            Ok(GetResponseStream::new(resp))
+            Ok(GetStreamResponse::new(resp))
         }
         self.inner
             .do_call(

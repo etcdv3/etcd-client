@@ -98,8 +98,8 @@ pub use crate::rpc::election::{
 };
 pub use crate::rpc::kv::{
     CompactionOptions, CompactionResponse, Compare, CompareOp, DeleteOptions, DeleteResponse,
-    GetOptions, GetResponse, KvClient, PutOptions, PutResponse, SortOrder, SortTarget, Txn, TxnOp,
-    TxnOpResponse, TxnResponse,
+    GetOptions, GetResponse, GetStreamResponse, KvClient, PutOptions, PutResponse, SortOrder,
+    SortTarget, Txn, TxnOp, TxnOpResponse, TxnResponse,
 };
 pub use crate::rpc::lease::{
     LeaseClient, LeaseGrantOptions, LeaseGrantResponse, LeaseKeepAliveResponse,
@@ -164,10 +164,10 @@ pub mod proto {
         MemberRemoveResponse as PbMemberRemoveResponse,
         MemberUpdateResponse as PbMemberUpdateResponse, MoveLeaderResponse as PbMoveLeaderResponse,
         PutResponse as PbPutResponse, RangeResponse as PbRangeResponse,
-        RequestOp as PbTxnRequestOp, ResponseHeader as PbResponseHeader,
-        ResponseOp as PbResponseOp, SnapshotResponse as PbSnapshotResponse,
-        StatusResponse as PbStatusResponse, TxnRequest as PbTxnRequest,
-        TxnResponse as PbTxnResponse, WatchResponse as PbWatchResponse,
+        RangeStreamResponse as PbRangeStreamResponse, RequestOp as PbTxnRequestOp,
+        ResponseHeader as PbResponseHeader, ResponseOp as PbResponseOp,
+        SnapshotResponse as PbSnapshotResponse, StatusResponse as PbStatusResponse,
+        TxnRequest as PbTxnRequest, TxnResponse as PbTxnResponse, WatchResponse as PbWatchResponse,
     };
     pub use crate::rpc::pb::mvccpb::Event as PbEvent;
     pub use crate::rpc::pb::mvccpb::KeyValue as PbKeyValue;
