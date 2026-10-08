@@ -278,7 +278,8 @@ impl WatchResponse {
         self.0.created
     }
 
-    /// `canceled` is set to true if the response is for a cancel watch request.
+    /// `canceled` is set to true if the response is for a cancel watch request
+    /// or if the start_revision has already been compacted.
     /// No further events will be sent to the canceled watcher.
     #[inline]
     pub const fn canceled(&self) -> bool {

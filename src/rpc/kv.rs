@@ -581,6 +581,9 @@ impl GetResponse {
     }
 
     /// The number of keys within the range when requested.
+    ///
+    /// Unlike Kvs, it is unaffected by limits and filters (e.g., Min/Max, Create/Modify, Revisions)
+    /// and reflects the full count within the specified range.
     #[inline]
     pub const fn count(&self) -> i64 {
         self.0.count
