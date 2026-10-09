@@ -30,9 +30,9 @@ and [tonic](https://github.com/hyperium/tonic).
 - [x] Election
 - [x] Namespace
 
-For etcd 3.7, the new RPC method [`RangeStream`](https://etcd.io/docs/v3.7/learning/api/#rangestream)
+From etcd 3.7, the new RPC method [`RangeStream`](https://etcd.io/docs/v3.7/learning/api/#rangestream)
 is added to the `KV` service. The `etcd-client` crate supports this new RPC method via
-`KvClient::get_stream()` method without any feature flags, but it will not be used if the etcd
+`KvClient::get_stream()` method without any feature flags since `v0.21.0`, but it will not be used if the etcd
 server version is less than 3.7.
 
 ## Usage
@@ -41,7 +41,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-etcd-client = "0.16"
+etcd-client = "0.21"
 tokio = { version = "1.0", features = ["full"] }
 ```
 
@@ -129,7 +129,7 @@ Some test cases in `tests/client.rs` will be ignored by default:
 # Run etcd v3.7 RangeStream test
 cargo test --test client test_get_stream -- --ignored
 
-# Run cluster test
+# Run cluster test, need a pre-configured etcd cluster
 cargo test --test client test_cluster -- --ignored
 ```
 
