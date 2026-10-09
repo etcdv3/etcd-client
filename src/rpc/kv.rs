@@ -151,10 +151,10 @@ impl KvClient {
     /// Field population across chunks:
     ///
     /// - Kvs - each chunk carries a disjoint slice of the result. Concatenating the `kvs` from
-    /// every chunk in the order they arrive yields the same key set as a single Range call
-    /// ([`KvClient::get`]).
+    ///   every chunk in the order they arrive yields the same key set as a single Range call
+    ///   ([`KvClient::get`]).
     /// - Header, More, Count - populated **only** on the final chunk, and **only** when the stream
-    /// completes without error. Earlier chunks leave these fields zero-valued.
+    ///   completes without error. Earlier chunks leave these fields zero-valued.
     ///
     /// Read [`RangeStream`](https://etcd.io/docs/v3.7/learning/api/#rangestream) for more details.
     #[inline]
