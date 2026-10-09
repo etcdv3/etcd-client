@@ -20,6 +20,7 @@ and [tonic](https://github.com/hyperium/tonic).
 ## Supported APIs
 
 - [x] KV
+    - [x] RangeStream (etcd 3.7+)
 - [x] Watch
 - [x] Lease
 - [x] Auth
@@ -28,6 +29,11 @@ and [tonic](https://github.com/hyperium/tonic).
 - [x] Lock
 - [x] Election
 - [x] Namespace
+
+For etcd 3.7, the new RPC method [`RangeStream`](https://etcd.io/docs/v3.7/learning/api/#rangestream)
+is added to the `KV` service. The `etcd-client` crate supports this new RPC method via
+`KvClient::get_stream()` method without any feature flags, but it will not be used if the etcd
+server version is less than 3.7.
 
 ## Usage
 
@@ -112,6 +118,20 @@ Examples can be found in [`examples`](./examples).
 We test this library with etcd 3.5.
 
 Note that we use a fixed `etcd` server URI (`localhost:2379`) to connect to etcd server.
+
+Some test cases in `tests/client.rs` will be ignored by default:
+
+- `test_get_stream` Needs etcd 3.7+ to run
+- `test_get_stream_chunked` Needs etcd 3.7+ to run
+- `test_cluster` Needs a pre-configured etcd cluster to run. You can use `docker-compose` to start a 3-node etcd cluster for testing.
+
+```bash
+# Run etcd v3.7 RangeStream test
+cargo test --test client test_get_stream -- --ignored
+
+# Run cluster test
+cargo test --test client test_cluster -- --ignored
+```
 
 ## Rust version requirements
 

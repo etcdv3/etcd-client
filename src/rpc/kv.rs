@@ -16,12 +16,16 @@ use crate::rpc::pb::etcdserverpb::{
     DeleteRangeRequest as PbDeleteRequest, DeleteRangeRequest,
     DeleteRangeResponse as PbDeleteResponse, PutRequest as PbPutRequest,
     PutResponse as PbPutResponse, RangeRequest as PbRangeRequest, RangeResponse as PbRangeResponse,
-    RequestOp as PbTxnRequestOp, TxnRequest as PbTxnRequest, TxnResponse as PbTxnResponse,
+    RangeStreamResponse as PbRangeStreamResponse, RequestOp as PbTxnRequestOp,
+    TxnRequest as PbTxnRequest, TxnResponse as PbTxnResponse,
 };
 use crate::rpc::{get_prefix, KeyRange, KeyValue, ResponseHeader};
 use crate::vec::VecExt;
 use std::mem::ManuallyDrop;
-use tonic::{IntoRequest, Request};
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use tokio_stream::Stream;
+use tonic::{IntoRequest, Request, Streaming};
 
 type Client = PbKvClient<InterceptedChannel>;
 
@@ -30,6 +34,49 @@ type Client = PbKvClient<InterceptedChannel>;
 #[derive(Clone)]
 pub struct KvClient {
     inner: ClientCaller<Client>,
+}
+
+/// Response for `StreamRange` operation.
+#[cfg_attr(feature = "pub-response-field", visible::StructFields(pub))]
+#[derive(Debug)]
+pub struct GetResponseStream {
+    stream: Streaming<PbRangeStreamResponse>,
+}
+
+impl GetResponseStream {
+    #[inline]
+    const fn new(stream: Streaming<PbRangeStreamResponse>) -> Self {
+        Self { stream }
+    }
+
+    /// Fetches the next message from this stream.
+    #[inline]
+    pub async fn message(&mut self) -> Result<Option<GetResponse>> {
+        match self.stream.message().await? {
+            Some(PbRangeStreamResponse {
+                range_response: Some(resp),
+            }) => Ok(Some(GetResponse::new(resp))),
+            _ => Ok(None),
+        }
+    }
+}
+
+impl Stream for GetResponseStream {
+    type Item = Result<GetResponse>;
+
+    #[inline]
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        Pin::new(&mut self.get_mut().stream)
+            .poll_next(cx)
+            .map(|t| match t {
+                Some(Ok(PbRangeStreamResponse {
+                    range_response: Some(resp),
+                })) => Some(Ok(GetResponse::new(resp))),
+                Some(Ok(_)) => None,
+                Some(Err(e)) => Some(Err(From::from(e))),
+                None => None,
+            })
+    }
 }
 
 impl KvClient {
@@ -93,6 +140,31 @@ impl KvClient {
         }
         self.inner
             .do_call(options.unwrap_or_default().with_key(key.into()), get_impl)
+            .await
+    }
+
+    /// The streaming version of `get`, which was introduced in etcd v3.7.
+    /// It returns the same result as `get`, but the server splits the response into a sequence of
+    /// chunks and streams them to the client. This avoids buffering large ranges entirely in
+    /// memory on either side.
+    #[inline]
+    pub async fn get_stream(
+        &mut self,
+        key: impl Into<Vec<u8>>,
+        options: Option<GetOptions>,
+    ) -> Result<GetResponseStream> {
+        async fn get_stream_impl(
+            client: &mut Client,
+            req: GetOptions,
+        ) -> Result<GetResponseStream> {
+            let resp = client.range_stream(req).await?.into_inner();
+            Ok(GetResponseStream::new(resp))
+        }
+        self.inner
+            .do_call(
+                options.unwrap_or_default().with_key(key.into()),
+                get_stream_impl,
+            )
             .await
     }
 

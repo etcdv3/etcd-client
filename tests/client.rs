@@ -98,6 +98,118 @@ async fn test_get() -> Result<()> {
 
 #[tokio::test]
 #[parallel]
+#[ignore = "requires etcd v3.7 or later"]
+async fn test_get_stream() -> Result<()> {
+    let mut client = get_client().await?.kv_client();
+    client.put("get_stream10", "10", None).await?;
+    client.put("get_stream11", "11", None).await?;
+    client.put("get_stream20", "20", None).await?;
+    client.put("get_stream21", "21", None).await?;
+
+    // get key
+    {
+        let mut stream = client.get_stream("get_stream11", None).await?;
+        let resp = stream.message().await?.unwrap();
+        assert_eq!(resp.count(), 1);
+        assert!(!resp.more());
+        assert_eq!(resp.kvs().len(), 1);
+        assert_eq!(resp.kvs()[0].key(), b"get_stream11");
+        assert_eq!(resp.kvs()[0].value(), b"11");
+        assert!(stream.message().await?.is_none());
+    }
+
+    // get from key
+    {
+        let mut stream = client
+            .get_stream(
+                "get_stream11",
+                Some(GetOptions::new().with_from_key().with_limit(2)),
+            )
+            .await?;
+        let resp = stream.message().await?.unwrap();
+        assert!(resp.more());
+        assert_eq!(resp.kvs().len(), 2);
+        assert_eq!(resp.kvs()[0].key(), b"get_stream11");
+        assert_eq!(resp.kvs()[0].value(), b"11");
+        assert_eq!(resp.kvs()[1].key(), b"get_stream20");
+        assert_eq!(resp.kvs()[1].value(), b"20");
+        assert!(stream.message().await?.is_none());
+    }
+
+    // get prefix keys
+    {
+        let mut stream = client
+            .get_stream("get_stream1", Some(GetOptions::new().with_prefix()))
+            .await?;
+        let resp = stream.message().await?.unwrap();
+        assert_eq!(resp.count(), 2);
+        assert!(!resp.more());
+        assert_eq!(resp.kvs().len(), 2);
+        assert_eq!(resp.kvs()[0].key(), b"get_stream10");
+        assert_eq!(resp.kvs()[0].value(), b"10");
+        assert_eq!(resp.kvs()[1].key(), b"get_stream11");
+        assert_eq!(resp.kvs()[1].value(), b"11");
+        assert!(stream.message().await?.is_none());
+    }
+
+    // get missing key
+    {
+        let mut stream = client.get_stream("get_stream_missing", None).await?;
+        let resp = stream.message().await?.unwrap();
+        assert_eq!(resp.count(), 0);
+        assert!(!resp.more());
+        assert!(resp.kvs().is_empty());
+        assert!(stream.message().await?.is_none());
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+#[parallel]
+#[ignore = "requires etcd v3.7 or later"]
+async fn test_get_stream_chunked() -> Result<()> {
+    let mut client = get_client().await?.kv_client();
+    let value = "x".repeat(1024 * 3); // 3KB value
+
+    // NOTE: Starts etcd server with --max-request-bytes=10240
+    // Put 50 keys with 3KB value, total 150KB, which is larger than max-request-bytes
+    // In this case, the server will return chunked response, and the client should be
+    // able to handle it correctly.
+    for i in 0..50 {
+        client
+            .put(format!("get_stream_chunked_{:02}", i), value.clone(), None)
+            .await?;
+    }
+
+    // get_stream from key
+    {
+        let mut stream = client
+            .get_stream(
+                "get_stream_chunked_",
+                Some(GetOptions::new().with_prefix().with_limit(20)),
+            )
+            .await?;
+        let mut last_resp = None;
+        while let Some(resp) = stream.message().await? {
+            last_resp = Some(resp.clone());
+            assert!(resp.kvs().len() < 50, "Expected the number of keys in each response to be less than 50 because etcd server will return chunked response");
+            assert!(!resp.kvs().is_empty());
+        }
+        assert!(
+            last_resp.is_some(),
+            "Expected there should be more keys because we limited the number of response to 20"
+        );
+        let last_resp = last_resp.unwrap();
+        assert!(last_resp.more());
+        assert_eq!(last_resp.count(), 50);
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+#[parallel]
 async fn test_delete() -> Result<()> {
     let mut client = get_client().await?;
     client.put("del10", "10", None).await?;
@@ -413,9 +525,36 @@ async fn test_auth() -> Result<()> {
     Ok(())
 }
 
+struct TestContext {}
+
+impl TestContext {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Drop for TestContext {
+    fn drop(&mut self) {
+        // Create a new thread to run blocking runtime to disable auth,
+        // because the drop function is not async.
+        let handler = std::thread::spawn(move || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                // If auth is enabled, disable it to avoid affecting other tests.
+                if let Ok(mut client) = get_auth_client(None).await {
+                    client.auth_disable().await.ok();
+                }
+            });
+        });
+        handler.join().unwrap();
+    }
+}
+
 #[tokio::test]
 #[serial]
 async fn test_auth_refresh_token() -> Result<()> {
+    let _ctx = TestContext::new();
+
     const TOKEN_TTL: Duration = Duration::from_secs(4);
 
     let mut client = get_client().await?;

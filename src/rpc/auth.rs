@@ -1026,6 +1026,7 @@ impl UserAddOptions {
             name: String::new(),
             password: String::new(),
             options: Some(PbUserAddOptions { no_password: false }),
+            hashed_password: String::new(),
         })
     }
 
@@ -1250,6 +1251,7 @@ impl UserChangePasswordOptions {
         Self(PbAuthUserChangePasswordRequest {
             name,
             password: new_password,
+            hashed_password: String::new(),
         })
     }
 }

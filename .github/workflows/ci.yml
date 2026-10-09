@@ -29,7 +29,7 @@ jobs:
       - run: sudo docker exec etcd-server etcdctl user grant-role root root
       - run: sudo apt install -y protobuf-compiler libprotobuf-dev curl
       - name: Check out repository code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: install cargo-hack
         uses: taiki-e/install-action@cargo-hack
       - run: cargo --version --verbose
@@ -58,3 +58,38 @@ jobs:
       # run: cargo run --example auth_role
       # run: cargo run --example auth_user
       # run: cargo run --example cluster
+
+  regression-test-for-etcd-v3_7:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Get latest etcd from docker hub"
+      - run: docker --version
+      - run: sudo docker pull quay.io/coreos/etcd:v3.7.2
+      - run: >
+          sudo docker run -d --name etcd-server
+          --publish 2379:2379
+          --publish 2380:2380
+          --env ETCD_AUTH_TOKEN_TTL=2
+          --env ALLOW_NONE_AUTHENTICATION=yes
+          --env ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+          --env ETCD_ADVERTISE_CLIENT_URLS=http://localhost:2379
+          --env ETCD_MAX_REQUEST_BYTES=10204
+          quay.io/coreos/etcd:v3.7.2
+      - run: sudo docker exec etcd-server etcdctl member list -w table
+      - run: sudo docker exec etcd-server etcdctl endpoint status -w table
+      - run: sudo apt install -y protobuf-compiler libprotobuf-dev curl
+      - run: curl -v http://localhost:2379/health
+      # Create and grant a testing user.
+      - run: sudo docker exec etcd-server etcdctl user add --new-user-password="rootpwd" root
+      - run: sudo docker exec etcd-server etcdctl user grant-role root root
+      - run: sudo apt install -y protobuf-compiler libprotobuf-dev curl
+      - name: Check out repository code
+        uses: actions/checkout@v7
+      - name: install cargo-hack
+        uses: taiki-e/install-action@cargo-hack
+      - run: cargo --version --verbose
+      - run: rustc --version --verbose
+      - name: unit test
+        run: cargo test
+      - name: test get stream chunked
+        run: cargo test --test client test_get_stream -- --ignored

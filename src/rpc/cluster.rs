@@ -100,7 +100,12 @@ impl ClusterClient {
             Ok(MemberListResponse::new(resp))
         }
         self.inner
-            .do_call(PbMemberListRequest {}, member_list_impl)
+            .do_call(
+                PbMemberListRequest {
+                    linearizable: false,
+                },
+                member_list_impl,
+            )
             .await
     }
 
