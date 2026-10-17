@@ -34,7 +34,7 @@ jobs:
           --mutually-exclusive-features tls-ring,tls-aws-lc,tls-openssl
           --mutually-exclusive-features tls-native-roots,tls-openssl
           --mutually-exclusive-features tls-webpki-roots,tls-openssl clippy
-          --exclude-features _tls
+          --exclude-features _tls,tls-openssl-vendored
           --all-targets
           --
           -D warnings
