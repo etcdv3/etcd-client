@@ -6,40 +6,31 @@ on:
   push:
     branches: [ '**' ]
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
-  regression-test:
+  lint:
+    name: lint (${{ matrix.partition }}/4)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [1, 2, 3, 4]
     steps:
-      - run: echo "Get latest etcd from docker hub"
-      - run: docker --version
-      - run: sudo docker pull quay.io/coreos/etcd:v3.5.26
-      - run: >
-          sudo docker run -d --name etcd-server
-          --publish 2379:2379
-          --publish 2380:2380
-          --env ETCD_AUTH_TOKEN_TTL=2
-          --env ALLOW_NONE_AUTHENTICATION=yes
-          --env ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
-          --env ETCD_ADVERTISE_CLIENT_URLS=http://localhost:2379
-          quay.io/coreos/etcd:v3.5.26
-      - run: sudo docker exec etcd-server etcdctl member list -w table
-      - run: sudo docker exec etcd-server etcdctl endpoint status -w table
-      # Create and grant a testing user.
-      - run: sudo docker exec etcd-server etcdctl user add --new-user-password="rootpwd" root
-      - run: sudo docker exec etcd-server etcdctl user grant-role root root
-      - run: sudo apt install -y protobuf-compiler libprotobuf-dev curl
-      - name: Check out repository code
-        uses: actions/checkout@v7
-      - name: install cargo-hack
-        uses: taiki-e/install-action@cargo-hack
-      - run: cargo --version --verbose
-      - run: rustc --version --verbose
+      - uses: actions/checkout@v7
+      - run: sudo apt install -y protobuf-compiler libprotobuf-dev
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: clippy-${{ matrix.partition }}
+      - uses: taiki-e/install-action@cargo-hack
       - name: format check
+        if: matrix.partition == 1
         run: cargo fmt --check
-      - run: curl -v http://localhost:2379/health
       - name: clippy
         run: >
           cargo hack --feature-powerset
+          --partition ${{ matrix.partition }}/4
           --mutually-exclusive-features tls-ring,tls-aws-lc,tls-openssl
           --mutually-exclusive-features tls-native-roots,tls-openssl
           --mutually-exclusive-features tls-webpki-roots,tls-openssl clippy
@@ -47,25 +38,21 @@ jobs:
           --all-targets
           --
           -D warnings
-      - name: unit test
-        run: cargo test
-      - run: cargo run --example kv
-      - run: cargo run --example lease
-      - run: cargo run --example lock
-      - run: cargo run --example maintenance
-      - run: cargo run --example watch
-      - run: cargo run --example election
-      # run: cargo run --example auth_role
-      # run: cargo run --example auth_user
-      # run: cargo run --example cluster
 
-  regression-test-for-etcd-v3_7:
+  regression-test:
+    name: etcd ${{ matrix.etcd }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - etcd: v3.5.26
+          - etcd: v3.6.15
+          - etcd: v3.7.2
+            max_request_bytes: 10204
     steps:
-      - run: echo "Get latest etcd from docker hub"
-      - run: docker --version
-      - run: sudo docker pull quay.io/coreos/etcd:v3.7.2
-      - run: >
+      - name: Start etcd
+        run: >
           sudo docker run -d --name etcd-server
           --publish 2379:2379
           --publish 2380:2380
@@ -73,23 +60,51 @@ jobs:
           --env ALLOW_NONE_AUTHENTICATION=yes
           --env ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
           --env ETCD_ADVERTISE_CLIENT_URLS=http://localhost:2379
-          --env ETCD_MAX_REQUEST_BYTES=10204
-          quay.io/coreos/etcd:v3.7.2
+          --env ETCD_MAX_REQUEST_BYTES=${{ matrix.max_request_bytes || 1572864 }}
+          quay.io/coreos/etcd:${{ matrix.etcd }}
       - run: sudo docker exec etcd-server etcdctl member list -w table
       - run: sudo docker exec etcd-server etcdctl endpoint status -w table
-      - run: sudo apt install -y protobuf-compiler libprotobuf-dev curl
-      - run: curl -v http://localhost:2379/health
       # Create and grant a testing user.
       - run: sudo docker exec etcd-server etcdctl user add --new-user-password="rootpwd" root
       - run: sudo docker exec etcd-server etcdctl user grant-role root root
-      - run: sudo apt install -y protobuf-compiler libprotobuf-dev curl
-      - name: Check out repository code
-        uses: actions/checkout@v7
-      - name: install cargo-hack
-        uses: taiki-e/install-action@cargo-hack
-      - run: cargo --version --verbose
-      - run: rustc --version --verbose
+      - run: curl -v http://localhost:2379/health
+      - run: sudo apt install -y protobuf-compiler libprotobuf-dev
+      - uses: actions/checkout@v7
+      - uses: Swatinem/rust-cache@v2
       - name: unit test
         run: cargo test
       - name: test get stream chunked
+        if: matrix.max_request_bytes
         run: cargo test --test client test_get_stream -- --ignored
+      - run: cargo run --example kv
+      - run: cargo run --example lease
+      - run: cargo run --example lock
+      - run: cargo run --example maintenance
+      - run: cargo run --example watch
+      - run: cargo run --example election
+      - run: cargo run --example auth_role
+      - run: cargo run --example auth_user
+      # run: cargo run --example cluster
+
+  cluster-test:
+    name: cluster etcd ${{ matrix.etcd }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        etcd: [v3.5.26, v3.6.15, v3.7.2]
+    steps:
+      - uses: actions/checkout@v7
+      - run: .github/scripts/etcd-cluster.sh up ${{ matrix.etcd }}
+      # Waits in the background for test_cluster to add node4, then starts it.
+      - run: nohup .github/scripts/etcd-cluster.sh join ${{ matrix.etcd }} > join.log 2>&1 &
+      - run: sudo apt install -y protobuf-compiler libprotobuf-dev
+      - uses: Swatinem/rust-cache@v2
+      - name: cluster test
+        run: cargo test --test client test_cluster -- --ignored
+      - name: etcd logs
+        if: failure()
+        run: |
+          cat join.log
+          for n in 1 2 3 4; do docker logs node$n || true; done

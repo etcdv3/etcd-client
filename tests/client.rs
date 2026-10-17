@@ -840,28 +840,36 @@ async fn test_snapshot() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
+/// Requires a multi-node cluster, see `.github/scripts/etcd-cluster.sh`: the script starts
+/// node4 as soon as it shows up in the member list, so it can catch up and be promoted.
+#[ignore = "requires a multi-node etcd cluster with node4 started once added"]
 #[tokio::test]
 async fn test_cluster() -> Result<()> {
-    let node1 = "localhost:2520";
-    let node2 = "localhost:2530";
-    let node3 = "localhost:2540";
+    let node4 = "http://node4:2380";
     let mut client = get_client().await?;
     let resp = client
-        .member_add([node1], Some(MemberAddOptions::new().with_is_learner()))
+        .member_add([node4], Some(MemberAddOptions::new().with_is_learner()))
         .await?;
-    let id1 = resp.member().unwrap().id();
+    let id = resp.member().unwrap().id();
 
-    let resp = client.member_add([node2], None).await?;
-    let id2 = resp.member().unwrap().id();
-    let resp = client.member_add([node3], None).await?;
-    let id3 = resp.member().unwrap().id();
+    // A learner can only be promoted once it has caught up with the leader.
+    let mut promoted = Err(None);
+    for _ in 0..60 {
+        promoted = client.member_promote(id).await.map(drop).map_err(Some);
+        if promoted.is_ok() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+    assert!(promoted.is_ok(), "promote learner failed: {promoted:?}");
 
     let resp = client.member_list().await?;
-    let members: Vec<_> = resp.members().iter().map(|member| member.id()).collect();
-    assert!(members.contains(&id1));
-    assert!(members.contains(&id2));
-    assert!(members.contains(&id3));
+    let member = resp.members().iter().find(|m| m.id() == id).unwrap();
+    assert!(!member.is_learner());
+
+    client.member_remove(id).await?;
+    let resp = client.member_list().await?;
+    assert!(resp.members().iter().all(|m| m.id() != id));
     Ok(())
 }
 
