@@ -11,12 +11,12 @@ env:
 
 jobs:
   lint:
-    name: lint (${{ matrix.partition }}/4)
+    name: lint (${{ matrix.partition }}/8)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        partition: [1, 2, 3, 4]
+        partition: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       - uses: actions/checkout@v7
       - run: sudo apt install -y protobuf-compiler libprotobuf-dev
@@ -30,7 +30,7 @@ jobs:
       - name: clippy
         run: >
           cargo hack --feature-powerset
-          --partition ${{ matrix.partition }}/4
+          --partition ${{ matrix.partition }}/8
           --mutually-exclusive-features tls-ring,tls-aws-lc,tls-openssl
           --mutually-exclusive-features tls-native-roots,tls-openssl
           --mutually-exclusive-features tls-webpki-roots,tls-openssl clippy
