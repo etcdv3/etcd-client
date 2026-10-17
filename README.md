@@ -3,6 +3,7 @@
 [![Minimum rustc version](https://img.shields.io/badge/rustc-1.80+-lightgray.svg)](https://github.com/etcdv3/etcd-client#rust-version-requirements)
 [![Crate](https://img.shields.io/crates/v/etcd-client.svg)](https://crates.io/crates/etcd-client)
 [![API](https://docs.rs/etcd-client/badge.svg)](https://docs.rs/etcd-client)
+[![Etcd Client Test](https://github.com/etcdv3/etcd-client/actions/workflows/ci.yml/badge.svg)](https://github.com/etcdv3/etcd-client/actions/workflows/ci.yml)
 
 [![License: Apache](https://img.shields.io/badge/License-Apache%202.0-red.svg)](LICENSE-APACHE)
 OR
