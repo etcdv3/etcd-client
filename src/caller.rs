@@ -25,6 +25,9 @@ pub struct CallOptions {
     /// Whether to automatically refresh an expired token.
     /// Requires each request cloning.
     pub refresh_expired_token: bool,
+    /// Serializes the token refreshes so that concurrent calls which hit an expired token
+    /// authenticate once, see [`ClientCaller::do_call`].
+    pub refresh_lock: Arc<tokio::sync::Mutex<()>>,
 }
 
 /// Helps to build a [`ClientCaller`].
@@ -124,6 +127,16 @@ impl<T> ClientCaller<T> {
         Ok(())
     }
 
+    /// Refresh the token unless it is not `stale` anymore, i.e. a concurrent call has already
+    /// refreshed it while this one was waiting for the lock.
+    async fn refresh_token_if_stale(&self, stale: Option<MetadataValue<Ascii>>) -> Result<()> {
+        let _guard = self.options.refresh_lock.lock().await;
+        if *self.auth_token.read_unpoisoned() != stale {
+            return Ok(());
+        }
+        self.refresh_token().await
+    }
+
     /// Gets the inner client, bypassing the token refresh of [`do_call`](Self::do_call).
     pub(crate) fn inner_mut(&mut self) -> &mut T {
         &mut self.inner
@@ -155,12 +168,16 @@ impl<T> ClientCaller<T> {
             return (call)(&mut self.inner, req).await;
         }
 
+        // The token this request is sent with. If it is refused and the current one is not it
+        // anymore, the token was refreshed by a concurrent call and there is nothing to refresh.
+        let stale = self.auth_token.read_unpoisoned().clone();
+
         // Clone the request to be able to retry in the case of token expiration.
         let resp = (call)(&mut self.inner, req.clone()).await;
         match resp {
             Err(GRpcStatus(status)) if is_invalid_auth_token(&status) => {
                 // Re-authenticate and retry this query.
-                self.refresh_token().await?;
+                self.refresh_token_if_stale(stale).await?;
                 (call)(&mut self.inner, req).await
             }
             res => res,

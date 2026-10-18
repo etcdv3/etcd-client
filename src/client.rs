@@ -913,6 +913,7 @@ impl From<&ConnectOptions> for CallOptions {
         Self {
             creds: Arc::new(RwLock::new(options.user.clone())),
             refresh_expired_token: options.refresh_expired_token,
+            refresh_lock: Default::default(),
         }
     }
 }
