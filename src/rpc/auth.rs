@@ -2,6 +2,7 @@
 
 pub use crate::rpc::pb::authpb::permission::Type as PermissionType;
 
+use crate::caller::{ClientCaller, ClientCallerBuilder};
 use crate::error::Result;
 use crate::intercept::InterceptedChannel;
 use crate::rpc::pb::authpb::{Permission as PbPermission, UserAddOptions as PbUserAddOptions};
@@ -35,46 +36,64 @@ use crate::rpc::ResponseHeader;
 use crate::rpc::{get_prefix, KeyRange};
 use tonic::{IntoRequest, Request};
 
+type Client = PbAuthClient<InterceptedChannel>;
+
+/// The raw auth stub used to obtain tokens. It must not go through [`ClientCaller`],
+/// otherwise refreshing a token would recurse into itself.
+pub(crate) type RawAuthClient = Client;
+
 /// Client for Auth operations.
 #[derive(Clone)]
 pub struct AuthClient {
-    inner: PbAuthClient<InterceptedChannel>,
+    inner: ClientCaller<Client>,
 }
 
 impl AuthClient {
     /// Creates an auth client.
     #[inline]
-    pub(crate) fn new(channel: InterceptedChannel) -> Self {
-        let inner = PbAuthClient::new(channel);
-        Self { inner }
+    pub(crate) fn new(builder: ClientCallerBuilder) -> Self {
+        Self {
+            inner: builder.build(Client::new),
+        }
     }
 
     /// Enables authentication for the etcd cluster.
     #[inline]
     pub async fn auth_enable(&mut self) -> Result<AuthEnableResponse> {
-        let resp = self
-            .inner
-            .auth_enable(AuthEnableOptions::new())
-            .await?
-            .into_inner();
-        Ok(AuthEnableResponse::new(resp))
+        async fn auth_enable_impl(
+            client: &mut Client,
+            options: AuthEnableOptions,
+        ) -> Result<AuthEnableResponse> {
+            let resp = client.auth_enable(options).await?.into_inner();
+            Ok(AuthEnableResponse::new(resp))
+        }
+        self.inner
+            .do_call(AuthEnableOptions::new(), auth_enable_impl)
+            .await
     }
 
     /// Disables authentication for the etcd cluster.
     #[inline]
     pub async fn auth_disable(&mut self) -> Result<AuthDisableResponse> {
-        let resp = self
-            .inner
-            .auth_disable(AuthDisableOptions::new())
-            .await?
-            .into_inner();
-        Ok(AuthDisableResponse::new(resp))
+        async fn auth_disable_impl(
+            client: &mut Client,
+            options: AuthDisableOptions,
+        ) -> Result<AuthDisableResponse> {
+            let resp = client.auth_disable(options).await?.into_inner();
+            Ok(AuthDisableResponse::new(resp))
+        }
+        self.inner
+            .do_call(AuthDisableOptions::new(), auth_disable_impl)
+            .await
     }
 
     /// Sends an authenticate request.
     ///
     /// Note that this does not set or update client-side authentication settings.
     /// Call [`crate::Client::refresh_token`] instead.
+    ///
+    /// This is the only call that does not refresh an expired token, since it is the
+    /// call used to obtain one.
     #[inline]
     pub async fn authenticate(
         &mut self,
@@ -83,6 +102,7 @@ impl AuthClient {
     ) -> Result<AuthenticateResponse> {
         let resp = self
             .inner
+            .inner_mut()
             .authenticate(AuthenticateOptions::new().with_user(name, password))
             .await?
             .into_inner();
@@ -92,45 +112,61 @@ impl AuthClient {
     /// Adds role
     #[inline]
     pub async fn role_add(&mut self, name: impl Into<String>) -> Result<RoleAddResponse> {
-        let resp = self
-            .inner
-            .role_add(RoleAddOptions::new(name.into()))
-            .await?
-            .into_inner();
-        Ok(RoleAddResponse::new(resp))
+        async fn role_add_impl(
+            client: &mut Client,
+            options: RoleAddOptions,
+        ) -> Result<RoleAddResponse> {
+            let resp = client.role_add(options).await?.into_inner();
+            Ok(RoleAddResponse::new(resp))
+        }
+        self.inner
+            .do_call(RoleAddOptions::new(name.into()), role_add_impl)
+            .await
     }
 
     /// Deletes role
     #[inline]
     pub async fn role_delete(&mut self, name: impl Into<String>) -> Result<RoleDeleteResponse> {
-        let resp = self
-            .inner
-            .role_delete(RoleDeleteOptions::new(name.into()))
-            .await?
-            .into_inner();
-        Ok(RoleDeleteResponse::new(resp))
+        async fn role_delete_impl(
+            client: &mut Client,
+            options: RoleDeleteOptions,
+        ) -> Result<RoleDeleteResponse> {
+            let resp = client.role_delete(options).await?.into_inner();
+            Ok(RoleDeleteResponse::new(resp))
+        }
+        self.inner
+            .do_call(RoleDeleteOptions::new(name.into()), role_delete_impl)
+            .await
     }
 
     /// Gets role
     #[inline]
     pub async fn role_get(&mut self, name: impl Into<String>) -> Result<RoleGetResponse> {
-        let resp = self
-            .inner
-            .role_get(RoleGetOptions::new(name.into()))
-            .await?
-            .into_inner();
-        Ok(RoleGetResponse::new(resp))
+        async fn role_get_impl(
+            client: &mut Client,
+            options: RoleGetOptions,
+        ) -> Result<RoleGetResponse> {
+            let resp = client.role_get(options).await?.into_inner();
+            Ok(RoleGetResponse::new(resp))
+        }
+        self.inner
+            .do_call(RoleGetOptions::new(name.into()), role_get_impl)
+            .await
     }
 
     /// Lists role
     #[inline]
     pub async fn role_list(&mut self) -> Result<RoleListResponse> {
-        let resp = self
-            .inner
-            .role_list(AuthRoleListOptions {})
-            .await?
-            .into_inner();
-        Ok(RoleListResponse::new(resp))
+        async fn role_list_impl(
+            client: &mut Client,
+            options: AuthRoleListOptions,
+        ) -> Result<RoleListResponse> {
+            let resp = client.role_list(options).await?.into_inner();
+            Ok(RoleListResponse::new(resp))
+        }
+        self.inner
+            .do_call(AuthRoleListOptions {}, role_list_impl)
+            .await
     }
 
     /// Grants role permission
@@ -140,12 +176,19 @@ impl AuthClient {
         name: impl Into<String>,
         perm: Permission,
     ) -> Result<RoleGrantPermissionResponse> {
-        let resp = self
-            .inner
-            .role_grant_permission(RoleGrantPermissionOptions::new(name.into(), perm))
-            .await?
-            .into_inner();
-        Ok(RoleGrantPermissionResponse::new(resp))
+        async fn role_grant_permission_impl(
+            client: &mut Client,
+            options: RoleGrantPermissionOptions,
+        ) -> Result<RoleGrantPermissionResponse> {
+            let resp = client.role_grant_permission(options).await?.into_inner();
+            Ok(RoleGrantPermissionResponse::new(resp))
+        }
+        self.inner
+            .do_call(
+                RoleGrantPermissionOptions::new(name.into(), perm),
+                role_grant_permission_impl,
+            )
+            .await
     }
 
     /// Revokes role permission
@@ -156,17 +199,22 @@ impl AuthClient {
         key: impl Into<Vec<u8>>,
         options: Option<RoleRevokePermissionOptions>,
     ) -> Result<RoleRevokePermissionResponse> {
-        let resp = self
-            .inner
-            .role_revoke_permission(
+        async fn role_revoke_permission_impl(
+            client: &mut Client,
+            options: RoleRevokePermissionOptions,
+        ) -> Result<RoleRevokePermissionResponse> {
+            let resp = client.role_revoke_permission(options).await?.into_inner();
+            Ok(RoleRevokePermissionResponse::new(resp))
+        }
+        self.inner
+            .do_call(
                 options
                     .unwrap_or_default()
                     .with_name(name.into())
                     .with_key(key.into()),
+                role_revoke_permission_impl,
             )
-            .await?
-            .into_inner();
-        Ok(RoleRevokePermissionResponse::new(resp))
+            .await
     }
 
     /// Adds user
@@ -177,50 +225,67 @@ impl AuthClient {
         password: impl Into<String>,
         options: Option<UserAddOptions>,
     ) -> Result<UserAddResponse> {
-        let resp = self
-            .inner
-            .user_add(
+        async fn user_add_impl(
+            client: &mut Client,
+            options: UserAddOptions,
+        ) -> Result<UserAddResponse> {
+            let resp = client.user_add(options).await?.into_inner();
+            Ok(UserAddResponse::new(resp))
+        }
+        self.inner
+            .do_call(
                 options
                     .unwrap_or_default()
                     .with_name(name.into())
                     .with_pwd(password.into()),
+                user_add_impl,
             )
-            .await?
-            .into_inner();
-        Ok(UserAddResponse::new(resp))
+            .await
     }
 
     /// Gets user
     #[inline]
     pub async fn user_get(&mut self, name: impl Into<String>) -> Result<UserGetResponse> {
-        let resp = self
-            .inner
-            .user_get(UserGetOptions::new(name.into()))
-            .await?
-            .into_inner();
-        Ok(UserGetResponse::new(resp))
+        async fn user_get_impl(
+            client: &mut Client,
+            options: UserGetOptions,
+        ) -> Result<UserGetResponse> {
+            let resp = client.user_get(options).await?.into_inner();
+            Ok(UserGetResponse::new(resp))
+        }
+        self.inner
+            .do_call(UserGetOptions::new(name.into()), user_get_impl)
+            .await
     }
 
     /// Lists user
     #[inline]
     pub async fn user_list(&mut self) -> Result<UserListResponse> {
-        let resp = self
-            .inner
-            .user_list(AuthUserListOptions {})
-            .await?
-            .into_inner();
-        Ok(UserListResponse::new(resp))
+        async fn user_list_impl(
+            client: &mut Client,
+            options: AuthUserListOptions,
+        ) -> Result<UserListResponse> {
+            let resp = client.user_list(options).await?.into_inner();
+            Ok(UserListResponse::new(resp))
+        }
+        self.inner
+            .do_call(AuthUserListOptions {}, user_list_impl)
+            .await
     }
 
     /// Deletes user
     #[inline]
     pub async fn user_delete(&mut self, name: impl Into<String>) -> Result<UserDeleteResponse> {
-        let resp = self
-            .inner
-            .user_delete(UserDeleteOptions::new(name.into()))
-            .await?
-            .into_inner();
-        Ok(UserDeleteResponse::new(resp))
+        async fn user_delete_impl(
+            client: &mut Client,
+            options: UserDeleteOptions,
+        ) -> Result<UserDeleteResponse> {
+            let resp = client.user_delete(options).await?.into_inner();
+            Ok(UserDeleteResponse::new(resp))
+        }
+        self.inner
+            .do_call(UserDeleteOptions::new(name.into()), user_delete_impl)
+            .await
     }
 
     /// Change user's password
@@ -230,12 +295,19 @@ impl AuthClient {
         name: impl Into<String>,
         password: impl Into<String>,
     ) -> Result<UserChangePasswordResponse> {
-        let resp = self
-            .inner
-            .user_change_password(UserChangePasswordOptions::new(name.into(), password.into()))
-            .await?
-            .into_inner();
-        Ok(UserChangePasswordResponse::new(resp))
+        async fn user_change_password_impl(
+            client: &mut Client,
+            options: UserChangePasswordOptions,
+        ) -> Result<UserChangePasswordResponse> {
+            let resp = client.user_change_password(options).await?.into_inner();
+            Ok(UserChangePasswordResponse::new(resp))
+        }
+        self.inner
+            .do_call(
+                UserChangePasswordOptions::new(name.into(), password.into()),
+                user_change_password_impl,
+            )
+            .await
     }
 
     /// Grant role for an user
@@ -245,12 +317,19 @@ impl AuthClient {
         name: impl Into<String>,
         role: impl Into<String>,
     ) -> Result<UserGrantRoleResponse> {
-        let resp = self
-            .inner
-            .user_grant_role(UserGrantRoleOptions::new(name.into(), role.into()))
-            .await?
-            .into_inner();
-        Ok(UserGrantRoleResponse::new(resp))
+        async fn user_grant_role_impl(
+            client: &mut Client,
+            options: UserGrantRoleOptions,
+        ) -> Result<UserGrantRoleResponse> {
+            let resp = client.user_grant_role(options).await?.into_inner();
+            Ok(UserGrantRoleResponse::new(resp))
+        }
+        self.inner
+            .do_call(
+                UserGrantRoleOptions::new(name.into(), role.into()),
+                user_grant_role_impl,
+            )
+            .await
     }
 
     /// Revoke role for an user
@@ -260,12 +339,19 @@ impl AuthClient {
         name: impl Into<String>,
         role: impl Into<String>,
     ) -> Result<UserRevokeRoleResponse> {
-        let resp = self
-            .inner
-            .user_revoke_role(UserRevokeRoleOptions::new(name.into(), role.into()))
-            .await?
-            .into_inner();
-        Ok(UserRevokeRoleResponse::new(resp))
+        async fn user_revoke_role_impl(
+            client: &mut Client,
+            options: UserRevokeRoleOptions,
+        ) -> Result<UserRevokeRoleResponse> {
+            let resp = client.user_revoke_role(options).await?.into_inner();
+            Ok(UserRevokeRoleResponse::new(resp))
+        }
+        self.inner
+            .do_call(
+                UserRevokeRoleOptions::new(name.into(), role.into()),
+                user_revoke_role_impl,
+            )
+            .await
     }
 }
 
@@ -381,7 +467,7 @@ pub struct AuthenticateOptions(PbAuthenticateRequest);
 impl AuthenticateOptions {
     /// Sets user's name and password.
     #[inline]
-    fn with_user(mut self, name: String, password: String) -> Self {
+    pub(crate) fn with_user(mut self, name: String, password: String) -> Self {
         self.0.name = name;
         self.0.password = password;
         self

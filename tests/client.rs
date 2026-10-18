@@ -583,6 +583,12 @@ async fn test_auth_refresh_token() -> Result<()> {
     tokio::time::sleep(TOKEN_TTL).await;
     client.unlock(resp.key()).await?;
 
+    // Auth management calls must refresh an expired token too.
+    tokio::time::sleep(TOKEN_TTL).await;
+    client.user_list().await?;
+    tokio::time::sleep(TOKEN_TTL).await;
+    client.auth_client().role_list().await?;
+
     client.auth_disable().await?;
 
     Ok(())
