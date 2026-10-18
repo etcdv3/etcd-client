@@ -35,13 +35,17 @@ impl TonicInterceptor for Interceptor {
     ) -> Result<tonic::Request<()>, tonic::Status> {
         if let Some(method) = request.extensions().get::<GrpcMethod>() {
             match (method.service(), method.method()) {
-                ("etcdserverpb.Auth", "Authenticate") | ("etcdserverpb.Cluster", "MemberList") => {}
+                // `Authenticate` is how the token is obtained.
+                ("etcdserverpb.Auth", "Authenticate") => {}
                 (service, _)
                     if service.starts_with("etcdserverpb")
                         || service.starts_with("v3electionpb")
                         || service.starts_with("v3lockpb") =>
                 {
-                    // Add the authentication token if it exists
+                    // Add the authentication token if it exists. Which RPCs require it varies
+                    // across etcd versions, e.g. `Cluster.MemberList` does since 3.6 (observed on
+                    // 3.6.15 and 3.7.2, but not on 3.5.26), and the server accepts the token on
+                    // those which don't.
                     self.append_token(&mut request);
                 }
                 _ => {
@@ -63,3 +67,55 @@ impl TonicInterceptor for Interceptor {
 
 /// A type alias to make using this interceptor easier.
 pub type InterceptedChannel = InterceptedService<Channel, Interceptor>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn token_of(service: &'static str, method: &'static str) -> Option<String> {
+        let mut interceptor = Interceptor {
+            require_leader: false,
+            auth_token: Arc::new(RwLock::new(Some("token".parse().unwrap()))),
+        };
+        let mut request = tonic::Request::new(());
+        request
+            .extensions_mut()
+            .insert(GrpcMethod::new(service, method));
+        let request = interceptor.call(request).unwrap();
+        request
+            .metadata()
+            .get(TOKEN_HEADER)
+            .map(|v| v.to_str().unwrap().to_owned())
+    }
+
+    #[test]
+    fn token_is_sent_to_etcd_services() {
+        for (service, method) in [
+            ("etcdserverpb.KV", "Range"),
+            ("etcdserverpb.Watch", "Watch"),
+            ("etcdserverpb.Lease", "LeaseGrant"),
+            ("etcdserverpb.Lease", "LeaseKeepAlive"),
+            ("etcdserverpb.Cluster", "MemberList"),
+            ("etcdserverpb.Maintenance", "Status"),
+            ("etcdserverpb.Auth", "UserAdd"),
+            ("v3electionpb.Election", "Campaign"),
+            ("v3lockpb.Lock", "Lock"),
+        ] {
+            assert_eq!(
+                token_of(service, method).as_deref(),
+                Some("token"),
+                "{service}/{method}"
+            );
+        }
+    }
+
+    #[test]
+    fn token_is_not_sent_to_authenticate_and_non_etcd_services() {
+        for (service, method) in [
+            ("etcdserverpb.Auth", "Authenticate"),
+            ("grpc.health.v1.Health", "Check"),
+        ] {
+            assert_eq!(token_of(service, method), None, "{service}/{method}");
+        }
+    }
+}
