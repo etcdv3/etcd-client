@@ -8,6 +8,12 @@ see [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Unreleased
 
+### Fixed
+
+- Refresh an expired authentication token for the calls of `AuthClient` too when automatic token refresh is enabled, except `authenticate`, by [@belltoy](https://github.com/belltoy) in [#126](https://github.com/etcdv3/etcd-client/pull/126)
+- Send the authentication token to `Cluster.MemberList`. etcd 3.6 and later require it when authentication is enabled and refuse the request with `user name is empty` otherwise (observed on 3.6.15 and 3.7.2, while 3.5.26 does not require it), by [@belltoy](https://github.com/belltoy) in [#127](https://github.com/etcdv3/etcd-client/pull/127)
+- Refresh an expired token once for concurrent calls instead of authenticating once per call, by [@belltoy](https://github.com/belltoy) in [#128](https://github.com/etcdv3/etcd-client/pull/128)
+
 ## v0.21.0 - 2026-10-09
 
 ### What's Changed
