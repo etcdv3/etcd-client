@@ -1,0 +1,83 @@
+# etcd for the development and the tests, see the Justfile (`just --list`).
+#
+# ETCD_VERSION            the etcd image tag, v3.7.2 by default
+# ETCD_MAX_REQUEST_BYTES  --max-request-bytes, `test_get_stream_chunked` needs 10240
+#
+# The tests expect a token TTL of 2 seconds.
+
+services:
+  # A single node
+  etcd:
+    image: "quay.io/coreos/etcd:${ETCD_VERSION:-v3.7.2}"
+    profiles: [single]
+    environment:
+      ETCD_AUTH_TOKEN_TTL: "2"
+      ETCD_MAX_REQUEST_BYTES: "${ETCD_MAX_REQUEST_BYTES:-1572864}"
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_ADVERTISE_CLIENT_URLS: http://localhost:2379
+    ports:
+      - 2379:2379
+
+  # A cluster of 3 nodes, node1 serves the tests on localhost:2379
+  node1:
+    image: "quay.io/coreos/etcd:${ETCD_VERSION:-v3.7.2}"
+    profiles: [cluster]
+    environment:
+      ETCD_AUTH_TOKEN_TTL: "2"
+      ETCD_MAX_REQUEST_BYTES: "${ETCD_MAX_REQUEST_BYTES:-1572864}"
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+      ETCD_INITIAL_CLUSTER_TOKEN: etcd-client
+      ETCD_INITIAL_CLUSTER: node1=http://node1:2380,node2=http://node2:2380,node3=http://node3:2380
+      ETCD_INITIAL_CLUSTER_STATE: new
+      ETCD_NAME: node1
+      ETCD_ADVERTISE_CLIENT_URLS: http://node1:2379
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://node1:2380
+    ports:
+      - 2379:2379
+
+  node2:
+    image: "quay.io/coreos/etcd:${ETCD_VERSION:-v3.7.2}"
+    profiles: [cluster]
+    environment:
+      ETCD_AUTH_TOKEN_TTL: "2"
+      ETCD_MAX_REQUEST_BYTES: "${ETCD_MAX_REQUEST_BYTES:-1572864}"
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+      ETCD_INITIAL_CLUSTER_TOKEN: etcd-client
+      ETCD_INITIAL_CLUSTER: node1=http://node1:2380,node2=http://node2:2380,node3=http://node3:2380
+      ETCD_INITIAL_CLUSTER_STATE: new
+      ETCD_NAME: node2
+      ETCD_ADVERTISE_CLIENT_URLS: http://node2:2379
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://node2:2380
+
+  node3:
+    image: "quay.io/coreos/etcd:${ETCD_VERSION:-v3.7.2}"
+    profiles: [cluster]
+    environment:
+      ETCD_AUTH_TOKEN_TTL: "2"
+      ETCD_MAX_REQUEST_BYTES: "${ETCD_MAX_REQUEST_BYTES:-1572864}"
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+      ETCD_INITIAL_CLUSTER_TOKEN: etcd-client
+      ETCD_INITIAL_CLUSTER: node1=http://node1:2380,node2=http://node2:2380,node3=http://node3:2380
+      ETCD_INITIAL_CLUSTER_STATE: new
+      ETCD_NAME: node3
+      ETCD_ADVERTISE_CLIENT_URLS: http://node3:2379
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://node3:2380
+
+  # The 4th node, started after `test_cluster` has added it as a member
+  node4:
+    image: "quay.io/coreos/etcd:${ETCD_VERSION:-v3.7.2}"
+    profiles: [join]
+    environment:
+      ETCD_AUTH_TOKEN_TTL: "2"
+      ETCD_MAX_REQUEST_BYTES: "${ETCD_MAX_REQUEST_BYTES:-1572864}"
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+      ETCD_INITIAL_CLUSTER_TOKEN: etcd-client
+      ETCD_INITIAL_CLUSTER: node1=http://node1:2380,node2=http://node2:2380,node3=http://node3:2380,node4=http://node4:2380
+      ETCD_INITIAL_CLUSTER_STATE: existing
+      ETCD_NAME: node4
+      ETCD_ADVERTISE_CLIENT_URLS: http://node4:2379
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://node4:2380

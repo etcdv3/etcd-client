@@ -33,8 +33,10 @@ and [tonic](https://github.com/hyperium/tonic).
 
 From etcd 3.7, the new RPC method [`RangeStream`](https://etcd.io/docs/v3.7/learning/api/#rangestream)
 is added to the `KV` service. The `etcd-client` crate supports this new RPC method via
-`KvClient::get_stream()` method without any feature flags since `v0.21.0`, but it will not be used if the etcd
-server version is less than 3.7.
+`KvClient::get_stream()` method without any feature flags since `v0.21.0`. Only `get_stream()` uses it,
+the other methods, e.g. `KvClient::get()`, still send the regular `Range` request and work with all
+the etcd versions. There is no fallback: calling `get_stream()` on an etcd server older than 3.7
+fails with an `Unimplemented` gRPC status.
 
 ## Usage
 
@@ -116,22 +118,65 @@ Examples can be found in [`examples`](./examples).
 
 ## Test
 
-We test this library with etcd 3.5.
+We test this library with etcd 3.5, 3.6 and 3.7, see the version matrix in
+[`.github/workflows/ci.yml`](./.github/workflows/ci.yml).
 
 Note that we use a fixed `etcd` server URI (`localhost:2379`) to connect to etcd server.
+
+The [`Justfile`](./Justfile) and the [`docker-compose.yml`](./docker-compose.yml) start etcd of
+the version you want, you need [just](https://github.com/casey/just) and docker compose.
+`just` lists the recipes.
+
+```bash
+# Start a single etcd in the background (v3.7.2 by default), run the tests, and remove it
+just etcd
+cargo test
+just etcd-down
+
+# Or do all of that in one go
+just test
+```
+
+The recipes take the etcd version, the tag of the `quay.io/coreos/etcd` image, as the first argument.
+To run the tests on etcd 3.5 or 3.6:
+
+```bash
+# etcd 3.5
+just test v3.5.26
+
+# etcd 3.6, with the etcd left running afterwards
+just etcd v3.6.15
+cargo test
+just etcd-down
+
+# The cluster test works the same way
+just test-cluster v3.5.26
+```
+
+The tests that need etcd 3.7 (`test_get_stream` and `test_get_stream_chunked`) are ignored by
+default, so `cargo test` passes on etcd 3.5 and 3.6. `just test-stream` is only for etcd 3.7, on
+etcd 3.5 and 3.6 it fails with `Unimplemented: unknown method RangeStream for service
+etcdserverpb.KV`.
+
+The tests enable and disable the authentication by themselves with the user `root` (password
+`rootpwd`) and expect the token TTL of the server to be 2 seconds. `just etcd` takes care of both.
 
 Some test cases in `tests/client.rs` will be ignored by default:
 
 - `test_get_stream` Needs etcd 3.7+ to run
-- `test_get_stream_chunked` Needs etcd 3.7+ to run
-- `test_cluster` Needs a pre-configured etcd cluster to run. You can use `docker-compose` to start a 3-node etcd cluster for testing.
+- `test_get_stream_chunked` Needs etcd 3.7+ and `--max-request-bytes=10240` to run
+- `test_cluster` Needs a multi-node etcd cluster to run, the 4th node is started as soon as the test
+  adds it as a member.
 
 ```bash
-# Run etcd v3.7 RangeStream test
-cargo test --test client test_get_stream -- --ignored
+# Run etcd v3.7 RangeStream tests, on an etcd with the small max-request-bytes
+just test-stream
 
-# Run cluster test, need a pre-configured etcd cluster
-cargo test --test client test_cluster -- --ignored
+# Run cluster test, on a cluster of 3 nodes
+just test-cluster
+
+# Run all the tests on every etcd version, like the CI does
+just test-all
 ```
 
 ## Rust version requirements
