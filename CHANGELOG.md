@@ -6,7 +6,7 @@ The notes up to v0.21.0 are copied from the GitHub releases as they were publish
 the changes are grouped as `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed` and `Security`,
 see [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## Unreleased
+## v0.21.1 - 2026-10-19
 
 ### Fixed
 
