@@ -9,7 +9,11 @@ use tonic::{
 };
 
 use crate::{
-    client::AuthToken, error::Result, intercept::InterceptedChannel, lock::RwLockExt, AuthClient,
+    client::AuthToken,
+    error::Result,
+    intercept::InterceptedChannel,
+    lock::RwLockExt,
+    rpc::auth::{AuthenticateOptions, RawAuthClient},
     Error::GRpcStatus,
 };
 
@@ -28,7 +32,7 @@ pub struct CallOptions {
 pub struct ClientCallerBuilder {
     options: CallOptions,
     auth_token: AuthToken,
-    auth_client: AuthClient,
+    auth_client: RawAuthClient,
     channel: InterceptedChannel,
 }
 
@@ -37,7 +41,7 @@ impl ClientCallerBuilder {
     pub fn new(
         options: CallOptions,
         auth_token: AuthToken,
-        auth_client: AuthClient,
+        auth_client: RawAuthClient,
         channel: InterceptedChannel,
     ) -> Self {
         Self {
@@ -69,7 +73,7 @@ impl ClientCallerBuilder {
 #[derive(Clone)]
 pub struct ClientCaller<T> {
     inner: T,
-    auth_client: AuthClient,
+    auth_client: RawAuthClient,
     auth_token: AuthToken,
     options: CallOptions,
 }
@@ -78,7 +82,7 @@ impl<T> ClientCaller<T> {
     /// Make a new [`ClientCaller`].
     pub fn new(
         inner: T,
-        auth_client: AuthClient,
+        auth_client: RawAuthClient,
         auth_token: AuthToken,
         options: CallOptions,
     ) -> Self {
@@ -118,6 +122,11 @@ impl<T> ClientCaller<T> {
         }
         *self.options.creds.write_unpoisoned() = creds;
         Ok(())
+    }
+
+    /// Gets the inner client, bypassing the token refresh of [`do_call`](Self::do_call).
+    pub(crate) fn inner_mut(&mut self) -> &mut T {
+        &mut self.inner
     }
 
     /// Mutate an inner client.
@@ -166,9 +175,10 @@ impl<T> ClientCaller<T> {
         let resp = self
             .auth_client
             .clone()
-            .authenticate(user, password)
-            .await?;
-        let token = resp.token().parse()?;
+            .authenticate(AuthenticateOptions::new().with_user(user, password))
+            .await?
+            .into_inner();
+        let token = resp.token.parse()?;
         Ok(token)
     }
 }

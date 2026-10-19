@@ -8,6 +8,7 @@ use crate::intercept::{InterceptedChannel, Interceptor};
 #[cfg(feature = "tls-openssl")]
 use crate::openssl_tls::{OpenSslClientConfig, OpenSslConnector};
 use crate::rpc::auth::Permission;
+use crate::rpc::auth::RawAuthClient;
 use crate::rpc::auth::{AuthClient, AuthDisableResponse, AuthEnableResponse};
 use crate::rpc::auth::{
     RoleAddResponse, RoleDeleteResponse, RoleGetResponse, RoleGrantPermissionResponse,
@@ -250,10 +251,14 @@ impl Client {
         auth_token: Arc<RwLock<Option<MetadataValue<Ascii>>>>,
         options: ConnectOptions,
     ) -> Self {
-        let auth = AuthClient::new(channel.clone());
-        let builder =
-            ClientCallerBuilder::new((&options).into(), auth_token, auth.clone(), channel);
+        let builder = ClientCallerBuilder::new(
+            (&options).into(),
+            auth_token,
+            RawAuthClient::new(channel.clone()),
+            channel,
+        );
 
+        let auth = AuthClient::new(builder.clone());
         let kv = KvClient::new(builder.clone());
         let watch = WatchClient::new(builder.clone());
         let lease = LeaseClient::new(builder.clone());
