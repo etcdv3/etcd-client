@@ -515,6 +515,7 @@ async fn test_auth() -> Result<()> {
     // connect with authenticate, the user must already exists
     let mut client_auth = get_auth_client(None).await?;
     client_auth.put("auth-test", "value", None).await?;
+    client_auth.member_list().await?;
 
     client_auth.auth_disable().await?;
 
@@ -575,6 +576,10 @@ async fn test_auth_refresh_token() -> Result<()> {
     client.get("key", None).await?;
     tokio::time::sleep(TOKEN_TTL).await;
     client.get("key", None).await?;
+
+    // Some etcd versions require the token for `MemberList`, and it must be refreshed too.
+    tokio::time::sleep(TOKEN_TTL).await;
+    client.member_list().await?;
 
     // Lock service reports an expired token with a different status code,
     // verify that it is refreshed too.
