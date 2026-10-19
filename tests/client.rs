@@ -599,6 +599,62 @@ async fn test_auth_refresh_token() -> Result<()> {
     Ok(())
 }
 
+/// The number of successful `Authenticate` requests the server has handled so far.
+async fn authenticate_count() -> u64 {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let mut stream = tokio::net::TcpStream::connect(DEFAULT_TEST_ENDPOINT)
+        .await
+        .unwrap();
+    stream
+        .write_all(b"GET /metrics HTTP/1.0\r\nHost: localhost\r\n\r\n")
+        .await
+        .unwrap();
+    let mut body = String::new();
+    stream.read_to_string(&mut body).await.unwrap();
+    body.lines()
+        .filter(|l| {
+            l.starts_with("grpc_server_handled_total{")
+                && l.contains(r#"grpc_method="Authenticate""#)
+                && l.contains(r#"grpc_code="OK""#)
+        })
+        .filter_map(|l| l.rsplit(' ').next()?.parse::<f64>().ok())
+        .sum::<f64>() as u64
+}
+
+#[tokio::test]
+#[serial]
+async fn test_auth_refresh_token_once_for_concurrent_calls() -> Result<()> {
+    let _ctx = TestContext::new();
+
+    const TOKEN_TTL: Duration = Duration::from_secs(4);
+    const CALLS: usize = 16;
+
+    let mut client = get_client().await?;
+    client.auth_enable().await?;
+
+    let options = Some(ConnectOptions::new().with_auto_token_refresh(true));
+    let client = get_auth_client(options).await?;
+    tokio::time::sleep(TOKEN_TTL).await;
+
+    // All the calls are sent with the expired token, but only one of them authenticates again.
+    let before = authenticate_count().await;
+    let calls: Vec<_> = (0..CALLS)
+        .map(|_| {
+            let mut client = client.clone();
+            tokio::spawn(async move { client.get("key", None).await })
+        })
+        .collect();
+    for call in calls {
+        call.await.unwrap()?;
+    }
+    assert_eq!(authenticate_count().await - before, 1);
+
+    client.clone().auth_disable().await?;
+
+    Ok(())
+}
+
 #[tokio::test]
 #[parallel]
 async fn test_role() -> Result<()> {

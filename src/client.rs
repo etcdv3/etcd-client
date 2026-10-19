@@ -883,6 +883,11 @@ impl ConnectOptions {
     /// Whether to automatically refresh the authentication token when the current
     /// token has expired. Note that, when this feature is enabled, each request is
     /// *CLONED* so that it can be retried.
+    ///
+    /// Concurrent requests which find the token expired refresh it once. If the refresh keeps
+    /// failing, e.g. the password of the user was changed, the requests waiting for it
+    /// authenticate one after another and each of them fails, so the last one waits for about
+    /// as many round trips as there are requests.
     pub fn with_auto_token_refresh(mut self, refresh_expired_token: bool) -> Self {
         self.refresh_expired_token = refresh_expired_token;
         self
@@ -913,6 +918,7 @@ impl From<&ConnectOptions> for CallOptions {
         Self {
             creds: Arc::new(RwLock::new(options.user.clone())),
             refresh_expired_token: options.refresh_expired_token,
+            refresh_lock: Default::default(),
         }
     }
 }
