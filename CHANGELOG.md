@@ -21,7 +21,7 @@ see [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 #### Bug fixes
 
-- Fix automatic token refresh for `Lock` and `Election` requests when etcd returns Unknown with an invalid authentication token error by @askalt in #124.
+- Fix automatic token refresh for `Lock` and `Election` requests when etcd returns Unknown with an invalid authentication token error by [@askalt](https://github.com/askalt) in [#124](https://github.com/etcdv3/etcd-client/pull/124).
 
 #### Maintenance
 
@@ -34,10 +34,10 @@ see [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### What's Changed
 
-* Add system and Mozilla’s trust roots, by @messense in #116
-* Add `aws-lc-rs` feature support, by @mrthinger  in #120
-* Add optional automatic token refresh, by @askalt in #121
-* Add auhorization token for lease methods, by @Hakuyume in #122
+* Add system and Mozilla’s trust roots, by [@messense](https://github.com/messense) in [#116](https://github.com/etcdv3/etcd-client/pull/116)
+* Add `aws-lc-rs` feature support, by [@mrthinger](https://github.com/mrthinger)  in [#120](https://github.com/etcdv3/etcd-client/pull/120)
+* Add optional automatic token refresh, by [@askalt](https://github.com/askalt) in [#121](https://github.com/etcdv3/etcd-client/pull/121)
+* Add auhorization token for lease methods, by [@Hakuyume](https://github.com/Hakuyume) in [#122](https://github.com/etcdv3/etcd-client/pull/122)
 
 **Full Changelog**: https://github.com/etcdv3/etcd-client/compare/v0.19.0...v0.20.0
 
@@ -45,28 +45,28 @@ see [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### What's Changed
 
-- Expose `watch_request::RequestUnion` as `PbWatchRequestUnion` by @srporwal12 in #117
+- Expose `watch_request::RequestUnion` as `PbWatchRequestUnion` by [@srporwal12](https://github.com/srporwal12) in [#117](https://github.com/etcdv3/etcd-client/pull/117)
 
 ### Breaking Changes
 
-Fixed the `WatchStream::split` method introduced in v0.18.0, by @belltoy in #119:
+Fixed the `WatchStream::split` method introduced in v0.18.0, by [@belltoy](https://github.com/belltoy) in [#119](https://github.com/etcdv3/etcd-client/pull/119):
 
 ```diff
 - WatchStream::split(self) -> (Sender<WatchRequest>, Streaming<PbWatchResponse>)
 + WatchStream::split(self) -> (WatchRequestSender, WatchResponseStream)
 ```
 
-Read discussion details in #118.
+Read discussion details in [#118](https://github.com/etcdv3/etcd-client/issues/118).
 
 **Full Changelog**: https://github.com/etcdv3/etcd-client/compare/v0.18.0...v0.19.0
 
 ## v0.18.0 - 2026-01-18
 
 ### What's Changed
-* Simplify authentication (with interceptor) by @belltoy in https://github.com/etcdv3/etcd-client/pull/106
-* Re-design watch stream API by @belltoy in https://github.com/etcdv3/etcd-client/pull/108
-* Expose more protobuf structs to make transactions testable and mockable by @g-murzik in #25
-* fix: return error instead of panic when connect_with_balanced_channel by @belltoy in #78
+* Simplify authentication (with interceptor) by [@belltoy](https://github.com/belltoy) in [#106](https://github.com/etcdv3/etcd-client/pull/106)
+* Re-design watch stream API by [@belltoy](https://github.com/belltoy) in [#108](https://github.com/etcdv3/etcd-client/pull/108)
+* Expose more protobuf structs to make transactions testable and mockable by [@g-murzik](https://github.com/g-murzik) in [#25](https://github.com/etcdv3/etcd-client/pull/25)
+* fix: return error instead of panic when connect_with_balanced_channel by [@belltoy](https://github.com/belltoy) in [#78](https://github.com/etcdv3/etcd-client/issues/78)
 
 ### Breaking Changes
 
@@ -123,15 +123,15 @@ See [watch.rs](./examples/watch.rs) for example.
 ## v0.15.0 - 2025-04-11
 
 ### What's Changed
-* Use `{RwLock/Mutex}::clear_poison()` to remove `{RwLock/Mutex}::unwrap()` by @davidli2010 in https://github.com/etcdv3/etcd-client/pull/94
-* fix: change MSRV badge to 1.80 by @nmooscisco in https://github.com/etcdv3/etcd-client/pull/96
-* fix: make doctests in openssl_tls::transport compile by @nmooscisco in https://github.com/etcdv3/etcd-client/pull/97
-* feat: add support for requiring a leader by @nmooscisco in https://github.com/etcdv3/etcd-client/pull/95
-* feat(ci): run cargo clippy with all feature combinations by @nmooscisco in https://github.com/etcdv3/etcd-client/pull/99
-* feat: add the ability to build a server by @nmooscisco in https://github.com/etcdv3/etcd-client/pull/101
+* Use `{RwLock/Mutex}::clear_poison()` to remove `{RwLock/Mutex}::unwrap()` by [@davidli2010](https://github.com/davidli2010) in [#94](https://github.com/etcdv3/etcd-client/pull/94)
+* fix: change MSRV badge to 1.80 by [@nmooscisco](https://github.com/nmooscisco) in [#96](https://github.com/etcdv3/etcd-client/pull/96)
+* fix: make doctests in openssl_tls::transport compile by [@nmooscisco](https://github.com/nmooscisco) in [#97](https://github.com/etcdv3/etcd-client/pull/97)
+* feat: add support for requiring a leader by [@nmooscisco](https://github.com/nmooscisco) in [#95](https://github.com/etcdv3/etcd-client/pull/95)
+* feat(ci): run cargo clippy with all feature combinations by [@nmooscisco](https://github.com/nmooscisco) in [#99](https://github.com/etcdv3/etcd-client/pull/99)
+* feat: add the ability to build a server by [@nmooscisco](https://github.com/nmooscisco) in [#101](https://github.com/etcdv3/etcd-client/pull/101)
 
 ### New Contributors
-* @nmooscisco made their first contribution in https://github.com/etcdv3/etcd-client/pull/96
+* [@nmooscisco](https://github.com/nmooscisco) made their first contribution in [#96](https://github.com/etcdv3/etcd-client/pull/96)
 
 **Full Changelog**: https://github.com/etcdv3/etcd-client/compare/v0.14.1...v0.15.0
 
@@ -139,8 +139,8 @@ See [watch.rs](./examples/watch.rs) for example.
 
 Happy Chinese New Year! 🎉
 
-* Enhance the example which showcases the snapshot maintenance operation. by @renormalize in https://github.com/etcdv3/etcd-client/pull/83
-* lease keep alive return lease not found error by @messense in https://github.com/etcdv3/etcd-client/pull/87
+* Enhance the example which showcases the snapshot maintenance operation. by [@renormalize](https://github.com/renormalize) in [#83](https://github.com/etcdv3/etcd-client/pull/83)
+* lease keep alive return lease not found error by [@messense](https://github.com/messense) in [#87](https://github.com/etcdv3/etcd-client/pull/87)
 
 ## v0.14.0 - 2024-07-10
 
